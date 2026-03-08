@@ -3,9 +3,9 @@ import {StoreRoot} from './StoreRoot';
 import Widget from './Widget';
 
 function getElements() {
-  const instance = MyStore.create({ userId: 1 });
+  const instance = MyStore.createStore({ userId: 1 });
   return (
-    <StoreRoot instance={instance} def={MyStore}>
+    <StoreRoot StoreProvider={MyStore.StoreProvider} instance={instance}>
       <Widget />
     </StoreRoot>
   );

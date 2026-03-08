@@ -1,22 +1,22 @@
 import {  type ReactNode } from "react";
-import type {StoreDefinition, StoreInstance} from "./zustand-server";
+import type {StoreInstance, StoreProvider} from "..";
 import RootElement from "./RootElement";
 
 interface Props<State> {
   instance: StoreInstance<State>
-  def: StoreDefinition<any, State>;
+  StoreProvider: StoreProvider<State>;
   children: ReactNode;
 }
 export function StoreRoot<State>({
   instance,
-  def,
+  StoreProvider,
   children,
 }: Props<State>) {
   return (
     <RootElement when={() => instance.ready}>
-      <def.Provider value={instance.zStore}>
+      <StoreProvider instance={instance}>
         { children }
-      </def.Provider>
+      </StoreProvider>
     </RootElement>
   );
 }
