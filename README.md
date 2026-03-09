@@ -2,22 +2,24 @@
 
 > **⚠️ This is an untested sketch. Not ready for use.**
 
-A state management library designed for SSR frameworks that stream server-rendered content — motivated by dissatisfaction with React's direction of enforcing Suspense as the only model for async server rendering.
+An adapter layer for using store-based state management frameworks in SSR streaming environments, with granular selector-based subscriptions for both server and client rendering.
 
 ## Motivation
 
-At Redfin we used [react-server](https://github.com/redfin/react-server), an SSR framework designed to provide highly performant server rendering. It does this by encouraging you to write pages as a series of "root elements" that each declare their own asynchronous data dependencies: then the server render starts data fetching as soon as possible and streams down each root element as they become ready. Contrast with what modern React encourages: every page declares Suspense boundaries, but only one data payload can hold up the server render--everything else streams in after the first client render. This often leads to a bad user experience and much worse SEO performance.
+I learned React development at Redfin, which uses [react-server](https://github.com/redfin/react-server) — an SSR framework built around streaming server rendering. Pages are written as a series of "root elements" that each declare their own async data dependencies; the server starts fetching immediately and streams each root element down as it becomes ready. This is genuinely great for performance and SEO.
 
-The catch with a framework like React-Server is that it requires a specific kind of state management: stores must be **multiply-instantiable** (created per-request, not declared as module-level singletons) to avoid cross-request contamination. Redfin's approach, having been decided around 2014 or so, was based on the Reflux pattern, which has a number of pitfalls.
+When I was tasked with evaluating a React 18 upgrade, I studied Suspense closely and noticed that the React project was becoming increasingly opinionated about how apps should be structured — and that direction was antithetical to react-server's design. This bothered me: react-server's model is more flexible and better for SSR, and I didn't want to give it up.
 
-Having enjoyed working with [Zustand](https://github.com/pmndrs/zustand), I wanted to try wrapping it to work in a react-server-like environment, where:
+Around the same time I started using [Zustand](https://github.com/pmndrs/zustand) in a side project and was struck by how much better it was than Redfin's proprietary Reflux-based stores/actions framework. Zustand is simple, ergonomic, and gets out of your way. Redfin's approach — decided around 2014 — required a lot of boilerplate and had a number of pitfalls.
 
-- Stores are created per-request rather than as module singletons
-- Stores declare their async data dependencies upfront, which an SSR framework can use to hold up the server render
-- Components select into stores with a hook, just like plain Zustand
-- Store creation can be deferred until client render if needed (e.g. if an expensive data call isn't SEO critical)
+This got me wondering: could you use something Zustand-like inside a react-server-style environment? That would mean:
 
-This is what I ended up with after a few days of exploration.
+- **Better developer experience** — Zustand's API instead of Reflux patterns
+- **Better client-side performance** — Redfin's setup had one significant tradeoff: all client-side updates bubbled up through root elements via a `listen` prop, triggering full re-renders of the entire tree. A Zustand-like approach with selector-based subscriptions would eliminate this entirely.
+
+The catch is that react-server requires stores to be **multiply-instantiable** — created per-request rather than as module singletons — to avoid cross-request state contamination. Zustand stores are normally module-level singletons, so they don't work in this environment out of the box.
+
+`isomorphic-stores` is the result: a thin adapter layer that makes Zustand (and potentially other store frameworks) work in an SSR-streaming environment, while also serving as the client-side state layer — no handoff to a singleton store, no full-tree re-renders.
 
 ## Design
 
@@ -42,7 +44,7 @@ The SSR integration is left to the call site — `isomorphic-stores` has no depe
 // in handleRoute / getElements (react-server)
 const store = MyStore.createStore({ userId: 1 });
 return (
-  <RootElement when={() => store.whenReady}>
+  <RootElement when={store.whenReady}>
     <MyStore.StoreProvider instance={store}>
       <Widget />
     </MyStore.StoreProvider>
@@ -56,3 +58,25 @@ const name = MyStore.useStore(s => s.name);
 const { ready, useClientStore } = MyStore.useCreateClientStore({ userId: 1 });
 const name = useClientStore(s => s.name); // null until ready
 ```
+
+## Cross-root communication
+
+Because stores are scoped to a React context tree, components in different roots can't access each other's stores. This is an inherent consequence of the instance-per-request model — the same thing that makes SSR safe also breaks the "access any store from anywhere" pattern that frameworks like Zustand support natively.
+
+For example: a login button in a page header root needs to tell a login dialog in a separate root to open. Or multiple "add to favorites" buttons scattered across different roots need to update a shared favorites store.
+
+Currently, `isomorphic-stores` addresses this with a `broadcast` mechanism on the store definition:
+
+```ts
+// from anywhere
+MyStore.broadcast({ type: 'openDialog' });
+
+// in the store definition
+onMessage((message) => {
+  if (message.type === 'openDialog') set({ dialogOpen: true });
+});
+```
+
+`broadcast` is fire-and-forget: it delivers a message to all currently-mounted instances of a store type. It's intentionally minimal — more of an escape hatch than a designed solution.
+
+The deeper question of how cross-root communication should work in an instance-based store architecture is unresolved. Patterns like request/response between stores, or stores subscribing to each other across roots, are not yet designed. Feedback welcome.

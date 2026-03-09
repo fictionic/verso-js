@@ -1,19 +1,19 @@
 import {  type ReactNode } from "react";
-import type {StoreInstance, StoreProvider} from "..";
+import type {IsoStoreInstance, StoreProvider} from "../core";
 import RootElement from "./RootElement";
 
-interface Props<State> {
-  instance: StoreInstance<State>
-  StoreProvider: StoreProvider<State>;
+interface Props<State, Message> {
+  instance: IsoStoreInstance<State, Message>
+  StoreProvider: StoreProvider<State, Message>;
   children: ReactNode;
 }
-export function StoreRoot<State>({
+export function StoreRoot<State, Message>({
   instance,
   StoreProvider,
   children,
-}: Props<State>) {
+}: Props<State, Message>) {
   return (
-    <RootElement when={() => instance.ready}>
+    <RootElement when={() => instance.whenReady}>
       <StoreProvider instance={instance}>
         { children }
       </StoreProvider>

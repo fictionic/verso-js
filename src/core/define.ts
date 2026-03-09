@@ -7,58 +7,45 @@ import {
   useRef,
   useState,
   useSyncExternalStore,
-  type ReactNode,
 } from "react";
-import type {Adapter, NativeStoreFactory} from "./adapter";
+import type {Adapter, StoreFactory} from "./adapter";
 import {getStoreProvider} from "./StoreProvider";
-
-export interface AdaptedStore<State> {
-  getState: () => State;
-  setState: (state: Partial<State>) => void;
-  subscribe: (listener: (() => void)) => (() => void);
-}
-
-export interface StoreInstance<State> {
-  adaptedStore: AdaptedStore<State>;
-  whenReady: Promise<void>;
-}
-
-export type StoreProvider<State> = React.FC<{ instance: StoreInstance<State>, children: ReactNode }>;
-export type UseStore<State> = <T>(selector: (state: State) => T) => T;
-export type UseClientStore<State> = <T>(selector: (state: State) => T) => T | null;
-export type UseCreateClientStore<Opts, State> = (opts: Opts) => {
-  ready: boolean;
-  useClientStore: UseClientStore<State>;
-};
-
-export interface StoreDefinition<Opts, State> {
-  // use these to wire up a store to the root of a page
-  createStore: (opts: Opts) => StoreInstance<State>
-  StoreProvider: StoreProvider<State>;
-  // use this to select from a wired-up store from a component anywhere underneath
-  useStore: UseStore<State>;
-  // use this to create and select from a store after the first client render
-  useCreateClientStore: UseCreateClientStore<Opts, State>;
-}
-
-export type WaitFor<State> = <K extends keyof State, V extends State[K]>(name: K, promise: Promise<V>, initialValue: V) => { [key in K]: V };
+import {
+  STORE_INTERNALS,
+  type AdaptedStore,
+  type Broadcast,
+  type IsoStoreInstance,
+  type MessageHandler,
+  type OnMessage,
+  type UseClientStore,
+  type UseCreateClientStore,
+  type UseStore,
+  type WaitFor
+} from "./types";
 
 function makeWaitFor<State>(pending: Array<{name: keyof State, promise: Promise<unknown>}>): WaitFor<State> {
+  // defined via function because otherwise I'd have to write the types on the next line twice
   return <K extends keyof State, V extends State[K]>(name: K, promise: Promise<V>, initialValue: V) => {
     pending.push({ name, promise });
     return { [name]: initialValue } as { [key in K]: V };
   };
 }
 
-export const defineStore = <Opts, State, NativeStore>(
-  factory: NativeStoreFactory<Opts, State, NativeStore>,
+export const defineIsoStore = <Opts, State, Message, NativeStore>(
+  factory: StoreFactory<Opts, State, Message, NativeStore>,
   adapter: Adapter<NativeStore>,
 ) => {
+  const instances: Map<symbol, IsoStoreInstance<State, Message>> = new Map();
   const createStore = (opts: Opts) => {
     type PendingValue = { name: keyof State, promise: Promise<unknown> };
     const pending: Array<PendingValue> = [];
     const waitFor = makeWaitFor<State>(pending);
-    const nativeStore = factory(opts, waitFor);
+    const messageHandlers: Array<MessageHandler<Message>> = [];
+    const onMessage: OnMessage<Message> = (handler) => {
+      messageHandlers.push(handler);
+      return {};
+    };
+    const nativeStore = factory(opts, waitFor, onMessage);
     const adaptedStore = adapter<State>(nativeStore);
     const whenReady = Promise.all(pending.map(async ({ name, promise }) => {
       const value = await promise;
@@ -67,6 +54,10 @@ export const defineStore = <Opts, State, NativeStore>(
     return {
       adaptedStore,
       whenReady,
+      [STORE_INTERNALS]: {
+        identifier: Symbol(),
+        messageHandlers,
+      },
     };
   };
 
@@ -79,16 +70,29 @@ export const defineStore = <Opts, State, NativeStore>(
     return useSyncExternalStore(subscribe, getSnapshot, getSnapshot);
   };
 
+  const register = (instance: IsoStoreInstance<State, Message>) => {
+    instances.set(instance[STORE_INTERNALS].identifier, instance);
+  };
+
+  const teardown = (instance: IsoStoreInstance<State, Message>) => {
+    instances.delete(instance[STORE_INTERNALS].identifier);
+  };
+
   const useCreateClientStore: UseCreateClientStore<Opts, State> = (opts) => {
     const [ready, setReady] = useState<boolean>(false);
-    const instanceRef = useRef<StoreInstance<State> | null>(null);
+    const instanceRef = useRef<IsoStoreInstance<State, Message> | null>(null);
 
     useEffect(() => {
       const instance = createStore(opts);
+      register(instance);
       instance.whenReady.then(() => {
         setReady(true);
       });
       instanceRef.current = instance;
+      return () => {
+        teardown(instance);
+        instanceRef.current = null;
+      };
     }, []);
 
     const useClientStore: UseClientStore<State> = (selector) => {
@@ -116,11 +120,21 @@ export const defineStore = <Opts, State, NativeStore>(
     };
   };
 
+  const broadcast: Broadcast<Message> = (message: Message) => {
+    instances.entries().forEach(([_, instance]) => {
+      instance[STORE_INTERNALS].messageHandlers.forEach((handler) => {
+        handler(message);
+      });
+    });
+  };
+
   return {
     createStore,
-    StoreProvider: getStoreProvider(context),
+    StoreProvider: getStoreProvider(context, register, teardown),
     useStore,
     useCreateClientStore,
+    broadcast,
   };
 }
+
 

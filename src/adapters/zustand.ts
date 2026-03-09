@@ -1,21 +1,22 @@
 import {
-  createStore as createNativeZustandStore,
-  type StoreApi as NativeZustandStore,
-  type StateCreator as NativeZustandStoreDefinition,
+  createStore as createZustandStore,
+  type StoreApi as ZustandStore,
+  type StateCreator as ZustandStoreInit,
 } from "zustand/vanilla";
-import type {Adapter, NativeStateCreator, NativeStoreFactory} from "../adapter";
-import {defineStore, type StoreDefinition, type WaitFor} from "../core";
+import type {Adapter, StoreInit, StoreFactory} from "../core/adapter";
+import {defineIsoStore} from "../core/define";
+import {type OnMessage, type IsoStoreDefinition, type WaitFor} from "../core/types";
 
-const adapter: Adapter<NativeZustandStore<any>> = <State>(zStore: NativeZustandStore<State>) => ({
+const adapter: Adapter<ZustandStore<any>> = <State>(zStore: ZustandStore<State>) => ({
   getState: () => zStore.getState(),
-  setState: (state: State) => zStore.setState(state),
+  setState: (state: Partial<State>) => zStore.setState(state),
   subscribe: zStore.subscribe,
 });
 
-export const defineZustandIsoStore = <Opts, State>(init: NativeStateCreator<Opts, State, NativeZustandStoreDefinition<State>>): StoreDefinition<Opts, State> => {
-  const factory: NativeStoreFactory<Opts, State, NativeZustandStore<State>> = (opts: Opts, waitFor: WaitFor<State>) => {
-    const stateCreator = init(opts, waitFor);
-    return createNativeZustandStore<State>(stateCreator);
+export const defineZustandIsoStore = <Opts, State, Message>(init: StoreInit<Opts, State, Message, ZustandStoreInit<State>>): IsoStoreDefinition<Opts, State, Message> => {
+  const factory: StoreFactory<Opts, State, Message, ZustandStore<State>> = (opts: Opts, waitFor: WaitFor<State>, onMessage: OnMessage<Message>) => {
+    const zInit: ZustandStoreInit<State> = init(opts, waitFor, onMessage);
+    return createZustandStore<State>(zInit);
   }
-  return defineStore(factory, adapter);
+  return defineIsoStore(factory, adapter);
 };
