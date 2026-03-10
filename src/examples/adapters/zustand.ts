@@ -1,22 +1,37 @@
 import {
-  createStore as createZustandStore,
-  type StoreApi as ZustandStore,
-  type StateCreator as ZustandStoreInit,
+  createStore as createNativeZustandStore,
+  type StoreApi as NativeZustandStore,
+  type StateCreator as NativeZustandStoreInit,
 } from "zustand/vanilla";
-import type {Adapter, StoreInit, StoreFactory} from "../../core/adapter";
-import {defineIsoStore} from "../../core/define";
-import {type OnMessage, type IsoStoreDefinition, type WaitFor} from "../../core/types";
+import { useStore as useNativeZustandStore } from "zustand/react";
+import {
+  defineIsoStore,
+  type StoreInit,
+  type StoreFactory,
+} from "../../adapter";
 
-const adapter: Adapter<ZustandStore<any>> = <State>(zStore: ZustandStore<State>) => ({
-  getState: () => zStore.getState(),
-  setState: (state: Partial<State>) => zStore.setState(state),
-  subscribe: zStore.subscribe,
-});
+const emptyZStore = createNativeZustandStore<Record<string, never>>(() => ({}));
 
-export const defineZustandIsoStore = <Opts, State, Message = never>(init: StoreInit<Opts, State, Message, ZustandStoreInit<State>>): IsoStoreDefinition<Opts, State, Message> => {
-  const factory: StoreFactory<Opts, State, Message, ZustandStore<State>> = (opts: Opts, waitFor: WaitFor<State>, onMessage: OnMessage<Message>) => {
-    const zInit: ZustandStoreInit<State> = init(opts, waitFor, onMessage);
-    return createZustandStore<State>(zInit);
-  }
-  return defineIsoStore(factory, adapter);
+export const defineZustandIsoStore = <Opts, State, Message = never>(
+  init: StoreInit<Opts, State, Message, NativeZustandStoreInit<State>>
+) => {
+  type Factory = StoreFactory<Opts, State, Message, NativeZustandStore<State>>;
+  const factory: Factory = (opts, waitFor, onMessage) => createNativeZustandStore<State>(init(opts, waitFor, onMessage));
+
+  const getHook = (getNativeStore: () => NativeZustandStore<State>) => <U>(selector: (s: State) => U): U => useNativeZustandStore(getNativeStore(), selector);
+
+  return defineIsoStore(factory, {
+    getSetState: (nativeStore: NativeZustandStore<State>) => (
+      (state: Partial<State>) => nativeStore.setState(state)
+    ),
+    getHook,
+    getClientHook: (getNativeStore: () => NativeZustandStore<State>, ready: boolean) => (
+      <U>(selector: (s: State) => U): U | undefined => {
+        const hook = getHook(getNativeStore);
+        const value = hook(selector);
+        return ready ? value : undefined;
+      }
+    ),
+    getEmpty: () => emptyZStore as unknown as NativeZustandStore<State>,
+  });
 };

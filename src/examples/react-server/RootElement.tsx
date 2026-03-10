@@ -2,7 +2,7 @@ import type {ReactNode} from "react";
 
 // dummy implementation of RootElement from react-server
 interface Props {
-  when?: Promise<void>;
+  when?: Promise<any>;
   listen?: (listener: () => void) => void;
   children: ReactNode;
 }

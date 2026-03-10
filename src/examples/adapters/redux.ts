@@ -5,26 +5,22 @@ import {
   type Dispatch,
   type AnyAction,
 } from "redux";
-import type {Adapter, StoreInit, StoreFactory} from "../../core/adapter";
-import {defineIsoStore} from "../../core/define";
-import {type IsoStoreDefinition} from "../../core/types";
+import { useSyncExternalStore } from "react";
+import {
+  defineIsoStore,
+  type StoreInit,
+  type StoreFactory,
+} from "../../adapter";
 
 const ISO_SET_STATE = '@@isostores/SET_STATE';
 
-const adapter: Adapter<ReduxStore<any>> = <State>(store: ReduxStore<State>) => ({
-  getState: store.getState,
-  setState: (partial: Partial<State>) => store.dispatch({ type: ISO_SET_STATE, payload: partial }),
-  subscribe: (listener) => {
-    const unsubscribe = store.subscribe(listener);
-    return unsubscribe;
-  },
-});
+const emptyReduxStore = createReduxStore((state = {}) => state);
 
 type ReduxStoreInit<State> = (dispatch: Dispatch, getState: () => State) => Reducer<State>;
 
 export const defineReduxIsoStore = <Opts, State, Message = never>(
   init: StoreInit<Opts, State, Message, ReduxStoreInit<State>>
-): IsoStoreDefinition<Opts, State, Message> => {
+) => {
   const factory: StoreFactory<Opts, State, Message, ReduxStore<State>> = (opts, waitFor, onMessage) => {
     const makeReducer = init(opts, waitFor, onMessage);
     let storeRef: ReduxStore<State>;
@@ -39,5 +35,28 @@ export const defineReduxIsoStore = <Opts, State, Message = never>(
     storeRef = createReduxStore<State, AnyAction>(wrappedReducer);
     return storeRef;
   };
-  return defineIsoStore(factory, adapter);
+
+  const getHook = (getStore: () => ReduxStore<State>) =>
+    <U>(selector: (s: State) => U): U =>
+      useSyncExternalStore(
+        (callback) => getStore().subscribe(callback),
+        () => selector(getStore().getState()),
+      );
+
+  return defineIsoStore(factory, {
+    getSetState: (store: ReduxStore<State>) => (
+      (partial: Partial<State>) => (
+        store.dispatch({ type: ISO_SET_STATE, payload: partial })
+      )
+    ),
+    getHook,
+    getClientHook: (getNativeStore: () => ReduxStore<State>, ready: boolean) => (
+      <U>(selector: (s: State) => U): U | undefined => {
+        const hook = getHook(getNativeStore);
+        const value = hook(selector);
+        return ready ? value : undefined;
+      }
+    ),
+    getEmpty: () => emptyReduxStore as unknown as ReduxStore<State>,
+  });
 };

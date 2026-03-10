@@ -3,7 +3,7 @@
 
 A framework-agnostic SSR state management library with an adapter system. The core idea: stores are created server-side before render (e.g. in `handleRoute`), async data is declared via `waitFor`, and the SSR framework (e.g. react-server's `RootElement`) blocks rendering until the store is ready. Client-side components can also create stores independently via `useCreateClientStore`.
 
-Originally conceived as a Zustand+react-server bridge, now being generalized to support any store-based framework (single state object with `getState`/`setState`/`subscribe`). Atom-based frameworks (Jotai, Recoil) are out of scope.
+Originally conceived as a Zustand+react-server bridge, now being generalized to support any store-based framework. Atom-based frameworks (Jotai, Recoil) are out of scope.
 
 A secondary goal: replace the pattern of bubbling all UI updates up through a root element (which triggers full-tree re-renders) with granular per-component subscriptions via selectors. This library is intended to power both server and client rendering — not just be an SSR adapter that hands off to a singleton store on the client.
 
@@ -68,15 +68,19 @@ MyStore.broadcast(message);
 - `waitFor(key, promise, initialValue)` — returns `{ key: initialValue }` to spread into state, registers promise; `setState` is called after native store is created (avoids chicken-and-egg)
 - `whenReady: Promise<void>` resolves when all `waitFor` promises complete
 - Core has no dependency on any SSR or store framework — integration is at the call site
-- `Adapter<NativeStore>` is a single generic function `<State>(nativeStore) => AdaptedStore<State>`
+- `Adapter<State, NativeStore, NativeHook>` is an interface with three methods: `getSetState(nativeStore)`, `getHook(getNativeStore)`, and `getEmpty()`. Adapters are created inside the framework-specific `defineXxxIsoStore` function where `State` is in scope, so no explicit hook type annotation is needed — TypeScript infers `NativeHook` from `getHook`'s return type.
+- `useStore` on `IsoStoreDefinition` is typed as `NativeHook` — fully transparent, delegates directly to the native framework hook. Consumers get the native hook's type (including selector inference) with no wrapper visible.
 - `onMessage(handler)` — registers a message handler on the store instance, returns `void`; called as a statement in the inner factory before returning state
 - `broadcast(message)` — delivers a message to all currently-mounted instances of a store type (fire-and-forget). Is a no-op server-side.
 - Instance registration: `defineStore` maintains a `Map<symbol, StoreInstance>` of mounted instances. `StoreProvider` (internal) registers/unregisters in `useEffect`. `useCreateClientStore` does the same.
-- `STORE_INSTANCE_INTERNALS` symbol key on `IsoStoreInstance` holds `{ definition, identifier, messageHandlers }` — private to the library
+- `STORE_INSTANCE_INTERNALS` symbol key on `IsoStoreInstance` holds `{ definition, identifier, nativeStore, messageHandlers }` — private to the library. `nativeStore` is used by `useStore` to call `adapter.getHook` at render time.
 - `STORE_DEFINITION_INTERNALS` symbol key on `IsoStoreDefinition` holds `{ StoreProvider }` — keeps `StoreProvider` off the public API; consumers use `IsoStoreProvider` from `isomorphic-stores/provider` instead
 
 ### Cross-root communication
 Stores are scoped to React context trees, so components in different roots can't access each other's stores. `broadcast` is a minimal escape hatch: send a message to all mounted instances of a store type from anywhere. It's fire-and-forget with no request/response semantics. How cross-root communication should work more generally in an instance-based architecture is an open design question.
+
+### TODOs
+- Add a mechanism for adapters to integrate the isomorphic-stores `StoreProvider` with a framework-native provider — e.g. so the Redux adapter can render a react-redux `<Provider store={store}>` alongside the isomorphic-stores context, enabling `useDispatch`, devtools, and the rest of the react-redux ecosystem within the same subtree
 
 ### Open questions
 - Client-side re-fetching / "going pending again" — not yet designed

@@ -3,25 +3,20 @@ import {
   useCallback,
   useContext,
   useEffect,
-  useMemo,
   useRef,
   useState,
-  useSyncExternalStore,
 } from "react";
 import type {Adapter, StoreFactory} from "./adapter";
 import {getStoreProvider} from "./StoreProvider";
 import {
   STORE_DEFINITION_INTERNALS,
   STORE_INSTANCE_INTERNALS,
-  type AdaptedStore,
   type Broadcast,
   type IsoStoreDefinition,
   type IsoStoreInstance,
   type MessageHandler,
   type OnMessage,
-  type UseClientStore,
   type UseCreateClientStore,
-  type UseStore,
   type WaitFor
 } from "./types";
 
@@ -33,16 +28,20 @@ function makeWaitFor<State>(pending: Array<{name: keyof State, promise: Promise<
   };
 }
 
-const definitions: Map<symbol, IsoStoreDefinition<any, any, any>> = new Map();
+const definitions: Map<symbol, IsoStoreDefinition<any, any, any, any, any>> = new Map();
 
-export const defineIsoStore = <Opts, State, Message, NativeStore>(
+type BaseNativeHook = <S>(...args: any) => S;
+type BaseNativeClientHook = <S>(...args: any) => S | undefined;
+
+export const defineIsoStore = <Opts, State, Message, NativeStore, NativeHook extends BaseNativeHook, NativeClientHook extends BaseNativeClientHook>(
   factory: StoreFactory<Opts, State, Message, NativeStore>,
-  adapter: Adapter<NativeStore>,
-): IsoStoreDefinition<Opts, State, Message> => {
+  adapter: Adapter<State, NativeStore, NativeHook, NativeClientHook>,
+): IsoStoreDefinition<Opts, Message, NativeStore, NativeHook, NativeClientHook> => {
   const definitionId = Symbol();
 
-  const instances: Map<symbol, IsoStoreInstance<State, Message>> = new Map();
-  const createStore = (opts: Opts): IsoStoreInstance<State, Message> => {
+  const instances: Map<symbol, IsoStoreInstance<NativeStore>> = new Map();
+
+  const createStore = (opts: Opts): IsoStoreInstance<NativeStore> => {
     type PendingValue = { name: keyof State, promise: Promise<unknown> };
     const pending: Array<PendingValue> = [];
     const waitFor = makeWaitFor<State>(pending);
@@ -51,42 +50,39 @@ export const defineIsoStore = <Opts, State, Message, NativeStore>(
       messageHandlers.push(handler);
     };
     const nativeStore = factory(opts, waitFor, onMessage);
-    const adaptedStore = adapter<State>(nativeStore);
     const whenReady = Promise.all(pending.map(async ({ name, promise }) => {
       const value = await promise;
-      adaptedStore.setState({ [name]: value } as Partial<State>);
+      const setState = adapter.getSetState(nativeStore);
+      setState({ [name]: value } as Partial<State>);
     })).then(() => {});
     return {
-      adaptedStore,
       whenReady,
       [STORE_INSTANCE_INTERNALS]: {
-        definition: definitions.get(definitionId)!,
         identifier: Symbol(),
+        definition: definitions.get(definitionId)!,
+        nativeStore,
         messageHandlers,
       },
     };
   };
 
-  const context = createContext<AdaptedStore<State> | null>(null);
+  type IsoContext = IsoStoreInstance<NativeStore> | null;
+  const context = createContext<IsoContext>(null);
 
-  const useStore: UseStore<State> = (selector) => {
-    const adaptedStore = useContext(context)
-    const { subscribe, getState } = adaptedStore!;
-    const getSnapshot = useCallback(() => selector(getState()), [selector]);
-    return useSyncExternalStore(subscribe, getSnapshot, getSnapshot);
-  };
-
-  const register = (instance: IsoStoreInstance<State, Message>) => {
+  const register = (instance: IsoStoreInstance<NativeStore>) => {
     instances.set(instance[STORE_INSTANCE_INTERNALS].identifier, instance);
   };
 
-  const teardown = (instance: IsoStoreInstance<State, Message>) => {
+  const teardown = (instance: IsoStoreInstance<NativeStore>) => {
     instances.delete(instance[STORE_INSTANCE_INTERNALS].identifier);
   };
 
-  const useCreateClientStore: UseCreateClientStore<Opts, State> = (opts) => {
+  const useStore: NativeHook = adapter.getHook(() => useContext<IsoContext>(context)![STORE_INSTANCE_INTERNALS].nativeStore);
+
+  const useCreateClientStore: UseCreateClientStore<Opts, NativeClientHook> = (opts) => {
     const [ready, setReady] = useState<boolean>(false);
-    const instanceRef = useRef<IsoStoreInstance<State, Message> | null>(null);
+    const readyRef = useRef<boolean>(ready);
+    const instanceRef = useRef<IsoStoreInstance<NativeStore> | null>(null);
 
     useEffect(() => {
       const instance = createStore(opts);
@@ -101,24 +97,13 @@ export const defineIsoStore = <Opts, State, Message, NativeStore>(
       };
     }, []);
 
-    const useClientStore: UseClientStore<State> = (selector) => {
-      const emptyStore = useMemo(() => ({
-        subscribe: () => (() => {}),
-        getState: () => null,
-      }), []);
-      const getRealSnapshot = useCallback(() => {
-        return selector(instanceRef.current!.adaptedStore.getState())
-      }, [selector]);
-      const [subscribe, getSnapshot] = useMemo(() => {
-        if (!ready) {
-          return [emptyStore.subscribe, emptyStore.getState];
-        } else {
-          const adaptedStore = instanceRef.current!.adaptedStore;
-          return [adaptedStore.subscribe, getRealSnapshot];
-        }
-      }, [ready, getRealSnapshot]);
-      return useSyncExternalStore(subscribe, getSnapshot, getSnapshot);
-    };
+    const useClientStore = useCallback((...args: any) => {
+      const getNativeStore = () => (
+        readyRef.current ? instanceRef.current![STORE_INSTANCE_INTERNALS].nativeStore : adapter.getEmpty()
+      );
+      const hook = adapter.getClientHook(getNativeStore, readyRef.current);
+      return hook(...args);
+    }, []) as NativeClientHook;
 
     return {
       ready,

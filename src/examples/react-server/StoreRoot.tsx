@@ -4,17 +4,14 @@ import RootElement from "./RootElement";
 import {IsoStoreProvider} from "../../provider";
 
 // react-server projects could use something like this to wrap RootElement for use with isostores
-interface Props<State, Message> {
-  instance: IsoStoreInstance<State, Message>
+interface Props {
+  instances: IsoStoreInstance<any>[];
   children: ReactNode;
 }
-export function StoreRoot<State, Message>({
-  instance,
-  children,
-}: Props<State, Message>) {
+export function StoreRoot({ instances, children }: Props) {
   return (
-    <RootElement when={instance.whenReady}>
-      <IsoStoreProvider instances={[instance]}>
+    <RootElement when={Promise.all(instances.map(i => i.whenReady))}>
+      <IsoStoreProvider instances={instances}>
         { children }
       </IsoStoreProvider>
     </RootElement>
