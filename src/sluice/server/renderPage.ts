@@ -23,32 +23,28 @@ export function renderPage(
   PageClass: new () => Page,
   clientBundleUrl: string,
 ): ReadableStream<Uint8Array> {
-  let ctrl!: ReadableStreamDefaultController<Uint8Array>;
-  let writeBuffer = '';
+  const { readable, writable } = new TransformStream<Uint8Array>();
+  const writer = writable.getWriter();
 
+  let writeBuffer = '';
   function write(chunk: string) {
     writeBuffer += chunk;
   }
 
   function flush() {
     if (writeBuffer.length === 0) return;
-    ctrl.enqueue(encoder.encode(writeBuffer));
+    writer.write(encoder.encode(writeBuffer));
     writeBuffer = '';
   }
 
   const writeablePipe = SluicePipe.writer(write);
 
-  const stream = new ReadableStream<Uint8Array>({
-    start(c) {
-      ctrl = c;
-      startRequest(() => {
-        new RequestContext(req).register();
-        run().catch((err) => {
-          console.error('[renderPage]', err);
-          ctrl.error(err);
-        });
-      });
-    },
+  startRequest(() => {
+    new RequestContext(req).register();
+    run().catch((err) => {
+      console.error('[renderPage]', err);
+      writer.abort(err);
+    });
   });
 
   async function run() {
@@ -95,7 +91,7 @@ export function renderPage(
     if (lateArrivalsPromise) await lateArrivalsPromise;
     write('</body></html>');
     flush();
-    ctrl.close();
+    writer.close();
   }
 
   function hydrateRootsUpTo(index: number) {
@@ -127,5 +123,5 @@ export function renderPage(
     )).then(() => {});
   }
 
-  return stream;
+  return readable;
 }
