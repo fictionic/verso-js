@@ -1,14 +1,13 @@
-import { getCache, dehydrateCache, getPendingRequests } from '../core/fetchAgent';
+import { getCache, dehydrateCache, getPendingRequests, setUrlPrefix } from '../core/fetch';
 import type { Page, PageStyle } from '../Page';
 import { startRequest } from '../util/requestLocal';
 import { RequestContext } from './RequestContext';
 import { writeBody } from './writeBody';
-import { AGENT_CACHE_KEY, FN_RECEIVE_LATE_DATA_ARRIVAL, FN_HYDRATE_ROOTS_UP_TO, SluicePipe } from '../core/SluicePipe';
+import { FETCH_CACHE_KEY, FN_RECEIVE_LATE_DATA_ARRIVAL, FN_HYDRATE_ROOTS_UP_TO, SluicePipe } from '../core/SluicePipe';
 
 const encoder = new TextEncoder();
 
 const RENDER_TIMEOUT_MS = 20_000;
-// TODO timeout
 
 function renderStyles(styles: PageStyle[]): string {
   return styles.map(s =>
@@ -18,10 +17,20 @@ function renderStyles(styles: PageStyle[]): string {
   ).join('\n');
 }
 
+interface Options {
+  clientBundleUrl: string,
+  renderTimeout?: number;
+  urlPrefix?: string;
+};
+
 export function renderPage(
   req: Request,
   PageClass: new () => Page,
-  clientBundleUrl: string,
+  {
+    clientBundleUrl,
+    renderTimeout = RENDER_TIMEOUT_MS,
+    urlPrefix,
+  }: Options,
 ): ReadableStream<Uint8Array> {
   const { readable, writable } = new TransformStream<Uint8Array>();
   const writer = writable.getWriter();
@@ -41,6 +50,7 @@ export function renderPage(
 
   startRequest(() => {
     new RequestContext(req).register();
+    if (urlPrefix) setUrlPrefix(urlPrefix);
     run().catch((err) => {
       console.error('[renderPage]', err);
       writer.abort(err);
@@ -80,8 +90,8 @@ export function renderPage(
       haveBootstrapped = true;
     };
 
-    // TODO: pass a context object containing a timeout deferred
-    await writeBody(page, write, onRoot, onTheFold);
+    const abort = AbortSignal.timeout(renderTimeout);
+    await writeBody(page, write, onRoot, onTheFold, abort);
 
     if (!haveBootstrapped) {
       // if TheFold wasn't declared, then it's after the last root
@@ -99,8 +109,8 @@ export function renderPage(
   }
 
   function bootstrapClient(theFoldIndex: number) {
-    const agentCache = dehydrateCache();
-    writeablePipe.writeValue(AGENT_CACHE_KEY, agentCache);
+    const fetchCache = dehydrateCache();
+    writeablePipe.writeValue(FETCH_CACHE_KEY, fetchCache);
     write(`<script type="module" src="${clientBundleUrl}"></script>\n`);
     hydrateRootsUpTo(theFoldIndex - 1);
     flush();

@@ -1,5 +1,5 @@
 import { defineZustandIsoStore } from './define';
-import { get } from '@/sluice/core/fetchAgent';
+import { fetch } from '@/sluice/core/fetch';
 
 interface ProfileState {
   username: string;
@@ -26,11 +26,13 @@ export const ProfileStore = defineZustandIsoStore<
         if (msg.type === 'reset') set({ username: initialUsername, email: initialEmail });
       });
 
-      const userPromise = (get(`/api/users/${userId}`) as Promise<{ username: string; email: string }>).then((d) => {
-        initialUsername = d.username;
-        initialEmail = d.email;
-        return d;
-      });
+      const userPromise = fetch(`/api/users/${userId}`)
+        .then(res => res.json() as Promise<{ username: string; email: string }>)
+        .then((d) => {
+          initialUsername = d.username;
+          initialEmail = d.email;
+          return d;
+        });
 
       return {
         ...waitFor('username', userPromise.then((d) => d.username), ''),

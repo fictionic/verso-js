@@ -1,4 +1,3 @@
-import { setBaseUrl } from '@/sluice/core/fetchAgent';
 import { renderPage } from '@/sluice/server/renderPage';
 import { buildClientBundle } from '@/sluice/buildClientBundle';
 import DemoPage from './DemoPage';
@@ -64,14 +63,15 @@ const server = Bun.serve({
   fetch: handleSSR,
 });
 
-// 3. Set base URL for server-side fetch (after server starts so we have the URL)
-setBaseUrl(server.url.href.replace(/\/$/, ''));
-
+const baseUrl = server.url.href.replace(/\/$/, '');
 console.log(`isomorphic-stores demo running at ${server.url}`);
 
-// 4. SSR handler
+// 3. SSR handler
 async function handleSSR(req: Request): Promise<Response> {
-  return new Response(renderPage(req, DemoPage, '/client.js'), {
+  return new Response(renderPage(req, DemoPage, {
+    clientBundleUrl: '/client.js',
+    urlPrefix: baseUrl,
+  }), {
     headers: { 'Content-Type': 'text/html; charset=utf-8' },
   });
 }

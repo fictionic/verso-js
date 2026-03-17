@@ -1,5 +1,5 @@
 import { defineZustandIsoStore } from './define';
-import { get } from '@/sluice/core/fetchAgent';
+import { fetch } from '@/sluice/core/fetch';
 
 interface ThemeState {
   theme: 'light' | 'dark';
@@ -11,7 +11,8 @@ interface ThemeState {
 export const ThemeStore = defineZustandIsoStore<{ userId: number }, ThemeState>(
   ({ userId }, { waitFor }) =>
     (set) => {
-      const themePromise = get(`/api/theme/${userId}`) as Promise<{ theme: 'light' | 'dark'; accent: string }>;
+      const themePromise = fetch(`/api/theme/${userId}`)
+        .then(res => res.json() as Promise<{ theme: 'light' | 'dark'; accent: string }>);
       return {
         ...waitFor('theme', themePromise.then((d) => d.theme), 'light' as 'light' | 'dark'),
         ...waitFor('accent', themePromise.then((d) => d.accent), '#6366f1'),

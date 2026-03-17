@@ -5,8 +5,6 @@ import {TOKEN, tokenizeElements, type PageElementToken} from '../core/elementTok
 import type {RootContainerElementType} from '../core/components/RootContainer';
 import {PAGE_ELEMENT_TOKEN_ID_ATTR, PAGE_ROOT_ELEMENT_ATTR} from '../constants';
 
-const RENDER_TIMEOUT_MS = 20_000;
-
 const TOKEN_STATUS = {
   PENDING: 'PENDING',
   RENDERED: 'RENDERED',
@@ -25,6 +23,7 @@ export async function writeBody(
   write: (html: string) => void,
   onRoot: (index: number) => void,
   onTheFold: (index: number) => void,
+  abort: AbortSignal,
 ) {
   const elements = page.getElements();
   const tokens = tokenizeElements(elements);
@@ -112,7 +111,21 @@ export async function writeBody(
 
   writeRenderedTokens(); // render any synchronous elements right away
 
-  await Promise.all(rootPromises);
+  abort.addEventListener('abort', () => {
+    // if we take too long, we mark all pending roots as failed,
+    // write them out, and return control to the caller
+    for (const slot of renderedTokens) {
+      if (slot.status === TOKEN_STATUS.PENDING) {
+        slot.status = TOKEN_STATUS.FAILED_RENDERING;
+      }
+    }
+    writeRenderedTokens();
+  });
+
+  await Promise.race([
+    Promise.all(rootPromises),
+    new Promise<void>(resolve => abort.addEventListener('abort', () => resolve())),
+  ]);
 }
 
 function renderContainerOpen(element: RootContainerElementType, index: number): string {

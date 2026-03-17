@@ -17,17 +17,17 @@ src/
 │   ├── client.ts        # client entry point (bootstrap)
 │   ├── constants.ts     # DOM attribute names (PAGE_ROOT_ELEMENT_ATTR, etc.)
 │   ├── core/
-│   │   ├── RequestContext.ts
 │   │   ├── SluicePipe.ts       # typed server→client pipe instance (schema + constants)
 │   │   ├── elementTokenizer.ts
-│   │   ├── fetchAgent.ts       # isomorphic fetch cache (ALS server-side, rehydrated client-side)
+│   │   ├── fetch.ts            # isomorphic fetch (caching, dedup, dehydration for GETs; urlPrefix for all)
 │   │   └── components/
 │   │       ├── Root.tsx
 │   │       ├── RootContainer.tsx
 │   │       └── TheFold.tsx
 │   ├── server/
-│   │   ├── renderBody.ts
-│   │   └── renderPage.tsx
+│   │   ├── RequestContext.ts
+│   │   ├── renderPage.ts
+│   │   └── writeBody.ts
 │   ├── tests/
 │   └── util/
 │       ├── ServerClientPipe.ts  # generic typed server→client pipe factory
@@ -123,12 +123,12 @@ MyStore.broadcast(message);
 
 ### Sluice SSR pipeline
 
-- `renderPage.tsx` — streams HTML as roots become ready. Writes the shell immediately, then for each element awaits `element.props.when` before calling `renderToString`. When `TheFold` is reached, injects the dehydrated fetch cache and client bundle `<script>` tags. Roots arriving after the fold get inline `rootArrival` calls as they stream in.
+- `renderPage.ts` — streams HTML as roots become ready. Writes the shell immediately, then for each element awaits `element.props.when` before calling `renderToString`. When `TheFold` is reached, injects the dehydrated fetch cache and client bundle `<script>` tags. Roots arriving after the fold get inline `hydrateRootsUpTo` calls as they stream in.
 - `Root.tsx` — pass-through component; `when` is read directly from props by `renderPage`.
 - `TheFold.tsx` — null-rendering sentinel; identifies the above/below-fold boundary.
-- `fetchAgent.ts` — isomorphic fetch wrapper. Server-side: caches responses in an ALS-backed `Map` and dehydrates via `SluicePipe`. Client-side: rehydrates from the pipe so stores resolve instantly from cache.
+- `fetch.ts` — isomorphic `fetch` replacement. GETs are cached, deduplicated, and dehydrated via `SluicePipe`; non-GETs pass through with urlPrefix applied. Returns real `Response` objects. Client-side rehydrates from the pipe so GETs resolve instantly from cache.
 - `ServerClientPipe.ts` — generic factory (`createPipe<Schema>`) for typed server→client data transport via inline `<script>` tags. `SluicePipe.ts` is the sluice-specific instance.
-- `client.ts` — client entry point. Rehydrates the fetch cache from the pipe, creates a fresh `Page` instance, tokenizes elements, then hydrates roots as `rootArrival` events arrive.
+- `client.ts` — client entry point. Rehydrates the fetch cache from the pipe, creates a fresh `Page` instance, tokenizes elements, then hydrates roots as `hydrateRootsUpTo` events arrive.
 - `buildClientBundle.ts` — writes a temporary entry file that imports `PageClass` and calls `bootstrap(PageClass)`, then uses `Bun.build` to bundle for the browser.
 
 **SSR correctness note:** Zustand's `useStore` uses `useSyncExternalStore` with `getInitialState()` as the server snapshot, which returns state at construction time — before `waitFor` resolves. The Zustand adapter overrides `store.getInitialState = store.getState` so `renderToString` (called after `whenReady`) sees the resolved async values.
@@ -142,11 +142,14 @@ Run with `bun src/demo/server.tsx`. Exercises sluice + isomorphic-stores togethe
 ### TODOs
 
 #### sluice (SSR framework)
-- Implement render timeout in `renderPage.tsx`
-- add more methods to the Page API like getStyles, getScripts, etc
-- Add a `createSluiceServer` function so server boilerplate (bundle build, `/client.js` route, SSR catch-all, `setBaseUrl`) lives in the framework rather than user code; this is also required for isomorphic cookie support — `renderPage` currently returns a bare `ReadableStream` with no access to the `Response` object, so the framework cannot set `Set-Cookie` headers. `createSluiceServer` would own `Response` construction, read pending cookies from RLS after `createStores()`, and attach them as headers before streaming begins
-- Support pre-building the client bundle as a separate step (for prod), distinct from on-the-fly bundling at dev server startup
+- Add a `createSluiceServer` function so server boilerplate (bundle build, `/client.js` route, SSR catch-all) lives in the framework rather than user code; this is also required for isomorphic cookie support — `renderPage` currently returns a bare `ReadableStream` with no access to the `Response` object, so the framework cannot set `Set-Cookie` headers. `createSluiceServer` would own `Response` construction, read pending cookies from RLS after `createStores()`, and attach them as headers before streaming begins
 - HMR for the client bundle in the dev server — currently requires a restart to pick up changes; `Bun.build` has no watch mode, so this would need to be built on top of it
+- Support pre-building the client bundle as a separate step (for prod), distinct from on-the-fly bundling at dev server startup
+- add more methods to the Page API like getStyles, getScripts, etc
+- API to allow page authors to transport arbitrary server-side data down to the client
+- routing
+- add the ability to register a callback on Root mount for a particular Root, and when all Roots have mounted, for automated tests
+- fetch: support for opting into response replaying of non-GET requests
 
 #### isomorphic-stores
 - Add a mechanism for adapters to integrate the isomorphic-stores `StoreProvider` with a framework-native provider — e.g. so the Redux adapter can render a react-redux `<Provider store={store}>` alongside the isomorphic-stores context
@@ -157,13 +160,14 @@ Run with `bun src/demo/server.tsx`. Exercises sluice + isomorphic-stores togethe
 
 #### demo
 - Add a demo of `nativeStore` access in `DemoPage`: a component that reads state imperatively via `instance.nativeStore.getState()` on button click
+- automated tests via playwright
 
 ---
 
 Default to using Bun instead of Node.js.
 
 - Use `bun <file>` instead of `node <file>` or `ts-node <file>`
-- Use `bun test` instead of `jest` or `vitest`
+- Use `vitest` for testing (not `bun test` or `jest`). Config is in `vitest.config.ts`. Tests needing DOM globals use `// @vitest-environment jsdom` per-file annotation.
 - Use `bun build <file.html|file.ts|file.css>` instead of `webpack` or `esbuild`
 - Use `bun install` instead of `npm install` or `yarn install` or `pnpm install`
 - Use `bun run <script>` instead of `npm run <script>` or `yarn run <script>` or `pnpm run <script>`
@@ -182,14 +186,21 @@ Default to using Bun instead of Node.js.
 
 ## Testing
 
-Use `bun test` to run tests.
+Use `vitest` to run tests. Config is in `vitest.config.ts` (defines `@` path alias and `SERVER_SIDE`).
 
 ```ts#index.test.ts
-import { test, expect } from "bun:test";
+import { test, expect } from "vitest";
 
 test("hello world", () => {
   expect(1).toBe(1);
 });
+```
+
+Tests that need DOM globals (e.g. `document`, `window`) use a per-file annotation instead of a global preload:
+
+```ts
+// @vitest-environment jsdom
+import { test, expect } from "vitest";
 ```
 
 ## Frontend

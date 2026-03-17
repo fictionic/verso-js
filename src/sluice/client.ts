@@ -1,15 +1,15 @@
-import { receiveLateDataArrival, rehydrateCache } from './core/fetchAgent';
+import { receiveLateDataArrival, rehydrateCache } from './core/fetch';
 import { scheduleRender } from './core/components/Root';
 import { TOKEN, tokenizeElements } from './core/elementTokenizer';
 import type { Page } from './Page';
-import { AGENT_CACHE_KEY, FN_RECEIVE_LATE_DATA_ARRIVAL, FN_HYDRATE_ROOTS_UP_TO, SluicePipe } from './core/SluicePipe';
+import { FETCH_CACHE_KEY, FN_RECEIVE_LATE_DATA_ARRIVAL, FN_HYDRATE_ROOTS_UP_TO, SluicePipe } from './core/SluicePipe';
 import { PAGE_ELEMENT_TOKEN_ID_ATTR, PAGE_ROOT_ELEMENT_ATTR } from './constants';
 import { hydrateRoot } from 'react-dom/client';
 
 export async function bootstrap(PageClass: new () => Page): Promise<void> {
   const readablePipe = SluicePipe.reader();
-  const agentCache = (readablePipe.readValue(AGENT_CACHE_KEY) ?? {});
-  rehydrateCache(agentCache);
+  const fetchCache = (readablePipe.readValue(FETCH_CACHE_KEY) ?? {});
+  rehydrateCache(fetchCache);
 
   const page = new PageClass();
   page.createStores();
