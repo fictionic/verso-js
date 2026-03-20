@@ -18,7 +18,7 @@ type RenderedToken = {
   html: string | null;
 };
 
-export async function writeBody(
+export async function handleBody(
   page: Page,
   write: (html: string) => void,
   onRoot: (index: number) => void,

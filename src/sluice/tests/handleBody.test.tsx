@@ -14,8 +14,8 @@ vi.mock('@/sluice/core/components/RootContainer', async (importOriginal) => {
   };
 });
 
-// import writeBody after mocks are set up
-const { writeBody } = await import('@/sluice/server/writeBody');
+// import handleBody after mocks are set up
+const { handleBody } = await import('@/sluice/server/handleBody');
 
 function simplePage(elements: React.ReactElement[]): Page {
   return {
@@ -39,11 +39,11 @@ function run(page: Page, opts?: { timeoutMs?: number }) {
     setTimeout(() => ac.abort(), opts.timeoutMs);
   }
 
-  const done = writeBody(page, write, onRoot, onTheFold, ac.signal);
+  const done = handleBody(page, write, onRoot, onTheFold, ac.signal);
   return { chunks, write, rootCalls, onRoot, foldCalls, onTheFold, done, abort: () => ac.abort() };
 }
 
-describe('writeBody', () => {
+describe('handleBody', () => {
 
   // --- basic rendering ---
 
@@ -256,7 +256,7 @@ describe('writeBody', () => {
     expect(html).not.toContain('Stuck');
   });
 
-  test('abort resolves writeBody when all roots are pending', async () => {
+  test('abort resolves handleBody when all roots are pending', async () => {
     const neverResolves = new Promise<null>(() => {});
 
     const page = simplePage([

@@ -1,7 +1,7 @@
 import type { Page, PageStyle } from '../Page';
 import { startRequest } from '../util/requestLocal';
 import { RequestContext } from './RequestContext';
-import { writeBody } from './writeBody';
+import { handleBody } from './handleBody';
 import { FETCH_CACHE_KEY, FN_RECEIVE_LATE_DATA_ARRIVAL, FN_HYDRATE_ROOTS_UP_TO, SluicePipe } from '../core/SluicePipe';
 import { Fetch } from '../core/fetch/Fetch';
 
@@ -93,7 +93,7 @@ export function handlePage(
     };
 
     const abort = AbortSignal.timeout(renderTimeout);
-    await writeBody(page, write, onRoot, onTheFold, abort);
+    await handleBody(page, write, onRoot, onTheFold, abort);
 
     if (!haveBootstrapped) {
       // if TheFold wasn't declared, then it's after the last root
