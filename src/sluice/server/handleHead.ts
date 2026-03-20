@@ -1,0 +1,15 @@
+import type {Page, PageStyle} from "../Page";
+
+export function handleHead(page: Page, write: (html: string) => void) {
+  write(`<title>${page.getTitle()}</title>`);
+  write(`${renderStyles(page.getStyles())}`);
+}
+
+function renderStyles(styles: PageStyle[]): string {
+  return styles.map(s =>
+    typeof s === 'string'
+      ? `<style>${s}</style>`
+      : `<link rel="stylesheet" href="${s.href}">`
+  ).join('\n');
+}
+

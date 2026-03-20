@@ -1,21 +1,14 @@
-import type { Page, PageStyle } from '../Page';
+import type { Page } from '../Page';
 import { startRequest } from '../util/requestLocal';
 import { RequestContext } from './RequestContext';
 import { handleBody } from './handleBody';
 import { FETCH_CACHE_KEY, FN_RECEIVE_LATE_DATA_ARRIVAL, FN_HYDRATE_ROOTS_UP_TO, SluicePipe } from '../core/SluicePipe';
 import { Fetch } from '../core/fetch/Fetch';
+import {handleHead} from './handleHead';
 
 const encoder = new TextEncoder();
 
 const RENDER_TIMEOUT_MS = 20_000;
-
-function renderStyles(styles: PageStyle[]): string {
-  return styles.map(s =>
-    typeof s === 'string'
-      ? `<style>${s}</style>`
-      : `<link rel="stylesheet" href="${s.href}">`
-  ).join('\n');
-}
 
 interface Options {
   clientBundleUrl: string,
@@ -65,12 +58,10 @@ export function handlePage(
     const lateArrivalsDfd = Promise.withResolvers<void>();
 
     write(`<!DOCTYPE html><html lang="en"><head>`);
-    write(`<title>${page.getTitle()}</title>`);
-    write(`${renderStyles(page.getStyles())}`);
+    handleHead(page, write);
     write(`</head><body>`);
     flush();
 
-    // TODO: probably need to use RLS for these
     let haveBootstrapped = false;
 
     let lastRootIndex = 0;
