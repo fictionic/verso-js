@@ -1,7 +1,9 @@
 
 ## Project Overview
 
-**Sluice** is a Bun-powered streaming SSR framework, and **isomorphic-stores** is its state management layer — a framework-agnostic adapter system for plugging Zustand, Redux, etc. into Sluice's SSR model. They live in one repo as a single package (`sluice`).
+**Sluice** is a streaming SSR framework, and **isomorphic-stores** is its state management layer — a framework-agnostic adapter system for plugging Zustand, Redux, etc. into Sluice's SSR model. They live in one repo as a single package (`sluice`).
+
+**Runtime strategy**: Sluice is not tied to Bun. Bun is used as the current dev runtime, but the framework will eventually use Vite for the dev server and support Node/Deno as production runtimes. Framework code should avoid Bun-specific APIs; Bun-specific code (like `buildClientBundle.ts`) is temporary and will be replaced.
 
 The core idea: stores are created server-side before render, async data is declared via `waitFor`, and Sluice's `Root` component blocks rendering until the store is ready. Client-side components can also create stores independently via `useCreateClientStore`.
 
@@ -30,8 +32,8 @@ src/
 │   │       └── TheFold.tsx
 │   ├── server/
 │   │   ├── RequestContext.ts
-│   │   ├── renderPage.ts
-│   │   └── writeBody.ts
+│   │   ├── handlePage.ts
+│   │   └── handleBody.ts
 │   ├── tests/
 │   └── util/
 │       ├── ServerClientPipe.ts  # generic typed server→client pipe factory
@@ -127,8 +129,8 @@ MyStore.broadcast(message);
 
 ### Sluice SSR pipeline
 
-- `renderPage.ts` — streams HTML as roots become ready. Writes the shell immediately, then for each element awaits `element.props.when` before calling `renderToString`. When `TheFold` is reached, injects the dehydrated fetch cache and client bundle `<script>` tags. Roots arriving after the fold get inline `hydrateRootsUpTo` calls as they stream in.
-- `Root.tsx` — pass-through component; `when` is read directly from props by `renderPage`.
+- `handlePage.ts` — streams HTML as roots become ready. Writes the shell immediately, then for each element awaits `element.props.when` before calling `renderToString`. When `TheFold` is reached, injects the dehydrated fetch cache and client bundle `<script>` tags. Roots arriving after the fold get inline `hydrateRootsUpTo` calls as they stream in.
+- `Root.tsx` — pass-through component; `when` is read directly from props by `handlePage`.
 - `TheFold.tsx` — null-rendering sentinel; identifies the above/below-fold boundary.
 - `fetch/` — isomorphic fetch subsystem. Two audiences: consumers import `fetch` from `index.ts`; the framework uses `Fetch.init()`, `Fetch.fetch()`, and `Fetch.getCache()` from `Fetch.ts`. `Fetch.init()` creates a per-request `FetchCache` in RLS and sets `urlPrefix`. GETs are cached, deduplicated, and dehydrated; non-GETs pass through with `urlPrefix` applied. `FetchCache` exposes `server()` and `client()` accessor objects with environment-specific APIs. `nativeFetch.ts` provides an indirection over `globalThis.fetch` for testability.
 - `ServerClientPipe.ts` — generic factory (`createPipe<Schema>`) for typed server→client data transport via inline `<script>` tags. `SluicePipe.ts` is the sluice-specific instance.
@@ -141,7 +143,7 @@ MyStore.broadcast(message);
 
 Two-audience design:
 - **Consumer** (`fetch/index.ts`): exports only the `fetch` function — a drop-in isomorphic replacement for `globalThis.fetch`.
-- **Framework** (`fetch/Fetch.ts`): exports the `Fetch` object with `init()`, `fetch()`, and `getCache()`. `renderPage` calls `Fetch.init()` to create a per-request `FetchCache` in RLS; `writeBody` calls `Fetch.getCache()` to dehydrate/stream cached responses.
+- **Framework** (`fetch/Fetch.ts`): exports the `Fetch` object with `init()`, `fetch()`, and `getCache()`. `handlePage` calls `Fetch.init()` to create a per-request `FetchCache` in RLS; `writeBody` calls `Fetch.getCache()` to dehydrate/stream cached responses.
 
 `FetchCache` (`fetch/cache.ts`) uses a server/client accessor pattern:
 - `cache.server()` — `receiveRequest(url)` returns `{ first, promise }`: creates the entry + deferred on first call, increments requesters on subsequent calls, always returns the deferred's promise. All callers (first and dedup) resolve through the same promise. `receiveResponse(url, Response)` consumes the body, caches the result, and resolves the deferred. `receiveError(url, Error)` rejects the deferred and stores the error message for dehydration. `dehydrate()` returns the serializable data. `getPending()` returns entries that are neither resolved nor errored, for streaming late arrivals.
@@ -161,7 +163,7 @@ Run with `bun src/demo/server.tsx`. Exercises sluice + isomorphic-stores togethe
 ### TODOs
 
 #### sluice (SSR framework)
-- Add a `createSluiceServer` function so server boilerplate (bundle build, `/client.js` route, SSR catch-all) lives in the framework rather than user code; this is also required for isomorphic cookie support — `renderPage` currently returns a bare `ReadableStream` with no access to the `Response` object, so the framework cannot set `Set-Cookie` headers. `createSluiceServer` would own `Response` construction, read pending cookies from RLS after `createStores()`, and attach them as headers before streaming begins
+- Add a `createSluiceServer` function so server boilerplate (bundle build, `/client.js` route, SSR catch-all) lives in the framework rather than user code; this is also required for isomorphic cookie support — `handlePage` currently returns a bare `ReadableStream` with no access to the `Response` object, so the framework cannot set `Set-Cookie` headers. `createSluiceServer` would own `Response` construction, read pending cookies from RLS after `createStores()`, and attach them as headers before streaming begins
 - HMR for the client bundle in the dev server — currently requires a restart to pick up changes; `Bun.build` has no watch mode, so this would need to be built on top of it
 - Support pre-building the client bundle as a separate step (for prod), distinct from on-the-fly bundling at dev server startup
 - add more methods to the Page API like getStyles, getScripts, etc
@@ -182,9 +184,14 @@ Run with `bun src/demo/server.tsx`. Exercises sluice + isomorphic-stores togethe
 #### demo
 - Add a demo of `nativeStore` access in `DemoPage`: a component that reads state imperatively via `instance.nativeStore.getState()` on button click
 
+#### Notes for the future
+- **Vite migration**: Replace `buildClientBundle` (Bun.build) with a Vite plugin. Vite will serve as the dev server runtime (replacing Bun.serve) and provide bundle splitting (non-negotiable), HMR, and CSS integration via `getHeadStylesheets`. Define a manifest contract (route → chunk URLs) that the Vite plugin produces and the server handler consumes. This is the bundler-agnostic boundary — the manifest is the stable API. Production builds will target Node and Deno as runtimes.
+- **ALS requirement**: Sluice currently requires `AsyncLocalStorage` (via `requestLocal.ts`). This limits deployment to Node, Bun, and Deno. Edge runtimes (Cloudflare Workers, Vercel Edge) don't support ALS. If edge support is needed, RLS would need an alternative implementation.
+- **Package splitting**: The Vite plugin should eventually be a separate package (`vite-plugin-sluice`) so that not every sluice user needs Vite as a dependency. For now everything lives in one package.
+
 ---
 
-Default to using Bun instead of Node.js.
+Bun is the current dev runtime. Use it for running, building, and installing — but sluice framework code itself must not depend on Bun-specific APIs (the framework will support Node/Deno in production).
 
 - Use `bun <file>` instead of `node <file>` or `ts-node <file>`
 - Use `vitest` for testing (not `bun test` or `jest`). Config is in `vitest.config.ts`. Tests needing DOM globals use `// @vitest-environment jsdom` per-file annotation.
