@@ -23,7 +23,7 @@ interface Options {
   urlPrefix?: string;
 };
 
-export function renderPage(
+export function handlePage(
   req: Request,
   PageClass: new () => Page,
   {
@@ -54,7 +54,7 @@ export function renderPage(
       urlPrefix: urlPrefix ?? null,
     });
     run().catch((err) => {
-      console.error('[renderPage]', err);
+      console.error('[handlePage]', err);
       writer.abort(err);
     });
   });
@@ -84,7 +84,7 @@ export function renderPage(
 
     const onTheFold = (index: number) => {
       if (haveBootstrapped) {
-        console.warn(`renderPage: unexpected additional TheFold at index ${index}`);
+        console.warn(`handlePage: unexpected additional TheFold at index ${index}`);
         return;
       }
       bootstrapClient(index);
@@ -112,7 +112,7 @@ export function renderPage(
 
   function bootstrapClient(theFoldIndex: number) {
     const fetchCache = Fetch.getCache().server().dehydrate();
-    console.log('[renderPage:debug] dehydrated cache keys:', Object.keys(fetchCache), 'entries:', Object.entries(fetchCache).map(([k, v]) => `${k}: response=${!!v.response}, requesters=${v.requesters}`));
+    console.log('[handlePage:debug] dehydrated cache keys:', Object.keys(fetchCache), 'entries:', Object.entries(fetchCache).map(([k, v]) => `${k}: response=${!!v.response}, requesters=${v.requesters}`));
     writeablePipe.writeValue(FETCH_CACHE_KEY, fetchCache);
     write(`<script async type="module" src="${clientBundleUrl}"></script>\n`);
     hydrateRootsUpTo(theFoldIndex - 1);

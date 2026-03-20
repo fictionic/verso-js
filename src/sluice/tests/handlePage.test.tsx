@@ -1,6 +1,6 @@
 import React from 'react';
 import { test, expect, describe } from 'vitest';
-import { renderPage } from '@/sluice/server/renderPage';
+import { handlePage } from '@/sluice/server/handlePage';
 import { Root, makeRootComponent } from '@/sluice/core/components/Root';
 import RootContainer from '@/sluice/core/components/RootContainer';
 import TheFold from '@/sluice/core/components/TheFold';
@@ -24,7 +24,7 @@ const TEST_RENDER_TIMEOUT_MS = 150;
 
 function render(PageClass: new () => Page, clientBundleUrl = '/client.js'): Promise<string> {
   const req = new Request('http://localhost/');
-  return collectStream(renderPage(req, PageClass, { clientBundleUrl, renderTimeout: TEST_RENDER_TIMEOUT_MS }));
+  return collectStream(handlePage(req, PageClass, { clientBundleUrl, renderTimeout: TEST_RENDER_TIMEOUT_MS }));
 }
 
 function simplePage(elements: React.ReactElement[], opts?: { title?: string; styles?: PageStyle[] }): new () => Page {
@@ -38,7 +38,7 @@ function simplePage(elements: React.ReactElement[], opts?: { title?: string; sty
 
 // --- Tests ---
 
-describe('renderPage', () => {
+describe('handlePage', () => {
 
   test('renders a basic page with a single root element', async () => {
     const P = simplePage([
@@ -96,7 +96,7 @@ describe('renderPage', () => {
       <Root when={when}><div>Delayed</div></Root>,
     ]);
     const req = new Request('http://localhost/');
-    const stream = renderPage(req, P, { clientBundleUrl: '/client.js' });
+    const stream = handlePage(req, P, { clientBundleUrl: '/client.js' });
 
     // Resolve the promise so the stream can complete
     resolve();
@@ -114,7 +114,7 @@ describe('renderPage', () => {
       <Root><div>Fast</div></Root>,
     ]);
     const req = new Request('http://localhost/');
-    const stream = renderPage(req, P, { clientBundleUrl: '/client.js' });
+    const stream = handlePage(req, P, { clientBundleUrl: '/client.js' });
 
     // Fast resolves immediately, slow resolves after
     resolveFirst();
@@ -230,7 +230,7 @@ describe('renderPage', () => {
       <DelayedRoot delay={when}><span>Waited</span></DelayedRoot>,
     ]);
     const req = new Request('http://localhost/');
-    const stream = renderPage(req, P, { clientBundleUrl: '/client.js' });
+    const stream = handlePage(req, P, { clientBundleUrl: '/client.js' });
 
     resolve();
     const html = await collectStream(stream);
@@ -294,7 +294,7 @@ describe('renderPage', () => {
     ]);
 
     const req = new Request('http://localhost/');
-    const html = await collectStream(renderPage(req, P, { clientBundleUrl: '/client.js', renderTimeout: 50 }));
+    const html = await collectStream(handlePage(req, P, { clientBundleUrl: '/client.js', renderTimeout: 50 }));
 
     expect(html).toContain('Ready');
     expect(html).toContain('Also Ready');

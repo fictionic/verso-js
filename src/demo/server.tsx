@@ -1,4 +1,4 @@
-import { renderPage } from '@/sluice/server/renderPage';
+import { handlePage } from '@/sluice/server/handlePage';
 import { buildClientBundle } from '@/sluice/buildClientBundle';
 import DemoPage from './DemoPage';
 
@@ -68,7 +68,7 @@ console.log(`isomorphic-stores demo running at ${server.url}`);
 
 // 3. SSR handler
 async function handleSSR(req: Request): Promise<Response> {
-  return new Response(renderPage(req, DemoPage, {
+  return new Response(handlePage(req, DemoPage, {
     clientBundleUrl: '/client.js',
     urlPrefix: baseUrl,
   }), {
