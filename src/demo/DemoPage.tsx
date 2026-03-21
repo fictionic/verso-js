@@ -44,11 +44,12 @@ export default class DemoPage implements Page {
     `];
   }
 
-  createStores(): void {
+  handleRoute() {
     this.profile1 = ProfileStore.createStore({ userId: 1 });
     this.theme1 = ThemeStore.createStore({ userId: 1 });
     this.activity = ActivityStore.createStore({});
     this.broadcast = ProfileStore.createStore({ userId: 3 });
+    return { status: 200 };
   }
 
   getElements(): React.ReactElement[] {

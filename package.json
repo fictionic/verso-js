@@ -7,7 +7,7 @@
     "./provider": "./src/stores/provider.tsx"
   },
   "scripts": {
-    "test": "vitest",
+    "test": "bunx vitest run",
     "test:e2e": "bunx playwright test"
   },
   "peerDependencies": {

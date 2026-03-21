@@ -8,7 +8,7 @@ import {PAGE_ELEMENT_TOKEN_ID_ATTR, PAGE_ROOT_ELEMENT_ATTR} from '../constants';
 const TOKEN_STATUS = {
   PENDING: 'PENDING',
   RENDERED: 'RENDERED',
-  FAILED_RENDERING: 'FAILED_RENDERING',
+  TIMEOUT: 'TIMEOUT',
   WRITTEN: 'WRITTEN',
 } as const;
 
@@ -18,7 +18,7 @@ type RenderedToken = {
   html: string | null;
 };
 
-export async function handleBody(
+export async function writeBody(
   page: Page,
   write: (html: string) => void,
   onRoot: (index: number) => void,
@@ -52,14 +52,21 @@ export async function handleBody(
         break;
       case TOKEN.ROOT:
         rootPromises.push(scheduleRender(token.element).then((resolved) => {
+          let rootInnerHTML;
           try {
-            const rootInnerHTML = renderToString(resolved);
-            rendered.html = `<div ${PAGE_ELEMENT_TOKEN_ID_ATTR}="${i}" ${PAGE_ROOT_ELEMENT_ATTR}>${rootInnerHTML}</div>\n`;
-            rendered.status = TOKEN_STATUS.RENDERED;
+            rootInnerHTML = renderToString(resolved);
           } catch (err) {
-            console.error(`[renderBody] renderToString failed for element ${i}`, err);
-            rendered.status = TOKEN_STATUS.FAILED_RENDERING;
+            console.error(`[renderBody] renderToString failed for element ${i}; rendering empty div`, err);
+            // we can't bail out the response; we've already sent the 200.
+            // we could opt to just render nothing; then the client wouldn't be able to hydrate into anything.
+            // but it's maybe better to give the client _something_ to hydrate into, in case the render failure
+            // was caused by an error that only happens in the server. react will complain about the mismatch but
+            // the root should still be functional. or if the error happens in the client too, it will be more
+            // discoverable in the browser console
+            rootInnerHTML = '';
           }
+          rendered.html = `<div ${PAGE_ELEMENT_TOKEN_ID_ATTR}="${i}" ${PAGE_ROOT_ELEMENT_ATTR}>${rootInnerHTML}</div>\n`;
+          rendered.status = TOKEN_STATUS.RENDERED;
           writeRenderedTokens();
         }));
         break;
@@ -83,7 +90,7 @@ export async function handleBody(
         if (renderedToken.status === TOKEN_STATUS.WRITTEN) {
           // this shouldn't happen. runtime invariant.
           console.error("[renderBody] elements rendering out of order!");
-        } else if (renderedToken.status === TOKEN_STATUS.FAILED_RENDERING) {
+        } else if (renderedToken.status === TOKEN_STATUS.TIMEOUT) {
           // nothing to render. just keep moving
         } else if (renderedToken.status === TOKEN_STATUS.RENDERED) {
           // got one!
@@ -162,7 +169,7 @@ class RenderedTokenQueue {
     for (let i = this.index; i < this.array.length; i++) {
       const t = this.array[i]!;
       if (t.status === TOKEN_STATUS.PENDING) {
-        t.status = TOKEN_STATUS.FAILED_RENDERING;
+        t.status = TOKEN_STATUS.TIMEOUT;
       }
     }
   }

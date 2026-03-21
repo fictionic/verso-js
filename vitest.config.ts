@@ -10,4 +10,7 @@ export default defineConfig({
   define: {
     SERVER_SIDE: JSON.stringify('true'),
   },
+  test: {
+    exclude: ['node_modules', 'e2e'],
+  },
 });

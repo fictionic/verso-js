@@ -15,11 +15,11 @@ vi.mock('@/sluice/core/components/RootContainer', async (importOriginal) => {
 });
 
 // import handleBody after mocks are set up
-const { handleBody } = await import('@/sluice/server/handleBody');
+const { writeBody } = await import('@/sluice/server/writeBody');
 
 function simplePage(elements: React.ReactElement[]): Page {
   return {
-    createStores() {},
+    handleRoute() { return { status: 200 } },
     getElements() { return elements; },
     getTitle() { return 'Test'; },
     getStyles() { return []; },
@@ -39,7 +39,7 @@ function run(page: Page, opts?: { timeoutMs?: number }) {
     setTimeout(() => ac.abort(), opts.timeoutMs);
   }
 
-  const done = handleBody(page, write, onRoot, onTheFold, ac.signal);
+  const done = writeBody(page, write, onRoot, onTheFold, ac.signal);
   return { chunks, write, rootCalls, onRoot, foldCalls, onTheFold, done, abort: () => ac.abort() };
 }
 

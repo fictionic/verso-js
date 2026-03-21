@@ -1,6 +1,6 @@
 import type {Page, PageStyle} from "../Page";
 
-export function handleHead(page: Page, write: (html: string) => void) {
+export function writeHeader(page: Page, write: (html: string) => void) {
   write(`<title>${page.getTitle()}</title>`);
   write(`${renderStyles(page.getStyles())}`);
 }

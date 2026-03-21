@@ -17,7 +17,7 @@ export function startRequest<R>(fn: () => R): R {
   return als.run(new Map(), fn);
 }
 
-export function getNamespace<T extends object = Record<string, any>>(): () => T {
+export function getNamespace<T extends object = Partial<Record<string, any>>>(): () => T {
   const key = Symbol();
   return () => {
     const store = getStore();

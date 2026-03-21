@@ -1,7 +1,7 @@
 import { parse, type Cookies } from 'cookie';
 import { getNamespace } from '../util/requestLocal';
 
-const RLS = getNamespace<{ requestContext: RequestContext }>();
+const RLS = getNamespace<{ current?: RequestContext }>();
 
 export class RequestContext {
   readonly url: string;
@@ -22,12 +22,12 @@ export class RequestContext {
     return this._cookies;
   }
 
-  static getCurrentContext(): RequestContext {
-    return RLS().requestContext;
+  static get(): RequestContext {
+    // TODO: what should this class be for on the client?
+    return RLS().current!;
   }
 
-  /** Called by the framework to register this context in RLS. */
   register(): void {
-    RLS().requestContext = this;
+    RLS().current = this;
   }
 }

@@ -68,10 +68,8 @@ console.log(`isomorphic-stores demo running at ${server.url}`);
 
 // 3. SSR handler
 async function handleSSR(req: Request): Promise<Response> {
-  return new Response(handlePage(req, DemoPage, {
+  return handlePage(req, DemoPage, {
     clientBundleUrl: '/client.js',
     urlPrefix: baseUrl,
-  }), {
-    headers: { 'Content-Type': 'text/html; charset=utf-8' },
   });
 }

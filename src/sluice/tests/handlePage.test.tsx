@@ -22,14 +22,15 @@ async function collectStream(stream: ReadableStream<Uint8Array>): Promise<string
 
 const TEST_RENDER_TIMEOUT_MS = 150;
 
-function render(PageClass: new () => Page, clientBundleUrl = '/client.js'): Promise<string> {
+async function render(PageClass: new () => Page, clientBundleUrl = '/client.js'): Promise<string> {
   const req = new Request('http://localhost/');
-  return collectStream(handlePage(req, PageClass, { clientBundleUrl, renderTimeout: TEST_RENDER_TIMEOUT_MS }));
+  const response = await handlePage(req, PageClass, { clientBundleUrl, renderTimeout: TEST_RENDER_TIMEOUT_MS });
+  return collectStream(response.body!);
 }
 
 function simplePage(elements: React.ReactElement[], opts?: { title?: string; styles?: PageStyle[] }): new () => Page {
   return class implements Page {
-    createStores() {}
+    handleRoute() { return { status: 200 } }
     getElements() { return elements; }
     getTitle() { return opts?.title ?? 'Test'; }
     getStyles() { return opts?.styles ?? []; }
@@ -96,11 +97,11 @@ describe('handlePage', () => {
       <Root when={when}><div>Delayed</div></Root>,
     ]);
     const req = new Request('http://localhost/');
-    const stream = handlePage(req, P, { clientBundleUrl: '/client.js' });
+    const response = await handlePage(req, P, { clientBundleUrl: '/client.js' });
 
     // Resolve the promise so the stream can complete
     resolve();
-    const html = await collectStream(stream);
+    const html = await collectStream(response.body!);
 
     expect(html).toContain('Delayed');
   });
@@ -114,11 +115,11 @@ describe('handlePage', () => {
       <Root><div>Fast</div></Root>,
     ]);
     const req = new Request('http://localhost/');
-    const stream = handlePage(req, P, { clientBundleUrl: '/client.js' });
+    const response = await handlePage(req, P, { clientBundleUrl: '/client.js' });
 
     // Fast resolves immediately, slow resolves after
     resolveFirst();
-    const html = await collectStream(stream);
+    const html = await collectStream(response.body!);
 
     expect(html.indexOf('Slow')).toBeLessThan(html.indexOf('Fast'));
   });
@@ -230,10 +231,10 @@ describe('handlePage', () => {
       <DelayedRoot delay={when}><span>Waited</span></DelayedRoot>,
     ]);
     const req = new Request('http://localhost/');
-    const stream = handlePage(req, P, { clientBundleUrl: '/client.js' });
+    const response = await handlePage(req, P, { clientBundleUrl: '/client.js' });
 
     resolve();
-    const html = await collectStream(stream);
+    const html = await collectStream(response.body!);
 
     expect(resolved).toBe(true);
     expect(html).toContain('Waited');
@@ -281,7 +282,7 @@ describe('handlePage', () => {
     ]);
     const html = await render(P, '/bundle.js');
 
-    expect(html).toContain('<script type="module" src="/bundle.js">');
+    expect(html).toContain('<script async type="module" src="/bundle.js">');
   });
 
   test('times out and skips pending elements', async () => {
@@ -294,7 +295,8 @@ describe('handlePage', () => {
     ]);
 
     const req = new Request('http://localhost/');
-    const html = await collectStream(handlePage(req, P, { clientBundleUrl: '/client.js', renderTimeout: 50 }));
+    const response = await handlePage(req, P, { clientBundleUrl: '/client.js', renderTimeout: 50 });
+    const html = await collectStream(response.body!);
 
     expect(html).toContain('Ready');
     expect(html).toContain('Also Ready');
@@ -305,7 +307,7 @@ describe('handlePage', () => {
   test('calls createStores on the page', async () => {
     let storesCreated = false;
     class TestPage implements Page {
-      createStores() { storesCreated = true; }
+      handleRoute() { storesCreated = true; return { status: 200 }; }
       getElements() { return [<Root><div>Hi</div></Root>]; }
       getTitle() { return 'Test'; }
       getStyles() { return []; }

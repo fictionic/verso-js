@@ -17,7 +17,7 @@ export async function bootstrap(PageClass: new () => Page): Promise<void> {
   Fetch.getCache().client().rehydrate(fetchCache);
 
   const page = new PageClass();
-  page.createStores();
+  page.handleRoute();
 
   const tokens = tokenizeElements(page.getElements());
 
