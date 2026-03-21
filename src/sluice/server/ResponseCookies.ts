@@ -12,6 +12,7 @@ export class ResponseCookies {
   constructor() {
     this.cookies = new Map();
     this.locked = false;
+    RLS().current = this;
   }
 
   setCookie(name: string, value: string, options?: CookieOptions) {
@@ -34,11 +35,7 @@ export class ResponseCookies {
     return headers;
   }
 
-  static get(): ResponseCookies {
-    return RLS().current!;
-  }
-
-  register(): void {
-    RLS().current = this;
+  static get(): ResponseCookies | undefined {
+    return RLS().current;
   }
 }

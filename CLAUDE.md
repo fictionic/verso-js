@@ -168,7 +168,7 @@ Run with `bun src/demo/server.tsx`. Exercises sluice + isomorphic-stores togethe
 - Support pre-building the client bundle as a separate step (for prod), distinct from on-the-fly bundling at dev server startup
 - add more methods to the Page API like getStyles, getScripts, etc
 - API to allow page authors to transport arbitrary server-side data down to the client
-- routing
+- expose a `getRouteParams()` helper function so Pages can access route params without importing `RequestContext` directly
 - middleware
 - add the ability to register a callback on Root mount for a particular Root
 - fetch: support for opting into response replaying of non-GET requests

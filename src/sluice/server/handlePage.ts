@@ -1,9 +1,10 @@
 import type { Page } from '../Page';
 import { startRequest } from '../util/requestLocal';
-import { RequestContext } from './RequestContext';
+import { RequestContext } from '../core/RequestContext';
 import { Fetch } from '../core/fetch/Fetch';
 import {makeStreamer} from './stream';
 import {ResponseCookies} from './ResponseCookies';
+import type {ParamData} from 'path-to-regexp';
 
 const RENDER_TIMEOUT_MS = 20_000;
 
@@ -16,6 +17,7 @@ interface Options {
 export async function handlePage(
   req: Request,
   PageClass: new () => Page,
+  routeParams: ParamData,
   {
     clientBundleUrl,
     renderTimeout = RENDER_TIMEOUT_MS,
@@ -24,10 +26,8 @@ export async function handlePage(
 ): Promise<Response> {
 
   const response = await startRequest(async () => {
-    const ctx = new RequestContext(req);
+    RequestContext.serverInit(req, routeParams);
     const cookies = new ResponseCookies();
-    ctx.register();
-    cookies.register();
     Fetch.init({
       urlPrefix: urlPrefix ?? null,
     });

@@ -1,12 +1,12 @@
 import { unlink } from 'node:fs/promises';
 
-export async function buildClientBundle(pageModulePath: string): Promise<string> {
+export async function buildClientBundle(routesModulePath: string): Promise<string> {
   const entryPath = `/tmp/iso-client-entry-${Date.now()}.tsx`;
 
   await Bun.write(entryPath, `
-import PageClass from ${JSON.stringify(pageModulePath)};
+import routes from "${routesModulePath}";
 import { bootstrap } from ${JSON.stringify(import.meta.dir + '/client/bootstrap.ts')};
-bootstrap(PageClass);
+bootstrap(routes);
 `);
 
   try {

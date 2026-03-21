@@ -24,7 +24,7 @@ const TEST_RENDER_TIMEOUT_MS = 150;
 
 async function render(PageClass: new () => Page, clientBundleUrl = '/client.js'): Promise<string> {
   const req = new Request('http://localhost/');
-  const response = await handlePage(req, PageClass, { clientBundleUrl, renderTimeout: TEST_RENDER_TIMEOUT_MS });
+  const response = await handlePage(req, PageClass, {}, { clientBundleUrl, renderTimeout: TEST_RENDER_TIMEOUT_MS });
   return collectStream(response.body!);
 }
 
@@ -97,7 +97,7 @@ describe('handlePage', () => {
       <Root when={when}><div>Delayed</div></Root>,
     ]);
     const req = new Request('http://localhost/');
-    const response = await handlePage(req, P, { clientBundleUrl: '/client.js' });
+    const response = await handlePage(req, P, {}, { clientBundleUrl: '/client.js' });
 
     // Resolve the promise so the stream can complete
     resolve();
@@ -115,7 +115,7 @@ describe('handlePage', () => {
       <Root><div>Fast</div></Root>,
     ]);
     const req = new Request('http://localhost/');
-    const response = await handlePage(req, P, { clientBundleUrl: '/client.js' });
+    const response = await handlePage(req, P, {}, { clientBundleUrl: '/client.js' });
 
     // Fast resolves immediately, slow resolves after
     resolveFirst();
@@ -231,7 +231,7 @@ describe('handlePage', () => {
       <DelayedRoot delay={when}><span>Waited</span></DelayedRoot>,
     ]);
     const req = new Request('http://localhost/');
-    const response = await handlePage(req, P, { clientBundleUrl: '/client.js' });
+    const response = await handlePage(req, P, {}, { clientBundleUrl: '/client.js' });
 
     resolve();
     const html = await collectStream(response.body!);
@@ -295,7 +295,7 @@ describe('handlePage', () => {
     ]);
 
     const req = new Request('http://localhost/');
-    const response = await handlePage(req, P, { clientBundleUrl: '/client.js', renderTimeout: 50 });
+    const response = await handlePage(req, P, {}, { clientBundleUrl: '/client.js', renderTimeout: 50 });
     const html = await collectStream(response.body!);
 
     expect(html).toContain('Ready');

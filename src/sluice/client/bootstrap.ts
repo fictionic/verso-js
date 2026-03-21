@@ -1,15 +1,25 @@
 import { scheduleRender } from '../core/components/Root';
 import { TOKEN, tokenizeElements } from '../core/elementTokenizer';
-import type { Page } from '../Page';
 import { FETCH_CACHE_KEY, FN_RECEIVE_LATE_DATA_ARRIVAL, FN_HYDRATE_ROOTS_UP_TO, SluicePipe } from '../core/SluicePipe';
 import { PAGE_ELEMENT_TOKEN_ID_ATTR, PAGE_ROOT_ELEMENT_ATTR } from '../constants';
 import { hydrateRoot } from 'react-dom/client';
 import { global } from './globals';
 import {Fetch} from '../core/fetch/Fetch';
+import {createRouter, type SluiceRoutes} from '../server/router';
+import {RequestContext} from '../core/RequestContext';
 
 global.CLIENT_READY_DFD = Promise.withResolvers<void>();
 
-export async function bootstrap(PageClass: new () => Page): Promise<void> {
+export async function bootstrap(routes: SluiceRoutes): Promise<void> {
+  const path = window.location.pathname;
+  const router = createRouter(routes);
+  const routeResult = router.matchRoute(path);
+  if (!routeResult) {
+    console.error("No route!");
+    return;
+  }
+  const { page: PageClass, params: routeParams } = routeResult;
+  RequestContext.clientInit(routeParams);
   Fetch.init();
   const readablePipe = SluicePipe.reader();
   const fetchCache = (readablePipe.readValue(FETCH_CACHE_KEY) ?? {});

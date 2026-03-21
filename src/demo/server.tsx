@@ -1,10 +1,11 @@
-import { handlePage } from '@/sluice/server/handlePage';
-import { buildClientBundle } from '@/sluice/buildClientBundle';
-import DemoPage from './DemoPage';
+import {createSluiceServer} from '@/sluice/server/createSluiceServer';
+import routes from './routes';
 
-// 1. Build client bundle at startup
-const clientJs = await buildClientBundle(import.meta.dir + '/DemoPage.tsx');
-console.log(`[build] client bundle: ${(clientJs.length / 1024).toFixed(1)} KB`);
+const sluiceServer = await createSluiceServer({
+  routes: routes,
+  routesModulePath: import.meta.dir + '/routes',
+  urlPrefix: 'http://localhost:3000',
+});
 
 // API data
 const NAMES: Record<number, string> = {
@@ -23,7 +24,7 @@ function cookieLatency(req: Request, key: string, fallback: number): number {
 }
 
 // 2. Start server
-const server = Bun.serve({
+Bun.serve({
   routes: {
     '/api/users/:id': {
       GET: async (req) => {
@@ -56,20 +57,9 @@ const server = Bun.serve({
         });
       },
     },
-    '/client.js': {
-      GET: () => new Response(clientJs, { headers: { 'Content-Type': 'application/javascript' } }),
-    },
+    ...sluiceServer.routes,
   },
-  fetch: handleSSR,
+  fetch: sluiceServer.serve,
 });
 
-const baseUrl = server.url.href.replace(/\/$/, '');
-console.log(`isomorphic-stores demo running at ${server.url}`);
-
-// 3. SSR handler
-async function handleSSR(req: Request): Promise<Response> {
-  return handlePage(req, DemoPage, {
-    clientBundleUrl: '/client.js',
-    urlPrefix: baseUrl,
-  });
-}
+console.log("started server");
