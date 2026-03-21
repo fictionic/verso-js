@@ -5,25 +5,23 @@ import { PAGE_ELEMENT_TOKEN_ID_ATTR, PAGE_ROOT_ELEMENT_ATTR } from '../constants
 import { hydrateRoot } from 'react-dom/client';
 import { global } from './globals';
 import {Fetch} from '../core/fetch/Fetch';
-import {createRouter, type SluiceRoutes} from '../server/router';
 import {RequestContext} from '../core/RequestContext';
+import type {Page} from '../Page';
+import {match} from 'path-to-regexp';
 
 global.CLIENT_READY_DFD = Promise.withResolvers<void>();
 
-export async function bootstrap(routes: SluiceRoutes): Promise<void> {
-  const path = window.location.pathname;
-  const router = createRouter(routes);
-  const routeResult = router.matchRoute(path);
+export async function bootstrap(PageClass: new () => Page, path: string): Promise<void> {
+  const routeResult = match(path)(location.pathname);
   if (!routeResult) {
-    console.error("No route!");
+    console.error("no route!");
     return;
   }
-  const { page: PageClass, params: routeParams } = routeResult;
+  const { params: routeParams } = routeResult;
   RequestContext.clientInit(routeParams);
   Fetch.init();
   const readablePipe = SluicePipe.reader();
   const fetchCache = (readablePipe.readValue(FETCH_CACHE_KEY) ?? {});
-  console.log('[sluice-debug] rehydrated cache keys:', Object.keys(fetchCache), 'entries:', Object.entries(fetchCache).map(([k, v]: [string, any]) => `${k}: response=${!!v.response}, requesters=${v.requesters}`));
   Fetch.getCache().client().rehydrate(fetchCache);
 
   const page = new PageClass();

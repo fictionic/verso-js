@@ -1,13 +1,12 @@
-import DemoPage from "./DemoPage";
-import LinkPage from "./LinkPage";
+import type {SluiceRoutes} from "@/sluice/server/router";
 
 export default {
   DemoPage: {
     path: '/',
-    page: DemoPage,
+    page: './DemoPage',
   },
   LinkPage: {
     path: '/link',
-    page: LinkPage,
+    page: './LinkPage',
   },
-};
+} satisfies SluiceRoutes;

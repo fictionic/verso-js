@@ -1,29 +1,31 @@
 import {match, type ParamData} from "path-to-regexp";
-import type {Page} from "../Page";
 
 export type SluiceRoutes = {
   [routeName: string]: {
     path: string;
-    page: new () => Page;
+    page: string;
   };
 };
 
 export interface RouteMatch {
-  page: new () => Page;
+  routeName: string;
+  page: string;
   params: ParamData;
 };
 
 export function createRouter(routes: SluiceRoutes) {
-  const compiled = Object.values(routes).map(({ path, page }) => ({
+  const compiled = Object.entries(routes).map(([routeName, { path, page }]) => ({
+    routeName,
     matchFn: match(path),
     page,
   }));
   return {
     matchRoute: (path: string): RouteMatch | null => {
-      for (const { matchFn, page } of compiled) {
+      for (const { routeName, matchFn, page } of compiled) {
         const result = matchFn(path);
         if (result) {
           return {
+            routeName,
             page,
             params: result.params,
           };

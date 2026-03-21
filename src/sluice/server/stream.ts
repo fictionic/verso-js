@@ -1,3 +1,4 @@
+import type {RouteAssets} from "../bundle";
 import {Fetch} from "../core/fetch/Fetch";
 import {FETCH_CACHE_KEY, FN_HYDRATE_ROOTS_UP_TO, FN_RECEIVE_LATE_DATA_ARRIVAL, SluicePipe} from "../core/SluicePipe";
 import type {Page} from "../Page";
@@ -8,10 +9,10 @@ const encoder = new TextEncoder();
 
 interface StreamOpts {
   renderTimeout: number;
-  clientBundleUrl: string; // temporary until we do bundling
+  routeAssets: RouteAssets;
 }
 
-export function makeStreamer(page: Page, { renderTimeout, clientBundleUrl }: StreamOpts) {
+export function makeStreamer(page: Page, { renderTimeout, routeAssets }: StreamOpts) {
 
   const { readable, writable } = new TransformStream<Uint8Array>();
 
@@ -34,7 +35,7 @@ export function makeStreamer(page: Page, { renderTimeout, clientBundleUrl }: Str
 
   async function writePage() {
     write(`<!DOCTYPE html><html lang="en"><head>`);
-    writeHeader(page, write);
+    writeHeader(page, routeAssets.stylesheets, write);
     write(`</head><body>`);
     flush();
 
@@ -78,7 +79,9 @@ export function makeStreamer(page: Page, { renderTimeout, clientBundleUrl }: Str
     const fetchCache = Fetch.getCache().server().dehydrate();
     console.log('[handlePage:debug] dehydrated cache keys:', Object.keys(fetchCache), 'entries:', Object.entries(fetchCache).map(([k, v]) => `${k}: response=${!!v.response}, requesters=${v.requesters}`));
     writeablePipe.writeValue(FETCH_CACHE_KEY, fetchCache);
-    write(`<script async type="module" src="${clientBundleUrl}"></script>\n`);
+    routeAssets.scripts.forEach((scriptBundleUrl) => {
+      write(`<script async type="module" src="${scriptBundleUrl}"></script>\n`);
+    });
     hydrateRootsUpTo(theFoldIndex - 1);
     flush();
   }

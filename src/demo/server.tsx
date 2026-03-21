@@ -1,9 +1,12 @@
 import {createSluiceServer} from '@/sluice/server/createSluiceServer';
-import routes from './routes';
+import {bundle} from '@/sluice/bunBundler';
+
+const routesPath = import.meta.dir + '/routes';
+const bundleResult = await bundle(routesPath);
 
 const sluiceServer = await createSluiceServer({
-  routes: routes,
-  routesModulePath: import.meta.dir + '/routes',
+  routesPath,
+  bundleResult,
   urlPrefix: 'http://localhost:3000',
 });
 

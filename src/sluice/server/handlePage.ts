@@ -5,11 +5,12 @@ import { Fetch } from '../core/fetch/Fetch';
 import {makeStreamer} from './stream';
 import {ResponseCookies} from './ResponseCookies';
 import type {ParamData} from 'path-to-regexp';
+import type {RouteAssets} from '../bundle';
 
 const RENDER_TIMEOUT_MS = 20_000;
 
 interface Options {
-  clientBundleUrl: string,
+  routeAssets: RouteAssets;
   renderTimeout?: number;
   urlPrefix?: string;
 };
@@ -19,7 +20,7 @@ export async function handlePage(
   PageClass: new () => Page,
   routeParams: ParamData,
   {
-    clientBundleUrl,
+    routeAssets,
     renderTimeout = RENDER_TIMEOUT_MS,
     urlPrefix,
   }: Options,
@@ -49,7 +50,7 @@ export async function handlePage(
       headers.append(name, value);
     });
 
-    const streamer = makeStreamer(page, { renderTimeout, clientBundleUrl } );
+    const streamer = makeStreamer(page, { renderTimeout, routeAssets } );
     const readable = streamer.stream();
     return new Response(readable, {
       status: statusCode,

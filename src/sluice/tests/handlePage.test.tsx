@@ -5,6 +5,7 @@ import { Root, makeRootComponent } from '@/sluice/core/components/Root';
 import RootContainer from '@/sluice/core/components/RootContainer';
 import TheFold from '@/sluice/core/components/TheFold';
 import type { Page, PageStyle } from '@/sluice/Page';
+import type { RouteAssets } from '@/sluice/bundle';
 
 // --- Helpers ---
 
@@ -21,10 +22,11 @@ async function collectStream(stream: ReadableStream<Uint8Array>): Promise<string
 }
 
 const TEST_RENDER_TIMEOUT_MS = 150;
+const DEFAULT_ROUTE_ASSETS: RouteAssets = { scripts: ['/client.js'], stylesheets: [] };
 
-async function render(PageClass: new () => Page, clientBundleUrl = '/client.js'): Promise<string> {
+async function render(PageClass: new () => Page, routeAssets: RouteAssets = DEFAULT_ROUTE_ASSETS): Promise<string> {
   const req = new Request('http://localhost/');
-  const response = await handlePage(req, PageClass, {}, { clientBundleUrl, renderTimeout: TEST_RENDER_TIMEOUT_MS });
+  const response = await handlePage(req, PageClass, {}, { routeAssets, renderTimeout: TEST_RENDER_TIMEOUT_MS });
   return collectStream(response.body!);
 }
 
@@ -97,7 +99,7 @@ describe('handlePage', () => {
       <Root when={when}><div>Delayed</div></Root>,
     ]);
     const req = new Request('http://localhost/');
-    const response = await handlePage(req, P, {}, { clientBundleUrl: '/client.js' });
+    const response = await handlePage(req, P, {}, { routeAssets: DEFAULT_ROUTE_ASSETS });
 
     // Resolve the promise so the stream can complete
     resolve();
@@ -115,7 +117,7 @@ describe('handlePage', () => {
       <Root><div>Fast</div></Root>,
     ]);
     const req = new Request('http://localhost/');
-    const response = await handlePage(req, P, {}, { clientBundleUrl: '/client.js' });
+    const response = await handlePage(req, P, {}, { routeAssets: DEFAULT_ROUTE_ASSETS });
 
     // Fast resolves immediately, slow resolves after
     resolveFirst();
@@ -154,11 +156,11 @@ describe('handlePage', () => {
     expect(twoIdx).toBeLessThan(bootstrapIdx);
   });
 
-  test('uses the provided client bundle URL', async () => {
+  test('uses the provided script URLs from routeAssets', async () => {
     const P = simplePage([
       <Root><div>Hello</div></Root>,
     ]);
-    const html = await render(P, '/my-bundle.js');
+    const html = await render(P, { scripts: ['/my-bundle.js'], stylesheets: [] });
 
     expect(html).toContain('src="/my-bundle.js"');
   });
@@ -231,7 +233,7 @@ describe('handlePage', () => {
       <DelayedRoot delay={when}><span>Waited</span></DelayedRoot>,
     ]);
     const req = new Request('http://localhost/');
-    const response = await handlePage(req, P, {}, { clientBundleUrl: '/client.js' });
+    const response = await handlePage(req, P, {}, { routeAssets: DEFAULT_ROUTE_ASSETS });
 
     resolve();
     const html = await collectStream(response.body!);
@@ -280,7 +282,7 @@ describe('handlePage', () => {
     const P = simplePage([
       <Root><div>Hello</div></Root>,
     ]);
-    const html = await render(P, '/bundle.js');
+    const html = await render(P, { scripts: ['/bundle.js'], stylesheets: [] });
 
     expect(html).toContain('<script async type="module" src="/bundle.js">');
   });
@@ -295,7 +297,7 @@ describe('handlePage', () => {
     ]);
 
     const req = new Request('http://localhost/');
-    const response = await handlePage(req, P, {}, { clientBundleUrl: '/client.js', renderTimeout: 50 });
+    const response = await handlePage(req, P, {}, { routeAssets: DEFAULT_ROUTE_ASSETS, renderTimeout: 50 });
     const html = await collectStream(response.body!);
 
     expect(html).toContain('Ready');

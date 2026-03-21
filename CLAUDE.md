@@ -3,7 +3,7 @@
 
 **Sluice** is a streaming SSR framework, and **isomorphic-stores** is its state management layer — a framework-agnostic adapter system for plugging Zustand, Redux, etc. into Sluice's SSR model. They live in one repo as a single package (`sluice`).
 
-**Runtime strategy**: Sluice is not tied to Bun. Bun is used as the current dev runtime, but the framework will eventually use Vite for the dev server and support Node/Deno as production runtimes. Framework code should avoid Bun-specific APIs; Bun-specific code (like `buildClientBundle.ts`) is temporary and will be replaced.
+**Runtime strategy**: Sluice is not tied to Bun. Bun is used as the current dev runtime, but the framework will eventually use Vite for the dev server and support Node/Deno as production runtimes. Framework code should avoid Bun-specific APIs; Bun-specific code (like `bunBundler.ts`) is temporary and will be replaced.
 
 The core idea: stores are created server-side before render, async data is declared via `waitFor`, and Sluice's `Root` component blocks rendering until the store is ready. Client-side components can also create stores independently via `useCreateClientStore`.
 
@@ -14,11 +14,12 @@ A secondary goal: replace the pattern of bubbling all UI updates up through a ro
 ```
 src/
 ├── sluice/              # SSR framework
-│   ├── Page.ts          # Page interface (createStores, getElements, getTitle, getStyles)
-│   ├── buildClientBundle.ts
-│   ├── client.ts        # client entry point (bootstrap)
+│   ├── Page.ts          # Page interface (handleRoute, getElements, getTitle, getStyles)
+│   ├── bundle.ts        # bundler-agnostic types (RouteAssets, BundleManifest, BundleResult)
+│   ├── bunBundler.ts    # Bun-specific bundler; produces BundleResult with per-route splitting
 │   ├── constants.ts     # DOM attribute names (PAGE_ROOT_ELEMENT_ATTR, etc.)
 │   ├── core/
+│   │   ├── RequestContext.ts   # isomorphic request context (route params, cookies); RLS-backed
 │   │   ├── SluicePipe.ts       # typed server→client pipe instance (schema + constants)
 │   │   ├── elementTokenizer.ts
 │   │   ├── fetch/
@@ -30,14 +31,20 @@ src/
 │   │       ├── Root.tsx
 │   │       ├── RootContainer.tsx
 │   │       └── TheFold.tsx
+│   ├── client/
+│   │   └── bootstrap.ts # client entry point; receives PageClass + route pattern
 │   ├── server/
-│   │   ├── RequestContext.ts
-│   │   ├── handlePage.ts
-│   │   └── handleBody.ts
+│   │   ├── createSluiceServer.ts  # wires up routing, bundle serving, and SSR handler
+│   │   ├── handlePage.ts          # orchestrates per-request SSR
+│   │   ├── stream.ts              # streaming HTML writer (header, roots, bootstrap, late arrivals)
+│   │   ├── writeHeader.ts         # <head> rendering (title, styles, bundle stylesheets)
+│   │   ├── writeBody.ts           # body rendering (roots, containers, TheFold)
+│   │   ├── ResponseCookies.ts     # response cookie accumulator; RLS-backed
+│   │   └── router.ts              # route matching via path-to-regexp
 │   ├── tests/
 │   └── util/
 │       ├── ServerClientPipe.ts  # generic typed server→client pipe factory
-│       ├── cookies.ts
+│       ├── cookies.ts           # isomorphic cookie get/set util
 │       └── requestLocal.ts
 ├── stores/              # isomorphic-stores library
 │   ├── index.ts         # types-only entry point
@@ -52,7 +59,9 @@ src/
 │   └── tests/
 └── demo/                # demo app (exercises sluice + stores together)
     ├── server.tsx
+    ├── routes.ts        # route definitions (path + page module path), typed as SluiceRoutes
     ├── DemoPage.tsx
+    ├── LinkPage.tsx
     ├── StoreRoot.tsx
     ├── adapters/        # Zustand + Redux adapter implementations
     ├── stores/          # demo store definitions + defineZustandIsoStore wrapper
@@ -129,13 +138,17 @@ MyStore.broadcast(message);
 
 ### Sluice SSR pipeline
 
-- `handlePage.ts` — streams HTML as roots become ready. Writes the shell immediately, then for each element awaits `element.props.when` before calling `renderToString`. When `TheFold` is reached, injects the dehydrated fetch cache and client bundle `<script>` tags. Roots arriving after the fold get inline `hydrateRootsUpTo` calls as they stream in.
-- `Root.tsx` — pass-through component; `when` is read directly from props by `handlePage`.
+- `createSluiceServer.ts` — wires everything together. Takes `routesPath` (path to routes module) and a `BundleResult`. Dynamically imports the routes module and each page class. Returns `routes` (static bundle-serving routes for `Bun.serve`) and `serve` (SSR request handler that matches routes, resolves page classes, and delegates to `handlePage`).
+- `handlePage.ts` — orchestrates per-request SSR. Initializes RLS (`RequestContext`, `ResponseCookies`, `Fetch`), calls `page.handleRoute()`, then delegates to `makeStreamer` for streaming HTML. Takes `routeAssets: RouteAssets` (per-route scripts and stylesheets from the bundle manifest).
+- `stream.ts` — streaming HTML writer. Writes the shell (`<head>`, styles, bundle stylesheets), then streams root elements in document order. At `TheFold`, injects the dehydrated fetch cache and per-route `<script>` tags from `routeAssets.scripts`. Below-fold roots get inline `hydrateRootsUpTo` pipe calls. Handles late data arrivals and timeouts.
+- `router.ts` — route matching via `path-to-regexp`. Routes are defined as `SluiceRoutes` — a map of route names to `{ path, page }` where `page` is a module path string (not a class reference). `createRouter` compiles patterns and returns `matchRoute(path) => { routeName, page, params }`.
+- `Root.tsx` — pass-through component; `when` is read directly from props by the stream writer.
 - `TheFold.tsx` — null-rendering sentinel; identifies the above/below-fold boundary.
 - `fetch/` — isomorphic fetch subsystem. Two audiences: consumers import `fetch` from `index.ts`; the framework uses `Fetch.init()`, `Fetch.fetch()`, and `Fetch.getCache()` from `Fetch.ts`. `Fetch.init()` creates a per-request `FetchCache` in RLS and sets `urlPrefix`. GETs are cached, deduplicated, and dehydrated; non-GETs pass through with `urlPrefix` applied. `FetchCache` exposes `server()` and `client()` accessor objects with environment-specific APIs. `nativeFetch.ts` provides an indirection over `globalThis.fetch` for testability.
 - `ServerClientPipe.ts` — generic factory (`createPipe<Schema>`) for typed server→client data transport via inline `<script>` tags. `SluicePipe.ts` is the sluice-specific instance.
-- `client/` — client entry point. Calls `Fetch.init()`, rehydrates the fetch cache from the pipe, creates a fresh `Page` instance, tokenizes elements, then hydrates roots as `hydrateRootsUpTo` events arrive.
-- `buildClientBundle.ts` — writes a temporary entry file that imports `PageClass` and calls `bootstrap(PageClass)`, then uses `Bun.build` to bundle for the browser.
+- `client/bootstrap.ts` — client entry point. Each route gets its own generated entry that imports the page class and calls `bootstrap(PageClass, routePattern)`. Bootstrap uses `path-to-regexp` to extract route params from `location.pathname`, initializes `RequestContext` (client mode) and `Fetch`, rehydrates the fetch cache from the pipe, tokenizes elements, then hydrates roots as `hydrateRootsUpTo` events arrive.
+- `bundle.ts` — bundler-agnostic types. `RouteAssets = { scripts, stylesheets }`, `BundleManifest = { [routeName]: RouteAssets }`, `BundleResult = { manifest, bundleContents }`. This is the contract between bundler implementations and the framework.
+- `bunBundler.ts` — Bun-specific bundler implementation. Generates per-route entry files in a `bundles/` directory, builds with `Bun.build` (`splitting: true`, `metafile: true`), correlates metafile outputs back to route names, and produces a `BundleResult`. Temporary — will be replaced by a Vite plugin.
 
 **SSR correctness note:** Zustand's `useStore` uses `useSyncExternalStore` with `getInitialState()` as the server snapshot, which returns state at construction time — before `waitFor` resolves. The Zustand adapter overrides `store.getInitialState = store.getState` so `renderToString` (called after `whenReady`) sees the resolved async values.
 
@@ -158,21 +171,22 @@ Server-side error handling: `Fetch.fetch()` fires the native fetch as a fire-and
 Stores are scoped to React context trees. `broadcast` is a minimal escape hatch: send a message to all mounted instances of a store type from anywhere. Fire-and-forget, no request/response semantics.
 
 ### Demo site
-Run with `bun src/demo/server.tsx`. Exercises sluice + isomorphic-stores together with Zustand stores, streaming roots, TheFold, late data arrivals, and cross-root broadcast.
+Run with `bun src/demo/server.tsx`. Routes are defined in `demo/routes.ts` as string page paths (e.g. `'./DemoPage'`), typed with `SluiceRoutes`. The server calls `bundle()` then `createSluiceServer()`. Exercises sluice + isomorphic-stores together with Zustand stores, streaming roots, TheFold, late data arrivals, routing, and cross-root broadcast.
 
 ### TODOs
 
 #### sluice (SSR framework)
-- Add a `createSluiceServer` function so server boilerplate (bundle build, `/client.js` route, SSR catch-all) lives in the framework rather than user code; this is also required for isomorphic cookie support — `handlePage` currently returns a bare `ReadableStream` with no access to the `Response` object, so the framework cannot set `Set-Cookie` headers. `createSluiceServer` would own `Response` construction, read pending cookies from RLS after `createStores()`, and attach them as headers before streaming begins
 - HMR for the client bundle in the dev server — currently requires a restart to pick up changes; `Bun.build` has no watch mode, so this would need to be built on top of it
 - Support pre-building the client bundle as a separate step (for prod), distinct from on-the-fly bundling at dev server startup
-- add more methods to the Page API like getStyles, getScripts, etc
+- Client-side transitions (SPA navigation) — `navigateTo()` function that lazy-loads the target route's page entry, unmounts the current page, and mounts the new one without a full page reload
 - API to allow page authors to transport arbitrary server-side data down to the client
 - expose a `getRouteParams()` helper function so Pages can access route params without importing `RequestContext` directly
 - middleware
 - add the ability to register a callback on Root mount for a particular Root
 - fetch: support for opting into response replaying of non-GET requests
 - fetch: binary (non-text) responses should bypass the cache rather than being corrupted by `response.text()`
+- make Roots show up properly in react devtools (right now they're Anonymous)
+- `failArrival`: when the stream ends, send a pipe call that tells the client to reject any still-pending `rootDomNodeDfds`. Without this, timed-out roots (server wrote `hydrateRootsUpTo` but the DOM node was never rendered) leave the client hanging — `CLIENT_READY_DFD` never resolves. The server should write this as the last thing before closing the stream in both `finish()` and the error `.catch` path in `stream.ts`.
 
 #### isomorphic-stores
 - Add a mechanism for adapters to integrate the isomorphic-stores `StoreProvider` with a framework-native provider — e.g. so the Redux adapter can render a react-redux `<Provider store={store}>` alongside the isomorphic-stores context
@@ -185,7 +199,7 @@ Run with `bun src/demo/server.tsx`. Exercises sluice + isomorphic-stores togethe
 - Add a demo of `nativeStore` access in `DemoPage`: a component that reads state imperatively via `instance.nativeStore.getState()` on button click
 
 #### Notes for the future
-- **Vite migration**: Replace `buildClientBundle` (Bun.build) with a Vite plugin. Vite will serve as the dev server runtime (replacing Bun.serve) and provide bundle splitting (non-negotiable), HMR, and CSS integration via `getHeadStylesheets`. Define a manifest contract (route → chunk URLs) that the Vite plugin produces and the server handler consumes. This is the bundler-agnostic boundary — the manifest is the stable API. Production builds will target Node and Deno as runtimes.
+- **Vite migration**: Replace `bunBundler.ts` (Bun.build) with a Vite plugin. Vite will serve as the dev server runtime (replacing Bun.serve) and provide HMR and CSS integration. The bundler-agnostic boundary is already in place: `bundle.ts` defines the `BundleResult` contract (manifest + bundle contents) that any bundler implementation must produce. Production builds will target Node and Deno as runtimes.
 - **ALS requirement**: Sluice currently requires `AsyncLocalStorage` (via `requestLocal.ts`). This limits deployment to Node, Bun, and Deno. Edge runtimes (Cloudflare Workers, Vercel Edge) don't support ALS. If edge support is needed, RLS would need an alternative implementation.
 - **Package splitting**: The Vite plugin should eventually be a separate package (`vite-plugin-sluice`) so that not every sluice user needs Vite as a dependency. For now everything lives in one package.
 
