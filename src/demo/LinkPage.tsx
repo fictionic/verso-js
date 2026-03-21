@@ -1,17 +1,17 @@
 import React from 'react';
 import RootContainer from '@/sluice/core/components/RootContainer';
-import type { Page, PageStyle } from '@/sluice/Page';
+import type { Page, Stylesheet } from '@/sluice/Page';
 
 export default class LinkPage implements Page {
   getTitle(): string {
     return 'Link Page';
   }
 
-  getStyles(): PageStyle[] {
-    return [`
+  getHeadStylesheets(): Stylesheet[] {
+    return [{ text: `
       body { margin: 0; background: #11111b; font-family: 'Inter', system-ui, -apple-system, sans-serif; color: #cdd6f4; }
       a { color: #cba6f7; }
-    `];
+    ` }];
   }
 
   handleRoute() {

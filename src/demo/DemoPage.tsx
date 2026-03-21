@@ -3,7 +3,7 @@ import { ProfileStore, ThemeStore, ActivityStore } from './stores';
 import StoreRoot from './StoreRoot';
 import RootContainer from '@/sluice/core/components/RootContainer';
 import TheFold from '@/sluice/core/components/TheFold';
-import type { Page, PageStyle } from '@/sluice/Page';
+import type { Page, Stylesheet } from '@/sluice/Page';
 import { User } from './components/User';
 import { Prefs } from './components/Prefs';
 import { Activity } from './components/Activity';
@@ -19,8 +19,8 @@ export default class DemoPage implements Page {
     return 'isomorphic-stores demo';
   }
 
-  getStyles(): PageStyle[] {
-    return [`
+  getHeadStylesheets(): Stylesheet[] {
+    return [{ text: `
       *, *::before, *::after { box-sizing: border-box; }
       body { margin: 0; background: #11111b; font-family: 'Inter', system-ui, -apple-system, sans-serif; color: #cdd6f4; }
       code {
@@ -41,7 +41,7 @@ export default class DemoPage implements Page {
       input:focus { border-color: #6c7086; }
       input::placeholder { color: #585b70; }
       @keyframes pulse { 0%, 100% { opacity: 1; } 50% { opacity: 0.35; } }
-    `];
+    ` }];
   }
 
   handleRoute() {

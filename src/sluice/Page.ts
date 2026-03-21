@@ -1,6 +1,6 @@
 import React from 'react';
 
-export type PageStyle = string | { href: string };
+export type Stylesheet = { href: string } | { text: string; type?: string; media?: string };
 
 export interface HandleRouteResult {
   status: number;
@@ -11,6 +11,6 @@ type MaybePromise<T> = T | Promise<T>;
 export interface Page {
   handleRoute(): MaybePromise<HandleRouteResult>;
   getTitle(): string;
-  getStyles(): PageStyle[];
+  getHeadStylesheets(): Stylesheet[];
   getElements(): React.ReactElement[];
 }

@@ -22,7 +22,7 @@ function simplePage(elements: React.ReactElement[]): Page {
     handleRoute() { return { status: 200 } },
     getElements() { return elements; },
     getTitle() { return 'Test'; },
-    getStyles() { return []; },
+    getHeadStylesheets() { return []; },
   };
 }
 

@@ -4,7 +4,7 @@ import { handlePage } from '@/sluice/server/handlePage';
 import { Root, makeRootComponent } from '@/sluice/core/components/Root';
 import RootContainer from '@/sluice/core/components/RootContainer';
 import TheFold from '@/sluice/core/components/TheFold';
-import type { Page, PageStyle } from '@/sluice/Page';
+import type { Page, Stylesheet } from '@/sluice/Page';
 import type { RouteAssets } from '@/sluice/bundle';
 
 // --- Helpers ---
@@ -30,12 +30,12 @@ async function render(PageClass: new () => Page, routeAssets: RouteAssets = DEFA
   return collectStream(response.body!);
 }
 
-function simplePage(elements: React.ReactElement[], opts?: { title?: string; styles?: PageStyle[] }): new () => Page {
+function simplePage(elements: React.ReactElement[], opts?: { title?: string; stylesheets?: Stylesheet[] }): new () => Page {
   return class implements Page {
     handleRoute() { return { status: 200 } }
     getElements() { return elements; }
     getTitle() { return opts?.title ?? 'Test'; }
-    getStyles() { return opts?.styles ?? []; }
+    getHeadStylesheets() { return opts?.stylesheets ?? []; }
   };
 }
 
@@ -59,17 +59,17 @@ describe('handlePage', () => {
   test('renders page title and inline styles', async () => {
     const P = simplePage([], {
       title: 'My App',
-      styles: ['body { color: red; }'],
+      stylesheets: [{ text: 'body { color: red; }' }],
     });
     const html = await render(P);
 
     expect(html).toContain('<title>My App</title>');
-    expect(html).toContain('<style>body { color: red; }</style>');
+    expect(html).toContain('<style type="text/css">body { color: red; }</style>');
   });
 
   test('renders stylesheet link tags', async () => {
     const P = simplePage([], {
-      styles: [{ href: '/styles.css' }],
+      stylesheets: [{ href: '/styles.css' }],
     });
     const html = await render(P);
 
@@ -312,7 +312,7 @@ describe('handlePage', () => {
       handleRoute() { storesCreated = true; return { status: 200 }; }
       getElements() { return [<Root><div>Hi</div></Root>]; }
       getTitle() { return 'Test'; }
-      getStyles() { return []; }
+      getHeadStylesheets() { return []; }
     }
     await render(TestPage);
 
