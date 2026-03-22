@@ -1,4 +1,3 @@
-import type { Page } from '../Page';
 import { startRequest } from '../util/requestLocal';
 import { RequestContext } from '../core/RequestContext';
 import { Fetch } from '../core/fetch/Fetch';
@@ -6,6 +5,8 @@ import {makeStreamer} from './stream';
 import {ResponseCookies} from './ResponseCookies';
 import type {ParamData} from 'path-to-regexp';
 import type {RouteAssets} from '../bundle';
+import type {PageInit} from '../Page';
+import {ResponderConfig} from '../core/ResponderConfig';
 
 const RENDER_TIMEOUT_MS = 20_000;
 
@@ -17,7 +18,7 @@ interface Options {
 
 export async function handlePage(
   req: Request,
-  PageClass: new () => Page,
+  init: PageInit,
   routeParams: ParamData,
   {
     routeAssets,
@@ -29,10 +30,9 @@ export async function handlePage(
   const response = await startRequest(async () => {
     RequestContext.serverInit(req, routeParams);
     const cookies = new ResponseCookies();
-    Fetch.init({
-      urlPrefix: urlPrefix ?? null,
-    });
-    const page = new PageClass();
+    Fetch.init({ urlPrefix: urlPrefix ?? null });
+    const c = new ResponderConfig();
+    const page = init({ getConfig: c.getValue });
     let statusCode: number;
     try {
       const { status } = await page.handleRoute();

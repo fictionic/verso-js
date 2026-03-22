@@ -6,12 +6,13 @@ import { hydrateRoot } from 'react-dom/client';
 import { global } from './globals';
 import {Fetch} from '../core/fetch/Fetch';
 import {RequestContext} from '../core/RequestContext';
-import type {Page} from '../Page';
 import {match} from 'path-to-regexp';
+import type {PageDefinition} from '../Page';
+import {ResponderConfig} from '../core/ResponderConfig';
 
 global.CLIENT_READY_DFD = Promise.withResolvers<void>();
 
-export async function bootstrap(PageClass: new () => Page, path: string): Promise<void> {
+export async function bootstrap(def: PageDefinition, path: string, middleware: string[]): Promise<void> {
   const routeResult = match(path)(location.pathname);
   if (!routeResult) {
     console.error("no route!");
@@ -23,8 +24,8 @@ export async function bootstrap(PageClass: new () => Page, path: string): Promis
   const readablePipe = SluicePipe.reader();
   const fetchCache = (readablePipe.readValue(FETCH_CACHE_KEY) ?? {});
   Fetch.getCache().client().rehydrate(fetchCache);
-
-  const page = new PageClass();
+  const c = new ResponderConfig();
+  const page = def.init({ getConfig: c.getValue });
   page.handleRoute();
 
   const tokens = tokenizeElements(page.getElements());

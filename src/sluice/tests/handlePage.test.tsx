@@ -4,7 +4,7 @@ import { handlePage } from '@/sluice/server/handlePage';
 import { Root, makeRootComponent } from '@/sluice/core/components/Root';
 import RootContainer from '@/sluice/core/components/RootContainer';
 import TheFold from '@/sluice/core/components/TheFold';
-import type { Page, Stylesheet } from '@/sluice/Page';
+import type { PageInit, PageMethods, Stylesheet } from '@/sluice/Page';
 import type { RouteAssets } from '@/sluice/bundle';
 
 // --- Helpers ---
@@ -24,19 +24,19 @@ async function collectStream(stream: ReadableStream<Uint8Array>): Promise<string
 const TEST_RENDER_TIMEOUT_MS = 150;
 const DEFAULT_ROUTE_ASSETS: RouteAssets = { scripts: ['/client.js'], stylesheets: [] };
 
-async function render(PageClass: new () => Page, routeAssets: RouteAssets = DEFAULT_ROUTE_ASSETS): Promise<string> {
+async function render(init: PageInit, routeAssets: RouteAssets = DEFAULT_ROUTE_ASSETS): Promise<string> {
   const req = new Request('http://localhost/');
-  const response = await handlePage(req, PageClass, {}, { routeAssets, renderTimeout: TEST_RENDER_TIMEOUT_MS });
+  const response = await handlePage(req, init, {}, { routeAssets, renderTimeout: TEST_RENDER_TIMEOUT_MS });
   return collectStream(response.body!);
 }
 
-function simplePage(elements: React.ReactElement[], opts?: { title?: string; stylesheets?: Stylesheet[] }): new () => Page {
-  return class implements Page {
-    handleRoute() { return { status: 200 } }
-    getElements() { return elements; }
-    getTitle() { return opts?.title ?? 'Test'; }
-    getHeadStylesheets() { return opts?.stylesheets ?? []; }
-  };
+function simplePage(elements: React.ReactElement[], opts?: { title?: string; stylesheets?: Stylesheet[] }): PageInit {
+  return () => ({
+    handleRoute() { return { status: 200 } },
+    getElements() { return elements; },
+    getTitle() { return opts?.title ?? 'Test'; },
+    getHeadStylesheets() { return opts?.stylesheets ?? []; },
+  });
 }
 
 // --- Tests ---
@@ -306,16 +306,16 @@ describe('handlePage', () => {
     expect(html).toContain('</body></html>');
   });
 
-  test('calls createStores on the page', async () => {
-    let storesCreated = false;
-    class TestPage implements Page {
-      handleRoute() { storesCreated = true; return { status: 200 }; }
-      getElements() { return [<Root><div>Hi</div></Root>]; }
-      getTitle() { return 'Test'; }
-      getHeadStylesheets() { return []; }
-    }
-    await render(TestPage);
+  test('calls handleRoute on the page', async () => {
+    let handleRouteCalled = false;
+    const init: PageInit = () => ({
+      handleRoute() { handleRouteCalled = true; return { status: 200 }; },
+      getElements() { return [<Root><div>Hi</div></Root>]; },
+      getTitle() { return 'Test'; },
+      getHeadStylesheets() { return []; },
+    });
+    await render(init);
 
-    expect(storesCreated).toBe(true);
+    expect(handleRouteCalled).toBe(true);
   });
 });

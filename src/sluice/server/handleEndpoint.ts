@@ -1,9 +1,10 @@
-import type { Endpoint } from '../Page';
 import { startRequest } from '../util/requestLocal';
 import { RequestContext } from '../core/RequestContext';
 import { ResponseCookies } from './ResponseCookies';
 import type {ParamData} from 'path-to-regexp';
 import {Fetch} from '../core/fetch/Fetch';
+import type {EndpointInit} from '../Endpoint';
+import {ResponderConfig} from '../core/ResponderConfig';
 
 interface Options {
   urlPrefix?: string;
@@ -11,7 +12,7 @@ interface Options {
 
 export async function handleEndpoint(
   req: Request,
-  EndpointClass: new () => Endpoint,
+  init: EndpointInit,
   routeParams: ParamData,
   { urlPrefix }: Options,
 ): Promise<Response> {
@@ -19,7 +20,8 @@ export async function handleEndpoint(
     RequestContext.serverInit(req, routeParams);
     const cookies = new ResponseCookies();
     Fetch.init({ urlPrefix: urlPrefix ?? null });
-    const endpoint = new EndpointClass();
+    const c = new ResponderConfig();
+    const endpoint = init({ getConfig: c.getValue });
     let statusCode: number;
     try {
       const { status } = await endpoint.handleRoute();

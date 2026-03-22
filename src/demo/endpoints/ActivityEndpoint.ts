@@ -1,16 +1,16 @@
-import type { Endpoint, HandleRouteResult } from '@/sluice/Page';
+import { defineEndpoint } from '@/sluice/Endpoint';
 import { delay } from '../delay';
 import { cookieLatency } from './cookieLatency';
 
-export default class ActivityEndpoint implements Endpoint {
-  async handleRoute(): Promise<HandleRouteResult> {
+export default defineEndpoint(() => ({
+  async handleRoute() {
     await delay(cookieLatency('activity', 1500));
     return { status: 200 };
-  }
+  },
 
   getContentType() {
     return 'application/json';
-  }
+  },
 
   getResponseData() {
     return JSON.stringify({
@@ -22,5 +22,5 @@ export default class ActivityEndpoint implements Endpoint {
         'Joined #general channel',
       ],
     });
-  }
-}
+  },
+}));

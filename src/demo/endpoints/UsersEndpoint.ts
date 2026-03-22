@@ -1,4 +1,4 @@
-import type { Endpoint, HandleRouteResult } from '@/sluice/Page';
+import { defineEndpoint } from '@/sluice/Endpoint';
 import { getCurrentRequestContext } from '@/sluice/core/RequestContext';
 import { delay } from '../delay';
 import { cookieLatency } from './cookieLatency';
@@ -11,24 +11,25 @@ const NAMES: Record<number, string> = {
   5: 'Eve',
 };
 
-export default class UsersEndpoint implements Endpoint {
-  private id!: number;
+export default defineEndpoint(() => {
+  let id: number;
+  return {
+    async handleRoute() {
+      const ctx = getCurrentRequestContext();
+      id = Number(ctx.routeParams['id']);
+      await delay(cookieLatency('users', 500));
+      return { status: 200 };
+    },
 
-  async handleRoute(): Promise<HandleRouteResult> {
-    const ctx = getCurrentRequestContext();
-    this.id = Number(ctx.routeParams['id']);
-    await delay(cookieLatency('users', 500));
-    return { status: 200 };
-  }
+    getContentType() {
+      return 'application/json';
+    },
 
-  getContentType() {
-    return 'application/json';
-  }
-
-  getResponseData() {
-    return JSON.stringify({
-      username: NAMES[this.id] ?? `User${this.id}`,
-      email: `user${this.id}@example.com`,
-    });
-  }
-}
+    getResponseData() {
+      return JSON.stringify({
+        username: NAMES[id] ?? `User${id}`,
+        email: `user${id}@example.com`,
+      });
+    },
+  };
+});

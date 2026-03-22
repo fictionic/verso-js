@@ -5,15 +5,13 @@ const routesPath = import.meta.dir + '/routes';
 const bundleResult = await bundle(routesPath);
 
 const sluiceServer = await createSluiceServer({
-  routesPath,
+  siteConfigPath: routesPath,
   bundleResult,
   urlPrefix: 'http://localhost:3000',
 });
 
 Bun.serve({
-  routes: {
-    ...sluiceServer.routes,
-  },
+  routes: sluiceServer.routes,
   fetch: sluiceServer.serve,
 });
 

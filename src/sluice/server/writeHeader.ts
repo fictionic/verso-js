@@ -1,6 +1,6 @@
-import type {Page, Stylesheet} from "../Page";
+import type {PageMethods, Stylesheet} from "../Page";
 
-export function writeHeader(page: Page, stylesheets: string[], write: (html: string) => void) {
+export function writeHeader(page: PageMethods, stylesheets: string[], write: (html: string) => void) {
   write(`<title>${page.getTitle()}</title>`);
   write(`${renderStylesheets(page.getHeadStylesheets())}`);
   stylesheets.forEach(href => {

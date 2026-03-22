@@ -1,24 +1,23 @@
-import React from 'react';
+import type {ReactElement} from 'react';
+import {defineResponder, type BaseChainedMethods, type BaseHookMethods, type ResponderFns} from './Responder';
 
 export type Stylesheet = { href: string } | { text: string; type?: string; media?: string };
 
-export interface HandleRouteResult {
-  status: number;
-};
-
-type MaybePromise<T> = T | Promise<T>;
-
-export interface BaseResponse {
-  handleRoute(): MaybePromise<HandleRouteResult>;
-}
-
-export interface Page extends BaseResponse {
+export interface PageChainedMethods {
   getTitle(): string;
   getHeadStylesheets(): Stylesheet[];
-  getElements(): React.ReactElement[];
+  getElements(): ReactElement[];
 }
 
-export interface Endpoint extends BaseResponse {
-  getContentType(): string;
-  getResponseData(): MaybePromise<string | ArrayBuffer | ReadableStream>;
-}
+export interface PageMethods extends Partial<BaseHookMethods>, BaseChainedMethods, PageChainedMethods {};
+
+export type PageInit = (opts: ResponderFns) => PageMethods;
+
+export interface PageDefinition {
+  type: 'page';
+  init: PageInit;
+};
+
+export function definePage(init: PageInit): PageDefinition {
+  return defineResponder('page', init);
+};

@@ -1,55 +1,40 @@
 import {match, type ParamData} from "path-to-regexp";
 import {ensureArray} from "../util/array";
 
-interface PageRoute {
-  page: string;
+export type SiteConfig = {
+  middleware?: string[];
+  routes: Routes;
 };
 
-interface EndpointRoute {
-  endpoint: string;
-  method?: string | string[];
-};
-
-export type SluiceRoutes = {
+export type Routes = {
   [routeName: string]: {
     path: string;
-  } & (
-    PageRoute | EndpointRoute
-  );
+    handler: string;
+    method?: string | string[];
+  };
 };
 
 export interface RouteMatch {
   routeName: string;
   params: ParamData;
-  type: 'page' | 'endpoint';
-  page: string | null;
-  endpoint: string | null;
+  handler: string;
   method: string;
 };
 
-export function createRouter(routes: SluiceRoutes) {
+export function createRouter(routes: Routes) {
   const compiled = Object.entries(routes).map(([routeName, routeConfig]) => {
-    const { path } = routeConfig;
-    const page = 'page' in routeConfig ? routeConfig.page : null;
-    const endpoint = 'endpoint' in routeConfig ? routeConfig.endpoint : null;
-    const methods = page
-      ? ['GET'] // pages are always GET
-      : (
-        ('method' in routeConfig && !!routeConfig.method)
-          ? ensureArray(routeConfig.method).map(m => m.toUpperCase())
-          : ['GET'] // endpoints default to GET
-      );
+    const { path, handler, method } = routeConfig;
+    const methods = !!method ? ensureArray(method) : ['GET'];
     return {
       routeName,
       matchFn: match(path),
       methods,
-      page,
-      endpoint,
+      handler,
     };
   });
   return {
     matchRoute: (path: string, method: string): RouteMatch | null => {
-      for (const { routeName, matchFn, methods, page, endpoint } of compiled) {
+      for (const { routeName, matchFn, methods, handler } of compiled) {
         if (!methods.includes(method.toUpperCase())) {
           continue;
         }
@@ -59,9 +44,7 @@ export function createRouter(routes: SluiceRoutes) {
             routeName,
             params: result.params,
             method,
-            type: !!page ? 'page' : 'endpoint',
-            page: page ?? null,
-            endpoint: endpoint ?? null,
+            handler,
           };
         }
       }

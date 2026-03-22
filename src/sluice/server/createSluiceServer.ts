@@ -1,12 +1,10 @@
-import path from 'node:path';
 import type {BundleResult} from "../bundle";
 import {handlePage} from "./handlePage";
-import {createRouter, type SluiceRoutes} from "./router";
-import type {Endpoint, Page} from '../Page';
+import {createRouter, type SiteConfig} from "./router";
 import {handleEndpoint} from './handleEndpoint';
 
 interface SluiceServerConfig {
-  routesPath: string;
+  siteConfigPath: string;
   bundleResult: BundleResult;
   urlPrefix: string;
   renderTimeout?: number;
@@ -26,22 +24,10 @@ export async function createSluiceServer(config: SluiceServerConfig): Promise<Sl
       },
     };
   }));
-  const routes: SluiceRoutes = (await import(config.routesPath)).default;
+  const site: SiteConfig = (await import(config.siteConfigPath)).default;
+  const { routes } = site;
   const router = createRouter(routes);
-  const routesDir = path.dirname(config.routesPath);
-  const pageClassesByRoute: Record<string, new () => Page> = {};
-  const endpointClassesByRoute: Record<string, new () => Endpoint> = {};
-  await Promise.all(Object.entries(routes).map(async ([routeName, routeConfig]) => {
-    if ('page' in routeConfig) {
-      const { page } = routeConfig;
-      pageClassesByRoute[routeName] = (await import(path.resolve(routesDir, page))).default;
-    } else if ('endpoint' in routeConfig) {
-      const { endpoint } = routeConfig;
-      endpointClassesByRoute[routeName] = (await import(path.resolve(routesDir, endpoint))).default;
-    } else {
-      routeConfig satisfies never;
-    }
-  }));
+  const { handlersByRoute } = config.bundleResult;
   return {
     routes: clientBundleRoutes,
     serve: (req: Request) => {
@@ -49,24 +35,23 @@ export async function createSluiceServer(config: SluiceServerConfig): Promise<Sl
       if (!result) {
         return Promise.resolve(new Response(null, { status: 404 }));
       }
-      switch (result.type) {
+      const handler = handlersByRoute[result.routeName]!;
+      switch (handler.type) {
         case 'page': {
           const { routeName, params: routeParams } = result;
-          const PageClass = pageClassesByRoute[routeName]!;
-          return handlePage(req, PageClass, routeParams, {
+          return handlePage(req, handler.init, routeParams, {
             routeAssets: config.bundleResult.manifest[routeName]!,
             urlPrefix: config.urlPrefix,
           });
         }
         case 'endpoint': {
-          const { routeName, params: routeParams } = result;
-          const EndpointClass = endpointClassesByRoute[routeName]!;
-          return handleEndpoint(req, EndpointClass, routeParams, {
+          const { params: routeParams } = result;
+          return handleEndpoint(req, handler.init, routeParams, {
             urlPrefix: config.urlPrefix,
           });
         }
         default:
-          throw new Error(`Unknown route type: ${result.type satisfies never}`);
+          throw new Error('Unknown route type'); // impossible
       }
     }
   };

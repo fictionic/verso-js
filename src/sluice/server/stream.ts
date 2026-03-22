@@ -1,7 +1,7 @@
 import type {RouteAssets} from "../bundle";
 import {Fetch} from "../core/fetch/Fetch";
 import {FETCH_CACHE_KEY, FN_HYDRATE_ROOTS_UP_TO, FN_RECEIVE_LATE_DATA_ARRIVAL, SluicePipe} from "../core/SluicePipe";
-import type {Page} from "../Page";
+import type {PageMethods} from "../Page";
 import {writeBody} from "./writeBody";
 import {writeHeader} from "./writeHeader";
 
@@ -12,7 +12,7 @@ interface StreamOpts {
   routeAssets: RouteAssets;
 }
 
-export function makeStreamer(page: Page, { renderTimeout, routeAssets }: StreamOpts) {
+export function makeStreamer(page: PageMethods, { renderTimeout, routeAssets }: StreamOpts) {
 
   const { readable, writable } = new TransformStream<Uint8Array>();
 

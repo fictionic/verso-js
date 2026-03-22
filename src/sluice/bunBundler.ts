@@ -1,21 +1,31 @@
 import path from 'node:path';
 import { unlink, mkdir } from 'node:fs/promises';
 import type {BundleManifest, BundleResult} from './bundle';
-import type {SluiceRoutes} from './server/router';
+import type {SiteConfig} from './server/router';
+import type {RouteHandler} from './Handler';
 
 const BUNDLES_DIR = 'bundles';
 
-export async function bundle(routesModulePath: string): Promise<BundleResult> {
+export async function bundle(siteConfigModulePath: string): Promise<BundleResult> {
   await mkdir(BUNDLES_DIR, { recursive: true });
-  const routes: SluiceRoutes = (await import(routesModulePath)).default;
-  const routesDir = path.dirname(routesModulePath);
-  const pageRoutes = Object.entries(routes).filter(([, r]) => 'page' in r) as [string, { path: string; page: string }][];
-  const routeNameByEntrypointPath = new Map<string,string>();
-  const entrypoints = await Promise.all(pageRoutes.map(async ([routeName, { page, path: routePath }]) => {
-    const entrypointPath = `${BUNDLES_DIR}/route-${routeName}.js`;
-    routeNameByEntrypointPath.set(entrypointPath, routeName);
-    await Bun.write(entrypointPath, makeEntrypoint(page, routePath, routesDir));
-    return entrypointPath;
+  const site: SiteConfig = (await import(siteConfigModulePath)).default;
+  const rootDir = path.dirname(siteConfigModulePath);
+
+  const handlers: Record<string, RouteHandler> = {};
+  const routeNameByEntrypointPath = new Map<string, string>();
+  const entrypoints: string[] = [];
+  // global middleware
+  const middleware = site.middleware ?? [];
+  // route handlers
+  await Promise.all(Object.entries(site.routes).map(async ([routeName, routeConfig]) => {
+    const handler: RouteHandler = (await import(path.resolve(rootDir, routeConfig.handler))).default;
+    handlers[routeName] = handler;
+    if (handler.type === 'page') {
+      const entrypointPath = `${BUNDLES_DIR}/route-${routeName}.js`;
+      routeNameByEntrypointPath.set(entrypointPath, routeName);
+      await Bun.write(entrypointPath, makeEntrypoint(routeConfig.handler, routeConfig.path, rootDir, middleware));
+      entrypoints.push(entrypointPath);
+    }
   }));
 
   try {
@@ -32,8 +42,6 @@ export async function bundle(routesModulePath: string): Promise<BundleResult> {
       for (const msg of result.logs) console.error(msg);
       throw new Error('Client bundle build failed');
     }
-
-    console.log("metafile", result.metafile);
 
     const manifest: BundleManifest = Object.assign({}, ...Object.entries(result.metafile!.outputs).map(([bundlePath, output]) => {
       if (output.entryPoint) {
@@ -55,17 +63,23 @@ export async function bundle(routesModulePath: string): Promise<BundleResult> {
     return {
       manifest,
       bundleContents: bundles,
+      handlersByRoute: handlers,
     };
   } finally {
     await unlink(BUNDLES_DIR).catch(() => {});
   }
 }
 
-function makeEntrypoint(page: string, routePath: string, routesDir: string) {
-  const absolutePagePath = path.resolve(routesDir, page);
+function makeEntrypoint(handler: string, routePath: string, routesDir: string, middleware: string[]) {
+  const absolutePagePath = path.resolve(routesDir, handler);
+  const middlewareImport = middleware.map((m, i) => (
+    `import middleware${i} from "${path.resolve(routesDir, m)}";\n`
+  )).join('');
+  const middlewareArray = `[${middleware.map((_, i) => `middleware${i}`).join(', ')}]`;
   return (
 `import Page from "${absolutePagePath}";
+${middlewareImport}
 import { bootstrap } from ${JSON.stringify(import.meta.dir + '/client/bootstrap.ts')};
-bootstrap(Page, "${routePath}");`
+bootstrap(Page, "${routePath}", ${middlewareArray});`
   );
 }
