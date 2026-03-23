@@ -16,13 +16,12 @@ export async function bundle(siteConfigModulePath: string): Promise<BundleResult
 
   const handlersByRoute: Record<string, RouteHandler> = {};
   const input: Record<string, string> = {};
-  const middleware = site.middleware ?? [];
   await Promise.all(Object.entries(site.routes).map(async ([routeName, routeConfig]) => {
     const handler: RouteHandler = (await import(path.resolve(rootDir, routeConfig.handler))).default;
     handlersByRoute[routeName] = handler;
     if (handler.type === 'page') {
       const entrypointPath = path.resolve(BUNDLES_DIR, `route-${routeName}.js`);
-      await writeFile(entrypointPath, makeEntrypoint(routeConfig.handler, routeConfig.path, rootDir, middleware));
+      await writeFile(entrypointPath, makeEntrypoint(routeConfig.handler, routeConfig.path, rootDir, siteConfigModulePath));
       input[routeName] = entrypointPath;
     }
   }));
@@ -89,17 +88,14 @@ export async function bundle(siteConfigModulePath: string): Promise<BundleResult
   }
 }
 
-function makeEntrypoint(handler: string, routePath: string, routesDir: string, middleware: string[]) {
+function makeEntrypoint(handler: string, routePath: string, routesDir: string, siteConfigPath: string) {
   const q = (s: string) => JSON.stringify(s);
   const absolutePagePath = path.resolve(routesDir, handler);
   const bootstrapPath = path.resolve(__dirname, 'client/bootstrap.ts');
-  const middlewareImports = middleware.map((m, i) =>
-    `import middleware${i} from ${q(path.resolve(routesDir, m))};\n`
-  ).join('');
-  const middlewareArray = `[${middleware.map((_, i) => `middleware${i}`).join(', ')}]`;
   return (
-`import Page from ${q(absolutePagePath)};
-${middlewareImports}import { bootstrap } from ${q(bootstrapPath)};
-bootstrap(Page, ${q(routePath)}, ${middlewareArray});`
+`import siteConfig from ${q(siteConfigPath)};
+import Page from ${q(absolutePagePath)};
+import { bootstrap } from ${q(bootstrapPath)};
+bootstrap(Page, ${q(routePath)}, siteConfig.middleware ?? []);`
   );
 }

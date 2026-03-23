@@ -1,7 +1,8 @@
 import type {SiteConfig} from "@/sluice/server/router";
+import PageHeader from './PageHeader';
 
 export default {
-  middleware: ['./PageHeader'],
+  middleware: [PageHeader],
   routes: {
     DemoPage: {
       path: '/',

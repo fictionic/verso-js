@@ -14,16 +14,13 @@ export async function bundle(siteConfigModulePath: string): Promise<BundleResult
   const handlers: Record<string, RouteHandler> = {};
   const routeNameByEntrypointPath = new Map<string, string>();
   const entrypoints: string[] = [];
-  // global middleware
-  const middleware = site.middleware ?? [];
-  // route handlers
   await Promise.all(Object.entries(site.routes).map(async ([routeName, routeConfig]) => {
     const handler: RouteHandler = (await import(path.resolve(rootDir, routeConfig.handler))).default;
     handlers[routeName] = handler;
     if (handler.type === 'page') {
       const entrypointPath = `${BUNDLES_DIR}/route-${routeName}.js`;
       routeNameByEntrypointPath.set(entrypointPath, routeName);
-      await Bun.write(entrypointPath, makeEntrypoint(routeConfig.handler, routeConfig.path, rootDir, middleware));
+      await Bun.write(entrypointPath, makeEntrypoint(routeConfig.handler, routeConfig.path, rootDir, siteConfigModulePath));
       entrypoints.push(entrypointPath);
     }
   }));
@@ -70,16 +67,12 @@ export async function bundle(siteConfigModulePath: string): Promise<BundleResult
   }
 }
 
-function makeEntrypoint(handler: string, routePath: string, routesDir: string, middleware: string[]) {
+function makeEntrypoint(handler: string, routePath: string, routesDir: string, siteConfigPath: string) {
   const absolutePagePath = path.resolve(routesDir, handler);
-  const middlewareImport = middleware.map((m, i) => (
-    `import middleware${i} from "${path.resolve(routesDir, m)}";\n`
-  )).join('');
-  const middlewareArray = `[${middleware.map((_, i) => `middleware${i}`).join(', ')}]`;
   return (
-`import Page from "${absolutePagePath}";
-${middlewareImport}
+`import siteConfig from ${JSON.stringify(siteConfigPath)};
+import Page from "${absolutePagePath}";
 import { bootstrap } from ${JSON.stringify(import.meta.dir + '/client/bootstrap.ts')};
-bootstrap(Page, "${routePath}", ${middlewareArray});`
+bootstrap(Page, "${routePath}", siteConfig.middleware ?? []);`
   );
 }

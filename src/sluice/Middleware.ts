@@ -22,7 +22,7 @@ type Scope = ResponderType | 'all';
 
 type MiddlewareInit<R, C extends BaseConfig> = (fns: ResponderFns) => BaseMiddleware<R, C>;
 
-interface MiddlewareDefinition<R, C extends BaseConfig> {
+export interface MiddlewareDefinition<R, C extends BaseConfig> {
   type: 'middleware';
   scope: Scope;
   init: MiddlewareInit<R, C>;

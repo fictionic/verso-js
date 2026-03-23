@@ -1,8 +1,9 @@
 import {match, type ParamData} from "path-to-regexp";
 import {ensureArray} from "../util/array";
+import type {MiddlewareDefinition} from "../Middleware";
 
 export type SiteConfig = {
-  middleware?: string[];
+  middleware?: MiddlewareDefinition<any, any>[];
   routes: Routes;
 };
 
