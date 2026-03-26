@@ -192,6 +192,7 @@ Run with `bun src/demo/server.tsx`. Routes are defined in `demo/routes.ts` as st
 - make Roots show up properly in react devtools (right now they're Anonymous)
 - `failArrival`: when the stream ends, send a pipe call that tells the client to reject any still-pending `rootDomNodeDfds`. Without this, timed-out roots (server wrote `hydrateRootsUpTo` but the DOM node was never rendered) leave the client hanging — `CLIENT_READY_DFD` never resolves. The server should write this as the last thing before closing the stream in both `finish()` and the error `.catch` path in `stream.ts`.
 - filter out extraneous middleware methods when wiring up the chain, as an extra layer of safety (maybe as a method on MiddlewareDefinition?)
+- redo the middleware types to be less complex
 
 #### isomorphic-stores
 - Add a mechanism for adapters to integrate the isomorphic-stores `StoreProvider` with a framework-native provider — e.g. so the Redux adapter can render a react-redux `<Provider store={store}>` alongside the isomorphic-stores context

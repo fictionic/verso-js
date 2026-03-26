@@ -1,4 +1,4 @@
-import {defineRouteHandler, type MaybePromise, type RouteHandler, type RouteHandlerDefinition, type RouteHandlerInit, type StandardizedRouteHandler} from "./Responder";
+import {defineRouteHandler, type MaybePromise, type RouteHandler, type RouteHandlerDefinition, type RouteHandlerInit, type StandardizedRouteHandler} from "./RouteHandler";
 
 export type EndpointResponseData = string | ArrayBuffer | ReadableStream;
 

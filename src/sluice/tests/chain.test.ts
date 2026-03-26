@@ -1,6 +1,6 @@
 import { test, expect, describe } from 'vitest';
 import { createHandlerChain } from '@/sluice/core/chain';
-import { defineRouteHandler, type ResponderFns, type RouteHandler } from '@/sluice/Responder';
+import { defineRouteHandler, type ResponderFns, type RouteHandler } from '@/sluice/RouteHandler';
 import { defineMiddleware } from '@/sluice/Middleware';
 import { ResponderConfig } from '@/sluice/core/ResponderConfig';
 import { startRequest } from '@/sluice/util/requestLocal';

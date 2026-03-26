@@ -1,5 +1,5 @@
 import type {MiddlewareDefinition, Middleware, Scope} from "../Middleware";
-import type {ResponderFns, RouteHandlerDefinition, RouteHandlerType, StandardizedRouteHandler} from "../Responder";
+import type {ResponderFns, RouteHandlerDefinition, RouteHandlerType, StandardizedRouteHandler} from "../RouteHandler";
 import type {ResponderConfig} from "./ResponderConfig";
 
 export function createHandlerChain<T extends RouteHandlerType, OptionalMethods extends {}, RequiredMethods extends {}>(

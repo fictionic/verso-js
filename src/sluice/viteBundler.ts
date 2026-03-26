@@ -4,7 +4,7 @@ import { fileURLToPath } from 'node:url';
 import { build } from 'vite';
 import type { BundleManifest, BundleResult } from './bundle';
 import type { SiteConfig } from './server/router';
-import type { RouteHandlerDefinition } from './Responder';
+import type { RouteHandlerDefinition } from './RouteHandler';
 
 const BUNDLES_DIR = 'bundles';
 const __dirname = path.dirname(fileURLToPath(import.meta.url));

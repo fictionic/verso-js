@@ -1,5 +1,5 @@
 import type {ReactElement} from 'react';
-import {defineRouteHandler, type RouteHandler, type RouteHandlerDefinition, type RouteHandlerInit, type StandardizedRouteHandler} from './Responder';
+import {defineRouteHandler, type RouteHandler, type RouteHandlerDefinition, type RouteHandlerInit, type StandardizedRouteHandler} from './RouteHandler';
 
 export type Stylesheet = { href: string } | { text: string; type?: string; media?: string };
 

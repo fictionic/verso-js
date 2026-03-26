@@ -1,4 +1,3 @@
-// TODO: rename to RouteHandler.ts?
 import type {BaseConfig} from "./core/ResponderConfig";
 import type {MiddlewareDefinition, Scope} from "./Middleware";
 

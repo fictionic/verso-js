@@ -1,4 +1,4 @@
-import type {SharedMethods, BaseResponder, ResponderFns, RouteHandlerType} from "./Responder";
+import type {SharedMethods, BaseResponder, ResponderFns, RouteHandlerType} from "./RouteHandler";
 import type {BaseConfig} from "./core/ResponderConfig";
 import type {PageOptionalMethods, PageRequiredMethods} from "./Page";
 import type {EndpointRequiredMethods} from "./Endpoint";
@@ -46,7 +46,7 @@ export interface MiddlewareDefinition<S extends Scope = Scope> {
 
 export function defineMiddleware<S extends Scope>(
   scope: S,
-  init: MiddlewareInit<S>,
+  init: NoInfer<MiddlewareInit<S>>,
 ): MiddlewareDefinition<S> {
   return { type: 'middleware', scope, init };
 }

@@ -1,5 +1,5 @@
 import type {ParamData} from "path-to-regexp";
-import type {RouteHandlerDefinition, RouteHandlerType} from "../Responder";
+import type {RouteHandlerDefinition, RouteHandlerType} from "../RouteHandler";
 import type {MiddlewareDefinition} from "../Middleware";
 import type {RouteAssets} from "../bundle";
 import {startRequest} from "../util/requestLocal";
