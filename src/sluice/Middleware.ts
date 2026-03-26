@@ -1,7 +1,8 @@
-import type {SharedMethods, BaseResponder, ResponderFns, RouteHandlerType} from "./RouteHandler";
+import type {SharedMethods, BaseResponder, RouteHandlerType} from "./RouteHandler";
 import type {BaseConfig} from "./core/ResponderConfig";
 import type {PageOptionalMethods, PageRequiredMethods} from "./Page";
 import type {EndpointRequiredMethods} from "./Endpoint";
+import type {RouteHandlerCtx} from "./core/RouteHandlerCtx";
 
 type HandlerMethodsMap = {
   page: PageOptionalMethods & PageRequiredMethods;
@@ -36,7 +37,7 @@ export type Middleware<S extends Scope> =
     Chained<HandlerMethodsFor<S>>
   >;
 
-type MiddlewareInit<S extends Scope> = (fns: ResponderFns) => Middleware<S>;
+type MiddlewareInit<S extends Scope> = (ctx: RouteHandlerCtx) => Middleware<S>;
 
 export interface MiddlewareDefinition<S extends Scope = Scope> {
   type: 'middleware';

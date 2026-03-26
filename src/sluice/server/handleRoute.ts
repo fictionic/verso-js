@@ -10,6 +10,8 @@ import {ResponderConfig} from "../core/ResponderConfig";
 import {createHandlerChain} from "../core/chain";
 import {handlePage} from "./handlePage";
 import {handleEndpoint} from "./handleEndpoint";
+import {SluiceRequest} from "../core/SluiceRequest";
+import {createCtx} from "../core/RouteHandlerCtx";
 
 interface Options {
   routeAssets: RouteAssets;
@@ -19,19 +21,20 @@ interface Options {
 
 export async function handleRoute<T extends RouteHandlerType>(
   type: T,
-  req: Request,
+  nativeRequest: Request,
   def: RouteHandlerDefinition<T, any, any>,
   routeParams: ParamData,
   globalMiddleware: MiddlewareDefinition[],
   options: Options,
 ) {
   const response = await startRequest(async () => {
-    RequestContext.serverInit(req, routeParams);
+    const req = SluiceRequest.server(nativeRequest, routeParams);
+    RequestContext.serverInit(nativeRequest);
     const cookies = new ResponseCookies();
-    Fetch.init({ urlPrefix: options.urlPrefix ?? null });
+    Fetch.serverInit(options.urlPrefix ?? new URL(nativeRequest.url).origin);
     const config = new ResponderConfig();
-    const fns = { getConfig: config.getValue };
-    const handler = createHandlerChain(type, def, globalMiddleware, config, fns);
+    const ctx = createCtx(config, req);
+    const handler = createHandlerChain(type, def, globalMiddleware, config, ctx);
     let statusCode: number;
     try {
       const directive = await handler.getRouteDirective();
@@ -49,6 +52,7 @@ export async function handleRoute<T extends RouteHandlerType>(
       headers.append(name, value);
     });
     let streamable;
+    // TODO: respect hasDocument / location from RouteDirective
     switch(type) {
       case 'page':
         streamable = await handlePage(handler, options);

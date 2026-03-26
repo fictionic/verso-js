@@ -1,5 +1,6 @@
 import type {BaseConfig} from "./core/ResponderConfig";
 import type {MiddlewareDefinition, Scope} from "./Middleware";
+import type {RouteHandlerCtx} from "./core/RouteHandlerCtx";
 
 export type MaybePromise<T> = T | Promise<T>;
 
@@ -33,14 +34,6 @@ export interface MiddlewareDepender<S extends Scope> {
 
 export interface BaseResponder<S extends Scope> extends MiddlewareDepender<S>, SharedHooks {};
 
-// TODO rename?
-export interface ResponderFns {
-  getConfig<C extends BaseConfig>(key: keyof C): C[typeof key];
-  // TODO: getRequest, isomorphic request object transported via Pipe
-  // more ergonomic than getCurrentRequestContext, which would be overkill
-  // for route handlers since they're directly exposed to the request
-}
-
 export type RouteHandler<
   T extends RouteHandlerType,
   OptionalMethods extends {},
@@ -52,7 +45,7 @@ export type RouteHandler<
 
 type RouteHandlerFor<T extends RouteHandlerType> = RouteHandler<T, {}, {}>;
 
-export type RouteHandlerInit<T extends RouteHandlerType, H extends RouteHandlerFor<T>> = (fns: ResponderFns) => H;
+export type RouteHandlerInit<T extends RouteHandlerType, H extends RouteHandlerFor<T>> = (ctx: RouteHandlerCtx) => H;
 
 export interface RouteHandlerDefinition<
   T extends RouteHandlerType,

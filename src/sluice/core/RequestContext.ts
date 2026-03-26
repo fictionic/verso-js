@@ -1,26 +1,21 @@
 import { parse, type Cookies } from 'cookie';
 import { getNamespace } from '../util/requestLocal';
-import type {ParamData} from 'path-to-regexp';
 
 const RLS = getNamespace<{ current: RequestContext }>();
 
 export class RequestContext {
-  readonly routeParams: ParamData;
   private request: Request | null;
   private _cookies: Cookies | null = null;
 
-  static serverInit(req: Request, routeParams: ParamData) {
-    return new RequestContext(routeParams, req);
+  static serverInit(req: Request) {
+    return new RequestContext(req);
   }
 
-  static clientInit(routeParams: ParamData) {
-    return new RequestContext(
-      routeParams,
-    );
+  static clientInit() {
+    return new RequestContext();
   }
 
-  private constructor(routeParams: ParamData, request?: Request) {
-    this.routeParams = routeParams;
+  private constructor(request?: Request) {
     this.request = request ?? null;
     RLS().current = this;
   }

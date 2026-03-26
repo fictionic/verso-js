@@ -1,5 +1,4 @@
 import { defineEndpoint } from '@/sluice/Endpoint';
-import { getCurrentRequestContext } from '@/sluice/core/RequestContext';
 import { delay } from '../delay';
 import { cookieLatency } from './cookieLatency';
 
@@ -11,12 +10,11 @@ const NAMES: Record<number, string> = {
   5: 'Eve',
 };
 
-export default defineEndpoint(() => {
+export default defineEndpoint((ctx) => {
   let id: number;
   return {
     async getRouteDirective() {
-      const ctx = getCurrentRequestContext();
-      id = Number(ctx.routeParams['id']);
+      id = Number(ctx.getRequest().getParams()['id']);
       await delay(cookieLatency('users', 500));
       return { status: 200 };
     },

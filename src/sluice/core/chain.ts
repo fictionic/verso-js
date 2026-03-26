@@ -1,18 +1,19 @@
 import type {MiddlewareDefinition, Middleware, Scope} from "../Middleware";
-import type {ResponderFns, RouteHandlerDefinition, RouteHandlerType, StandardizedRouteHandler} from "../RouteHandler";
+import type {RouteHandlerDefinition, RouteHandlerType, StandardizedRouteHandler} from "../RouteHandler";
 import type {ResponderConfig} from "./ResponderConfig";
+import type {RouteHandlerCtx} from "./RouteHandlerCtx";
 
 export function createHandlerChain<T extends RouteHandlerType, OptionalMethods extends {}, RequiredMethods extends {}>(
   type: T,
   def: RouteHandlerDefinition<T, OptionalMethods, RequiredMethods>,
   globalMiddleware: MiddlewareDefinition<Scope>[],
   config: ResponderConfig,
-  fns: ResponderFns,
+  ctx: RouteHandlerCtx,
 ): StandardizedRouteHandler<OptionalMethods, RequiredMethods> {
-  const handler = def.init(fns);
+  const handler = def.init(ctx);
 
   const baseMiddleware = [...globalMiddleware, ...(handler.middleware ?? [])];
-  const allMiddleware = recursivelyExpandMiddleware(baseMiddleware, fns, type);
+  const allMiddleware = recursivelyExpandMiddleware(baseMiddleware, ctx, type);
   allMiddleware.forEach((m) => {
     const addValues = m.addConfigValues?.();
     if (addValues) {
@@ -44,7 +45,7 @@ export function createHandlerChain<T extends RouteHandlerType, OptionalMethods e
 
 function recursivelyExpandMiddleware<R extends RouteHandlerType>(
   middlewareDefs: MiddlewareDefinition<Scope>[],
-  fns: ResponderFns,
+  ctx: RouteHandlerCtx,
   handlerType: R,
 ): Middleware<R>[] {
   if (middlewareDefs.length === 0) {
@@ -53,8 +54,8 @@ function recursivelyExpandMiddleware<R extends RouteHandlerType>(
   return middlewareDefs
     .filter((def): def is MiddlewareDefinition<R> => def.scope === 'all' || def.scope === handlerType)
     .flatMap(def => {
-      const m = def.init(fns);
-      const children = recursivelyExpandMiddleware(m.middleware ?? [], fns, handlerType);
+      const m = def.init(ctx);
+      const children = recursivelyExpandMiddleware(m.middleware ?? [], ctx, handlerType);
       return [...children, m];
     });
 }

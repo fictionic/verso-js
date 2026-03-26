@@ -24,12 +24,14 @@ src/
 │   ├── viteBundler.ts   # Vite-based bundler; same BundleResult contract, uses vite.build() with Rolldown
 │   ├── constants.ts     # DOM attribute names (PAGE_ROOT_ELEMENT_ATTR, etc.)
 │   ├── core/
-│   │   ├── RequestContext.ts   # isomorphic request context (route params, cookies); RLS-backed
+│   │   ├── RequestContext.ts   # server-side escape hatch: raw Request + cookies; RLS-backed
+│   │   ├── SluiceRequest.ts    # isomorphic request facade (URL, query params, route params)
+│   │   ├── RouteHandlerCtx.ts  # RouteHandlerCtx interface + createCtx factory
 │   │   ├── SluicePipe.ts       # typed server→client pipe instance (schema + constants)
 │   │   ├── elementTokenizer.ts
 │   │   ├── fetch/
 │   │   │   ├── index.ts        # consumer-facing export: just `fetch`
-│   │   │   ├── Fetch.ts        # framework-facing interface: init, fetch, getCache
+│   │   │   ├── Fetch.ts        # framework-facing interface: serverInit, clientInit, fetch, getCache
 │   │   │   ├── cache.ts        # FetchCache class (server/client accessor objects)
 │   │   │   └── nativeFetch.ts  # indirection for globalThis.fetch (mockable in tests)
 │   │   └── components/
@@ -141,17 +143,25 @@ MyStore.broadcast(message);
 - `STORE_INSTANCE_INTERNALS` symbol key on `IsoStoreInstance` holds `{ definition, identifier, nativeStore, messageHandlers, onMount }` — private to the library.
 - `STORE_DEFINITION_INTERNALS` symbol key on `IsoStoreDefinition` holds `{ instancesByProvider, StoreProvider }` — keeps internals off the public API.
 
+### Request architecture
+
+Three layers:
+- **`SluiceRequest`** (`core/SluiceRequest.ts`) — isomorphic request facade. Constructed via `SluiceRequest.server(req)` (from the native `Request`) or `SluiceRequest.client()` (from `window.location`). Currently exposes `getURL()`, `getQuery()` (returns `URLSearchParams`), and `getParams()` (route params). Fields that require piping (method, headers) are not yet implemented. Not stored in RLS — only accessible via `RouteHandlerCtx`.
+- **`RouteHandlerCtx`** (`core/RouteHandlerCtx.ts`) — the context object passed to route handler `init` functions as `ctx`. Exposes `getConfig()` and `getRequest()`. Created via `createCtx(config, sluiceRequest)`. This is the primary API surface for route handler authors.
+- **`RequestContext`** (`core/RequestContext.ts`) — server-side escape hatch, RLS-backed. Holds the raw `Request` and `cookies` (derived from request headers, throws client-side). Accessible anywhere via `getCurrentRequestContext()`. Intended for framework internals and advanced use cases, not everyday route handler code.
+
 ### Sluice SSR pipeline
 
 - `createSluiceServer.ts` — wires everything together. Takes `routesPath` (path to routes module) and a `BundleResult`. Dynamically imports the routes module and each page class. Returns `routes` (static bundle-serving routes for `Bun.serve`) and `serve` (SSR request handler that matches routes, resolves page classes, and delegates to `handlePage`).
-- `handlePage.ts` — orchestrates per-request SSR. Initializes RLS (`RequestContext`, `ResponseCookies`, `Fetch`), calls `page.handleRoute()`, then delegates to `makeStreamer` for streaming HTML. Takes `routeAssets: RouteAssets` (per-route scripts and stylesheets from the bundle manifest).
+- `handleRoute.ts` — common setup for all route types. Initializes RLS (`RequestContext`, `ResponseCookies`, `Fetch`), creates `SluiceRequest` and `RouteHandlerCtx`, builds the handler chain, calls `getRouteDirective()`, then delegates to `handlePage` or `handleEndpoint`.
+- `handlePage.ts` — orchestrates per-request SSR. Delegates to `makeStreamer` for streaming HTML. Takes `routeAssets: RouteAssets` (per-route scripts and stylesheets from the bundle manifest).
 - `stream.ts` — streaming HTML writer. Writes the shell (`<head>`, styles, bundle stylesheets), then streams root elements in document order. At `TheFold`, injects the dehydrated fetch cache and per-route `<script>` tags from `routeAssets.scripts`. Below-fold roots get inline `hydrateRootsUpTo` pipe calls. Handles late data arrivals and timeouts.
 - `router.ts` — route matching via `path-to-regexp`. Routes are defined as `SluiceRoutes` — a map of route names to `{ path, page }` where `page` is a module path string (not a class reference). `createRouter` compiles patterns and returns `matchRoute(path) => { routeName, page, params }`.
 - `Root.tsx` — pass-through component; `when` is read directly from props by the stream writer.
 - `TheFold.tsx` — null-rendering sentinel; identifies the above/below-fold boundary.
-- `fetch/` — isomorphic fetch subsystem. Two audiences: consumers import `fetch` from `index.ts`; the framework uses `Fetch.init()`, `Fetch.fetch()`, and `Fetch.getCache()` from `Fetch.ts`. `Fetch.init()` creates a per-request `FetchCache` in RLS and sets `urlPrefix`. GETs are cached, deduplicated, and dehydrated; non-GETs pass through with `urlPrefix` applied. `FetchCache` exposes `server()` and `client()` accessor objects with environment-specific APIs. `nativeFetch.ts` provides an indirection over `globalThis.fetch` for testability.
+- `fetch/` — isomorphic fetch subsystem. Two audiences: consumers import `fetch` from `index.ts`; the framework uses `Fetch.serverInit()` / `Fetch.clientInit()`, `Fetch.fetch()`, and `Fetch.getCache()` from `Fetch.ts`. `Fetch.serverInit(urlPrefix)` creates a per-request `FetchCache` in RLS and sets `urlPrefix` for resolving relative URLs to absolute (required server-side since `fetch('/path')` has no implicit origin). `urlPrefix` is optional in config — defaults to the origin from `req.url`. `Fetch.clientInit()` creates the cache without a prefix (browser resolves relative URLs natively). GETs are cached, deduplicated, and dehydrated; non-GETs pass through with `urlPrefix` applied. `FetchCache` exposes `server()` and `client()` accessor objects with environment-specific APIs. `nativeFetch.ts` provides an indirection over `globalThis.fetch` for testability.
 - `ServerClientPipe.ts` — generic factory (`createPipe<Schema>`) for typed server→client data transport via inline `<script>` tags. `SluicePipe.ts` is the sluice-specific instance.
-- `client/bootstrap.ts` — client entry point. Each route gets its own generated entry that imports the page class and calls `bootstrap(PageClass, routePattern)`. Bootstrap uses `path-to-regexp` to extract route params from `location.pathname`, initializes `RequestContext` (client mode) and `Fetch`, rehydrates the fetch cache from the pipe, tokenizes elements, then hydrates roots as `hydrateRootsUpTo` events arrive.
+- `client/bootstrap.ts` — client entry point. Each route gets its own generated entry that imports the page class and calls `bootstrap(PageClass, routePattern)`. Bootstrap uses `path-to-regexp` to extract route params from `location.pathname`, creates `SluiceRequest.client()` and `RouteHandlerCtx`, initializes `RequestContext` (client mode) and `Fetch`, rehydrates the fetch cache from the pipe, builds the handler chain, tokenizes elements, then hydrates roots as `hydrateRootsUpTo` events arrive.
 - `bundle.ts` — bundler-agnostic types. `RouteAssets = { scripts, stylesheets }`, `BundleManifest = { [routeName]: RouteAssets }`, `BundleResult = { manifest, bundleContents }`. This is the contract between bundler implementations and the framework.
 - `bunBundler.ts` — Bun-specific bundler implementation. Generates per-route entry files in a `bundles/` directory, builds with `Bun.build` (`splitting: true`, `metafile: true`), correlates metafile outputs back to route names, and produces a `BundleResult`. Temporary — will be replaced by a Vite plugin.
 
@@ -161,7 +171,7 @@ MyStore.broadcast(message);
 
 Two-audience design:
 - **Consumer** (`fetch/index.ts`): exports only the `fetch` function — a drop-in isomorphic replacement for `globalThis.fetch`.
-- **Framework** (`fetch/Fetch.ts`): exports the `Fetch` object with `init()`, `fetch()`, and `getCache()`. `handlePage` calls `Fetch.init()` to create a per-request `FetchCache` in RLS; `writeBody` calls `Fetch.getCache()` to dehydrate/stream cached responses.
+- **Framework** (`fetch/Fetch.ts`): exports the `Fetch` object with `serverInit(urlPrefix)` / `clientInit()`, `fetch()`, and `getCache()`. `handleRoute` calls `Fetch.serverInit()` to create a per-request `FetchCache` in RLS; `writeBody` calls `Fetch.getCache()` to dehydrate/stream cached responses.
 
 `FetchCache` (`fetch/cache.ts`) uses a server/client accessor pattern:
 - `cache.server()` — `receiveRequest(url)` returns `{ first, promise }`: creates the entry + deferred on first call, increments requesters on subsequent calls, always returns the deferred's promise. All callers (first and dedup) resolve through the same promise. `receiveResponse(url, Response)` consumes the body, caches the result, and resolves the deferred. `receiveError(url, Error)` rejects the deferred and stores the error message for dehydration. `dehydrate()` returns the serializable data. `getPending()` returns entries that are neither resolved nor errored, for streaming late arrivals.
@@ -180,12 +190,20 @@ Run with `bun src/demo/server.tsx`. Routes are defined in `demo/routes.ts` as st
 
 ### TODOs
 
+#### overall
+- come up with a better name
+- split into multiple packages:
+  - ssr framework itself, including stores helpers
+  - vite plugin
+  - demo site
+  - documentation site (todo)
+
 #### sluice (SSR framework)
 - HMR for the client bundle in the dev server — currently requires a restart to pick up changes; `Bun.build` has no watch mode, so this would need to be built on top of it
 - Support pre-building the client bundle as a separate step (for prod), distinct from on-the-fly bundling at dev server startup
 - Client-side transitions (SPA navigation) — `navigateTo()` function that lazy-loads the target route's page entry, unmounts the current page, and mounts the new one without a full page reload
 - API to allow page authors to transport arbitrary server-side data down to the client
-- expose a `getRouteParams()` helper function so Pages can access route params without importing `RequestContext` directly
+- pipe server-only request data (method, headers) to the client via SluicePipe so `SluiceRequest` can be fully isomorphic
 - add the ability to register a callback on Root mount for a particular Root
 - fetch: support for opting into response replaying of non-GET requests
 - fetch: binary (non-text) responses should bypass the cache rather than being corrupted by `response.text()`
@@ -208,7 +226,7 @@ Run with `bun src/demo/server.tsx`. Routes are defined in `demo/routes.ts` as st
 - **`sluice dev`**: Vite dev server with HMR, composed with sluice's SSR handler. Replaces the current `Bun.serve()` setup in `demo/server.tsx`. User provides `sluice.config.ts` with routes and API endpoints; sluice handles HTTP serving.
 - **`sluice build`**: Production build — writes bundles to disk + `manifest.json`. The production server reads the manifest and serves bundles from disk (or delegates to a CDN via a `cdnPrefix` config).
 - **`sluice start`** (or similar): Production server — reads pre-built manifest, serves SSR + static bundles via Node HTTP. Three bundle serving modes: (1) dev — in-memory via Vite, (2) local prod — from disk, (3) CDN — manifest only, bundles served externally.
-- **`sluice.config.ts`**: Routes, API endpoints, urlPrefix, build output dir, cdnPrefix. Replaces the user-owned server file. The current `demo/server.tsx` pattern (user calls `createSluiceServer` + `Bun.serve`) becomes an internal implementation detail.
+- **`sluice.config.ts`**: Routes, API endpoints, urlPrefix (optional override for server-side fetch origin; defaults to `req.url` origin), build output dir, cdnPrefix. Replaces the user-owned server file. The current `demo/server.tsx` pattern (user calls `createSluiceServer` + `Bun.serve`) becomes an internal implementation detail.
 - **API routes**: Support non-SSR route handlers (JSON endpoints, redirects) in the routes config so the full app can be expressed without a custom server.
 - **ALS requirement**: Sluice currently requires `AsyncLocalStorage` (via `requestLocal.ts`). This limits deployment to Node, Bun, and Deno. Edge runtimes (Cloudflare Workers, Vercel Edge) don't support ALS. If edge support is needed, RLS would need an alternative implementation.
 

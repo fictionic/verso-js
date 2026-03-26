@@ -10,16 +10,18 @@ const RLS = getNamespace<{
 
 // the sluice-facing interface
 export const Fetch = {
-  init,
+  serverInit,
+  clientInit,
   getCache,
   fetch,
 };
 
-interface FetchOpts {
-  urlPrefix: string | null;
+function serverInit(urlPrefix: string) {
+  RLS().urlPrefix = urlPrefix;
+  RLS().cache = new FetchCache();
 }
-function init(opts?: FetchOpts) {
-  RLS().urlPrefix = opts?.urlPrefix ?? null;
+
+function clientInit() {
   RLS().cache = new FetchCache();
 }
 

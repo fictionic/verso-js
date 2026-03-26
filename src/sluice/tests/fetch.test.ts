@@ -7,14 +7,14 @@ vi.mock('@/sluice/core/fetch/nativeFetch', () => ({
 }));
 
 import { Fetch } from '@/sluice/core/fetch/Fetch';
-const { init, fetch, getCache } = Fetch;
+const { serverInit: init, fetch, getCache } = Fetch;
 import { FetchCache } from '@/sluice/core/fetch/cache';
 
 // --- Helpers ---
 
 function inRequest<T>(fn: () => T): T {
   return startRequest(() => {
-    init();
+    init('http://localhost');
     return fn();
   });
 }

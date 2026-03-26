@@ -35,6 +35,7 @@ async function routePage(init: PageInit, options?: Partial<{ routeAssets: RouteA
   const req = new Request('http://localhost/');
   return handleRoute('page', req, definePage(init), {}, [], {
     routeAssets: options?.routeAssets ?? DEFAULT_ROUTE_ASSETS,
+    urlPrefix: 'http://localhost',
   });
 }
 
@@ -42,6 +43,7 @@ async function routeEndpoint(init: EndpointInit) {
   const req = new Request('http://localhost/');
   return handleRoute('endpoint', req, defineEndpoint(init), {}, [], {
     routeAssets: DEFAULT_ROUTE_ASSETS,
+    urlPrefix: 'http://localhost',
   });
 }
 

@@ -11,6 +11,8 @@ import type {PageDefinition} from '../Page';
 import {ResponderConfig} from '../core/ResponderConfig';
 import {createHandlerChain} from '../core/chain';
 import type {MiddlewareDefinition} from '../Middleware';
+import {createCtx} from '../core/RouteHandlerCtx';
+import {SluiceRequest} from '../core/SluiceRequest';
 
 global.CLIENT_READY_DFD = Promise.withResolvers<void>();
 
@@ -21,14 +23,15 @@ export async function bootstrap(def: PageDefinition, path: string, middleware: M
     return;
   }
   const { params: routeParams } = routeResult;
-  RequestContext.clientInit(routeParams);
-  Fetch.init();
+  const req = SluiceRequest.client(routeParams);
+  RequestContext.clientInit();
+  Fetch.clientInit();
   const readablePipe = SluicePipe.reader();
   const fetchCache = (readablePipe.readValue(FETCH_CACHE_KEY) ?? {});
   Fetch.getCache().client().rehydrate(fetchCache);
   const config = new ResponderConfig();
-  const fns = { getConfig: config.getValue };
-  const page = createHandlerChain('page', def, middleware, config, fns)
+  const ctx = createCtx(config, req);
+  const page = createHandlerChain('page', def, middleware, config, ctx);
   await page.getRouteDirective(); // just for data fetching, for now
 
   const tokens = tokenizeElements(page.getElements());

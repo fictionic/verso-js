@@ -5,7 +5,7 @@ import {handleRoute} from "./handleRoute";
 interface SluiceServerConfig {
   siteConfigPath: string;
   bundleResult: BundleResult;
-  urlPrefix: string;
+  urlPrefix?: string;
   renderTimeout?: number;
 }
 

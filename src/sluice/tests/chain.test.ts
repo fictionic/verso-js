@@ -1,14 +1,16 @@
 import { test, expect, describe } from 'vitest';
 import { createHandlerChain } from '@/sluice/core/chain';
-import { defineRouteHandler, type ResponderFns, type RouteHandler } from '@/sluice/RouteHandler';
+import { defineRouteHandler, type RouteHandler } from '@/sluice/RouteHandler';
 import { defineMiddleware } from '@/sluice/Middleware';
 import { ResponderConfig } from '@/sluice/core/ResponderConfig';
 import { startRequest } from '@/sluice/util/requestLocal';
+import type {RouteHandlerCtx} from '../core/RouteHandlerCtx';
 
 // --- Helpers ---
 
-const DUMMY_FNS: ResponderFns = {
+const DUMMY_FNS: RouteHandlerCtx = {
   getConfig: () => undefined as any,
+  getRequest: () => undefined as any,
 };
 
 interface TestOptionalMethods {
@@ -345,19 +347,19 @@ describe('createHandlerChain', () => {
     });
   });
 
-  test('fns object is passed to handler and middleware init', () => {
+  test('ctx object is passed to handler and middleware init', () => {
     inRequest(() => {
-      const receivedFns: ResponderFns[] = [];
+      const receivedFns: RouteHandlerCtx[] = [];
 
-      const mw = defineMiddleware('page', (fns) => {
-        receivedFns.push(fns);
+      const mw = defineMiddleware('page', (ctx) => {
+        receivedFns.push(ctx);
         return {};
       });
 
       const def = defineRouteHandler(
         'page',
-        (fns) => {
-          receivedFns.push(fns);
+        (ctx) => {
+          receivedFns.push(ctx);
           return {
             getRouteDirective: () => ({ status: 200 }),
             getElements: () => [],
@@ -368,12 +370,12 @@ describe('createHandlerChain', () => {
       );
 
       const config = new ResponderConfig();
-      const fns = { getConfig: config.getValue };
-      createHandlerChain('page', def, [mw], config, fns);
+      const ctx: RouteHandlerCtx = { getConfig: config.getValue, getRequest: () => undefined as any };
+      createHandlerChain('page', def, [mw], config, ctx);
 
       expect(receivedFns).toHaveLength(2);
-      expect(receivedFns[0]).toBe(fns); // handler init gets fns
-      expect(receivedFns[1]).toBe(fns); // middleware init gets fns
+      expect(receivedFns[0]).toBe(ctx); // handler init gets fns
+      expect(receivedFns[1]).toBe(ctx); // middleware init gets fns
     });
   });
 
