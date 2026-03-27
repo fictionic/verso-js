@@ -1,0 +1,16 @@
+{
+  "DemoPage": {
+    "scripts": [
+      "bundles/bootstrap-mT2_8NYa.js",
+      "bundles/DemoPage-Bod4hpsf.js"
+    ],
+    "stylesheets": []
+  },
+  "LinkPage": {
+    "scripts": [
+      "bundles/bootstrap-mT2_8NYa.js",
+      "bundles/LinkPage-1DgMHvZ5.js"
+    ],
+    "stylesheets": []
+  }
+}
