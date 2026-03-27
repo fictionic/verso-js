@@ -37,7 +37,7 @@ export async function bundle(siteConfigModulePath: string): Promise<BundleResult
         },
       },
       define: {
-        SERVER_SIDE: 'false',
+        IS_CLIENT: 'true',
       },
       build: {
         write: false,

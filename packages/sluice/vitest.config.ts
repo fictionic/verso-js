@@ -7,7 +7,4 @@ export default defineConfig({
       '@': path.resolve(__dirname, 'src'),
     },
   },
-  define: {
-    SERVER_SIDE: JSON.stringify('true'),
-  },
 });

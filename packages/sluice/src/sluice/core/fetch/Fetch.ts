@@ -1,4 +1,4 @@
-declare const SERVER_SIDE: boolean;
+import { isServer } from '../../env';
 import { getNamespace } from '../../util/requestLocal';
 import { FetchCache, type CachedResponse } from './cache';
 import { nativeFetch } from './nativeFetch';
@@ -42,7 +42,7 @@ function fetch(url: string, init?: RequestInit): Promise<Response> {
     return doNativeFetch();
   }
 
-  if (SERVER_SIDE) {
+  if (isServer()) {
     const cache = getCache().server();
     const { first, promise } = cache.receiveRequest(url);
     if (first) {

@@ -1,8 +1,9 @@
 {
   "name": "sluice",
   "private": true,
+  "type": "module",
   "bin": {
-    "sluice": "./src/sluice/cli.ts"
+    "sluice": "./bin/sluice.js"
   },
   "exports": {
     ".": "./src/sluice/index.ts",
@@ -15,6 +16,7 @@
     "./config": "./src/sluice/config.ts"
   },
   "scripts": {
+    "build:cli": "esbuild src/sluice/cli.ts --bundle --platform=node --format=esm --outfile=dist/cli.js --packages=external",
     "test": "bunx vitest run",
     "typecheck": "bunx tsc --noEmit"
   },

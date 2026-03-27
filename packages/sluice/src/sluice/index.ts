@@ -5,6 +5,9 @@ export { defineEndpoint, type Endpoint, type EndpointInit, type EndpointDefiniti
 export type { RouteHandlerCtx } from './core/handler/RouteHandlerCtx';
 export type { RouteDirective } from './core/handler/RouteHandler';
 
+// Environment
+export { isServer } from './env';
+
 // Components
 export { Root, makeRootComponent, type RootAPI, type RootElementType } from './core/components/Root';
 export { default as RootContainer } from './core/components/RootContainer';

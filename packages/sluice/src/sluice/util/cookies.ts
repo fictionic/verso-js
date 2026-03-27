@@ -1,10 +1,9 @@
 import { parse, stringifySetCookie } from 'cookie';
 import { ServerCookies, type CookieOptions } from '../server/ServerCookies';
-
-declare const SERVER_SIDE: boolean;
+import { isServer } from '../env';
 
 export function getCookie(name: string): string | undefined {
-  if (SERVER_SIDE) {
+  if (isServer()) {
     // if we've already set this cookie ourselves, it will override
     // any preexisting value in the browser. we have to use it for our render.
     const fromResponse = ServerCookies.get()!.getResponseCookie(name);
@@ -21,7 +20,7 @@ export function getCookie(name: string): string | undefined {
 }
 
 export function setCookie(name: string, value: string, options?: CookieOptions): void {
-  if (SERVER_SIDE) {
+  if (isServer()) {
     // only works before headers have been sent; i.e., before rendering starts.
     // otherwise it will throw.
     ServerCookies.get()!.setResponseCookie(name, value, options);

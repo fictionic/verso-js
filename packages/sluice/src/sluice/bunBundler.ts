@@ -32,7 +32,7 @@ export async function bundle(siteConfigModulePath: string): Promise<BundleResult
       splitting: true,
       minify: false,
       metafile: true,
-      define: { 'SERVER_SIDE': 'false' },
+      define: { 'IS_CLIENT': 'true' },
     });
 
     if (!result.success) {
