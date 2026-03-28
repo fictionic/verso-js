@@ -8,7 +8,7 @@
     "packages/demo": {
       "name": "@verso-js/demo",
       "dependencies": {
-        "@verso-js/store-adapters": "workspace:*",
+        "@verso-js/store-adapter-zustand": "workspace:*",
         "@verso-js/stores": "workspace:*",
         "@verso-js/verso": "workspace:*",
         "jotai": "^2.18.1",
@@ -23,18 +23,30 @@
         "typescript": "^5",
       },
     },
-    "packages/store-adapters": {
-      "name": "@verso-js/store-adapters",
+    "packages/store-adapter-redux": {
+      "name": "@verso-js/store-adapter-redux",
       "dependencies": {
         "@verso-js/stores": "workspace:*",
-        "redux": "^5.0.1",
-        "zustand": "^5.0.11",
       },
       "devDependencies": {
         "@types/react": "^19.2.14",
       },
       "peerDependencies": {
         "react": "^19.2.4",
+        "redux": "^5.0.1",
+      },
+    },
+    "packages/store-adapter-zustand": {
+      "name": "@verso-js/store-adapter-zustand",
+      "dependencies": {
+        "@verso-js/stores": "workspace:*",
+      },
+      "devDependencies": {
+        "@types/react": "^19.2.14",
+      },
+      "peerDependencies": {
+        "react": "^19.2.4",
+        "zustand": "^5.0.11",
       },
     },
     "packages/stores": {
@@ -42,7 +54,7 @@
       "devDependencies": {
         "@testing-library/react": "^16.3.2",
         "@types/react": "^19.2.14",
-        "@verso-js/store-adapters": "workspace:*",
+        "@verso-js/store-adapter-zustand": "workspace:*",
         "jsdom": "^29.0.0",
         "react-dom": "^19.2.4",
         "vitest": "^4.1.0",
@@ -67,7 +79,8 @@
         "@types/cookie": "^1.0.0",
         "@types/react": "^19.2.14",
         "@types/react-dom": "^19.2.3",
-        "@verso-js/store-adapters": "workspace:*",
+        "@verso-js/store-adapter-redux": "workspace:*",
+        "@verso-js/store-adapter-zustand": "workspace:*",
         "@verso-js/stores": "workspace:*",
         "@vitejs/plugin-react": "^6.0.1",
         "jsdom": "^29.0.0",
@@ -185,7 +198,9 @@
 
     "@verso-js/demo": ["@verso-js/demo@workspace:packages/demo"],
 
-    "@verso-js/store-adapters": ["@verso-js/store-adapters@workspace:packages/store-adapters"],
+    "@verso-js/store-adapter-redux": ["@verso-js/store-adapter-redux@workspace:packages/store-adapter-redux"],
+
+    "@verso-js/store-adapter-zustand": ["@verso-js/store-adapter-zustand@workspace:packages/store-adapter-zustand"],
 
     "@verso-js/stores": ["@verso-js/stores@workspace:packages/stores"],
 

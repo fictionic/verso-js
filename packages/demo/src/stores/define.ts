@@ -1,1 +1,1 @@
-export { defineZustandIsoStore } from '@verso-js/store-adapters/zustand';
+export { defineZustandIsoStore } from '@verso-js/store-adapter-zustand';

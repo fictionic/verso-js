@@ -1,10 +1,10 @@
 import type {BundleResult} from "../bundle";
 import {createRouter, type SiteConfig} from "./router";
 import {handleRoute} from "./handleRoute";
-import {importModule} from "../util/importModule";
+import {createViteBundleLoader} from "../middleware/ViteBundleLoader";
 
 interface VersoServerConfig {
-  siteConfigPath: string;
+  site: SiteConfig;
   bundleResult: BundleResult;
   urlPrefix?: string;
   renderTimeout?: number;
@@ -24,10 +24,28 @@ export async function createVersoServer(config: VersoServerConfig): Promise<Vers
     });
   }
 
-  const site = await importModule<SiteConfig>(config.siteConfigPath);
+  const site = config.site;
   const { routes } = site;
   const router = createRouter(routes);
-  const { handlersByRoute } = config.bundleResult;
+  const { handlersByRoute, manifest } = config.bundleResult;
+
+  // Build per-route script/stylesheet/preload maps from the manifest
+  const routeScripts: Record<string, string[]> = {};
+  const routeStylesheets: Record<string, string[]> = {};
+  const routePreloads: Record<string, string[]> = {};
+  for (const [routeName, assets] of Object.entries(manifest)) {
+    routeScripts[routeName] = assets.scripts.map(s => `/${s}`);
+    routeStylesheets[routeName] = assets.stylesheets.map(s => `/${s}`);
+    routePreloads[routeName] = (assets.preloads ?? []).map(s => `/${s}`);
+  }
+
+  const bundleLoader = createViteBundleLoader({
+    preamble: '',
+    routeScripts,
+    routeStylesheets,
+    routePreloads,
+  });
+  const systemMiddleware = [bundleLoader];
 
   return {
     serve: (req: Request) => {
@@ -47,7 +65,8 @@ export async function createVersoServer(config: VersoServerConfig): Promise<Vers
         return Promise.resolve(new Response(null, { status: 404 }));
       }
       const handler = handlersByRoute[route.routeName]!;
-      return handleRoute(handler.type, route, handler, site.middleware ?? [], req, {
+      const allMiddleware = [...systemMiddleware, ...(site.middleware ?? [])];
+      return handleRoute(handler.type, route, handler, allMiddleware, req, {
         urlPrefix: config.urlPrefix,
       });
     }

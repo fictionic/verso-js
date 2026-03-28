@@ -1,6 +1,5 @@
 import { test, expect } from './helpers/fixtures';
 
-// Scoped locators via data-card attribute on Card component
 function profileCard(page: import('@playwright/test').Page) {
   return page.locator('[data-card="User Profile"]');
 }
@@ -79,7 +78,6 @@ test.describe('Interactions', () => {
   test('accent picker', async ({ page }) => {
     const card = prefsCard(page);
     await expect(card.getByText('#6366f1')).toBeVisible();
-    // Click the pink swatch by its background-color style
     await card.locator('button[style*="#ec4899"]').click();
     await expect(card.getByText('#ec4899')).toBeVisible();
   });
@@ -98,9 +96,7 @@ test.describe('Client-only async data', () => {
   test('activity items load', async ({ page }) => {
     await page.goto('/');
     const card = activityCard(page);
-    // Wait for the loading indicator to disappear (1.5s hardcoded delay + margin)
     await expect(card.getByText('Fetching after mount...')).toBeHidden({ timeout: 5000 });
-    // All 5 activity items should be visible
     await expect(card.getByText('Edited profile settings')).toBeVisible();
     await expect(card.getByText('Uploaded a photo')).toBeVisible();
     await expect(card.getByText('Sent a message to Bob')).toBeVisible();
@@ -116,17 +112,13 @@ test.describe('Cross-root broadcast', () => {
 
   test('broadcast rename', async ({ page }) => {
     await page.getByRole('button', { name: /rename → "Zara"/ }).click();
-    // Profile card (userId:1) should show Zara
     await expect(profileCard(page).getByText('Zara', { exact: true })).toBeVisible();
-    // Broadcast card (userId:3) should also show Zara
     await expect(broadcastCard(page).getByText('Zara', { exact: true })).toBeVisible();
   });
 
   test('broadcast reset', async ({ page }) => {
-    // First rename
     await page.getByRole('button', { name: /rename → "Zara"/ }).click();
     await expect(profileCard(page).getByText('Zara', { exact: true })).toBeVisible();
-    // Then reset
     await page.getByRole('button', { name: /reset all/ }).click();
     await expect(profileCard(page).getByText('Alice', { exact: true })).toBeVisible();
     await expect(broadcastCard(page).getByText('Charlie', { exact: true })).toBeVisible();
@@ -135,16 +127,13 @@ test.describe('Cross-root broadcast', () => {
 
 test.describe('Streaming', () => {
   test('progressive streaming', async ({ page }) => {
-    // Set higher latency so there's a window between shell and data
     await page.context().addCookies([
       { name: 'latency_users', value: '800', domain: 'localhost', path: '/' },
       { name: 'latency_theme', value: '800', domain: 'localhost', path: '/' },
     ]);
 
-    // Navigate and verify the page title arrives before the data
     await page.goto('/', { waitUntil: 'commit' });
     await expect(page).toHaveTitle('isomorphic-stores demo');
-    // Data hasn't arrived yet (or may arrive soon) — just verify it eventually does
     await expect(profileCard(page).getByText('Alice', { exact: true })).toBeVisible({ timeout: 10_000 });
   });
 });

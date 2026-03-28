@@ -1,10 +1,10 @@
 import type { Plugin } from 'vite';
 import type { Routes } from '../server/router';
-import { makeEntrypoint } from '../entrypoint';
+import { makeUnifiedEntrypoint } from '../entrypoint';
 import path from 'node:path';
 
-const VIRTUAL_PREFIX = 'virtual:verso/route-';
-const RESOLVED_PREFIX = '\0' + VIRTUAL_PREFIX;
+const VIRTUAL_ID = 'virtual:verso/entry';
+const RESOLVED_ID = '\0' + VIRTUAL_ID;
 
 export function versoVitePlugin(getRoutes: () => Routes, siteConfigPath: string): Plugin {
   const routesDir = path.dirname(siteConfigPath);
@@ -13,21 +13,22 @@ export function versoVitePlugin(getRoutes: () => Routes, siteConfigPath: string)
     name: '@verso-js/verso',
 
     resolveId(id) {
-      if (id.startsWith(VIRTUAL_PREFIX)) {
-        return RESOLVED_PREFIX + id.slice(VIRTUAL_PREFIX.length);
+      if (id === VIRTUAL_ID) {
+        return RESOLVED_ID;
       }
     },
 
     load(id) {
-      if (!id.startsWith(RESOLVED_PREFIX)) return;
-      const routeName = id.slice(RESOLVED_PREFIX.length);
-      const routeConfig = getRoutes()[routeName];
-      if (!routeConfig) return;
-      return makeEntrypoint(routeConfig.handler, routesDir, siteConfigPath);
+      if (id !== RESOLVED_ID) return;
+      const routes = getRoutes();
+      // Include all routes in the loader map — endpoints are dead code since
+      // the entry <script> is only injected for page routes.
+      const allRouteNames = Object.keys(routes);
+      return makeUnifiedEntrypoint(allRouteNames, routes, routesDir, siteConfigPath);
     },
   };
 }
 
-export function virtualModuleId(routeName: string): string {
-  return VIRTUAL_PREFIX + routeName;
+export function virtualEntryId(): string {
+  return VIRTUAL_ID;
 }

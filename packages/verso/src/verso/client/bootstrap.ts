@@ -12,15 +12,24 @@ import {createCtx} from '../core/handler/RouteHandlerCtx';
 import {VersoRequest} from '../core/VersoRequest';
 import {createRouter, type SiteConfig} from '../server/router';
 
+export type PageLoaders = Record<string, () => Promise<{ default: PageDefinition }>>;
+
 global.CLIENT_READY_DFD = Promise.withResolvers<void>();
 
-export async function bootstrap(pageDef: PageDefinition, site: SiteConfig): Promise<void> {
+export async function bootstrap(site: SiteConfig, pageLoaders: PageLoaders): Promise<void> {
   const router = createRouter(site.routes);
   const route = router.matchRoute(location.pathname, 'GET');
   if (!route) {
-    console.error("no route!");
+    console.error("[verso] no route for", location.pathname);
     return;
   }
+  const loader = pageLoaders[route.routeName];
+  if (!loader) {
+    console.error("[verso] no page loader for route", route.routeName);
+    return;
+  }
+  const pageDef = (await loader()).default;
+
   const req = VersoRequest.clientInit(route.params);
   Fetch.clientInit();
   const readablePipe = VersoPipe.reader();

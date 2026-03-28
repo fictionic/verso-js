@@ -4,7 +4,7 @@ import { fileURLToPath } from 'node:url';
 import { createServer as createViteServer, type ViteDevServer } from 'vite';
 import react from '@vitejs/plugin-react';
 import { createRouter, type SiteConfig } from '../server/router';
-import { versoVitePlugin, virtualModuleId } from './versoVitePlugin';
+import { versoVitePlugin, virtualEntryId } from './versoVitePlugin';
 import { createViteBundleLoader } from '../middleware/ViteBundleLoader';
 import { toWebRequest, sendWebResponse } from '../server/nodeHttp';
 import type {RouteHandler} from '../core/handler/RouteHandler';
@@ -36,7 +36,7 @@ export async function createDevServer(config: DevServerConfig) {
       dedupe: ['react', 'react-dom'],
     },
     ssr: {
-      noExternal: ['@verso-js/verso', '@verso-js/stores', '@verso-js/store-adapters'],
+      noExternal: ['@verso-js/verso', '@verso-js/stores', '@verso-js/store-adapter-zustand', '@verso-js/store-adapter-redux'],
     },
     define: {
       IS_SERVER: 'true',
@@ -57,9 +57,10 @@ export async function createDevServer(config: DevServerConfig) {
   site = await ssrLoadDefault<SiteConfig>(vite, siteConfigPath);
   const router = createRouter(site.routes);
 
+  const entryUrl = `/@id/__x00__${virtualEntryId()}`;
   const routeScripts: Record<string, string[]> = {};
   for (const routeName of Object.keys(site.routes)) {
-    routeScripts[routeName] = [`/@id/__x00__${virtualModuleId(routeName)}`];
+    routeScripts[routeName] = [entryUrl];
   }
   const bundleLoader = createViteBundleLoader({
     preamble: react.preambleCode.replace('__BASE__', '/'),

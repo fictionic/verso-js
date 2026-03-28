@@ -2,6 +2,7 @@ import type {RouteHandlerDefinition, RouteHandlerType} from "./core/handler/Rout
 
 export type RouteAssets = {
   scripts: string[];
+  preloads?: string[];
   inlineScripts?: string[];
   stylesheets: string[];
 };

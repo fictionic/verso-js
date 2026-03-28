@@ -33,7 +33,8 @@
     "jsdom": "^29.0.0",
     "react-dom": "^19.2.4",
     "@verso-js/stores": "workspace:*",
-    "@verso-js/store-adapters": "workspace:*",
+    "@verso-js/store-adapter-zustand": "workspace:*",
+    "@verso-js/store-adapter-redux": "workspace:*",
     "vite": "^8.0.0",
     "vitest": "^4.1.0"
   },

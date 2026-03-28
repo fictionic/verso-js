@@ -11,13 +11,23 @@ export type Script = {
   type?: string;
 };
 
+export type LinkTag = {
+  rel: string;
+  href: string;
+  as?: string;
+  crossorigin?: string;
+  type?: string;
+};
+
 export interface PageOptionalMethods {
   getTitle(): string;
   getSystemStylesheets(): Stylesheet[];
   getStylesheets(): Stylesheet[];
-  getSystemScripts(): Script[],
-  getScripts(): Script[],
-  // TODO: getBodyClasses, getMetaTags, getLinkTags,
+  getSystemScripts(): Script[];
+  getScripts(): Script[];
+  getSystemLinkTags(): LinkTag[];
+  getLinkTags(): LinkTag[];
+  // TODO: getBodyClasses, getMetaTags,
 }
 
 export interface PageRequiredMethods {
@@ -40,6 +50,8 @@ const PAGE_OPTIONAL_METHOD_DEFAULTS: PageOptionalMethods = {
   getStylesheets: () => [],
   getSystemScripts: () => [],
   getScripts: () => [],
+  getSystemLinkTags: () => [],
+  getLinkTags: () => [],
 };
 
 export function definePage(init: PageInit): PageDefinition {

@@ -27,6 +27,8 @@ function simplePage(elements: React.ReactElement[]): StandardizedPage {
     getHeaders() { return []; },
     getSystemScripts() { return []; },
     getScripts() { return []; },
+    getSystemLinkTags() { return []; },
+    getLinkTags() { return []; },
   };
 }
 

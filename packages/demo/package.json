@@ -5,13 +5,15 @@
     "dev": "verso dev",
     "build": "verso build",
     "start": "verso start",
-    "test:e2e": "npx playwright test",
+    "test:e2e": "bunx playwright test -c playwright.dev.config.ts",
+    "test:e2e:prod": "bunx playwright test -c playwright.prod.config.ts",
+    "test:e2e:all": "bunx playwright test -c playwright.dev.config.ts && bunx playwright test -c playwright.prod.config.ts",
     "typecheck": "bunx tsc --noEmit"
   },
   "dependencies": {
     "@verso-js/verso": "workspace:*",
     "@verso-js/stores": "workspace:*",
-    "@verso-js/store-adapters": "workspace:*",
+    "@verso-js/store-adapter-zustand": "workspace:*",
     "react": "^19.2.4",
     "react-dom": "^19.2.4",
     "jotai": "^2.18.1"

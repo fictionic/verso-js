@@ -1,6 +1,22 @@
-import { test as base } from '@playwright/test';
+import { test as base, expect } from '@playwright/test';
 
-export const test = base.extend({
+type TestFixtures = {
+  consoleErrors: string[];
+};
+
+export const test = base.extend<TestFixtures>({
+  consoleErrors: async ({ page }, use) => {
+    const errors: string[] = [];
+    page.on('console', msg => {
+      if (msg.type() === 'error') errors.push(`console.error: ${msg.text()}`);
+    });
+    page.on('pageerror', err => {
+      errors.push(`pageerror: ${err.message}`);
+    });
+    await use(errors);
+    expect(errors, 'Expected no browser errors').toEqual([]);
+  },
+
   page: async ({ page }, use) => {
     // Set all latency cookies to 10ms before each test
     await page.context().addCookies([
@@ -51,4 +67,4 @@ export const test = base.extend({
   },
 });
 
-export { expect } from '@playwright/test';
+export { expect };

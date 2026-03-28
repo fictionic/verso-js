@@ -4,7 +4,8 @@
   "workspaces": [
     "packages/verso",
     "packages/stores",
-    "packages/store-adapters",
+    "packages/store-adapter-zustand",
+    "packages/store-adapter-redux",
     "packages/demo"
   ]
 }
