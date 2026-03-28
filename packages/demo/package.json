@@ -1,16 +1,17 @@
 {
-  "name": "sluice-demo",
+  "name": "@verso-js/demo",
   "private": true,
   "scripts": {
-    "dev": "sluice dev",
-    "build": "sluice build",
-    "start": "sluice start",
-    "test:e2e": "bunx playwright test",
+    "dev": "verso dev",
+    "build": "verso build",
+    "start": "verso start",
+    "test:e2e": "npx playwright test",
     "typecheck": "bunx tsc --noEmit"
   },
   "dependencies": {
-    "sluice": "workspace:*",
-    "sluice-store-adapters": "workspace:*",
+    "@verso-js/verso": "workspace:*",
+    "@verso-js/stores": "workspace:*",
+    "@verso-js/store-adapters": "workspace:*",
     "react": "^19.2.4",
     "react-dom": "^19.2.4",
     "jotai": "^2.18.1"

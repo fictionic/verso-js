@@ -6,7 +6,7 @@ import {
   type AnyAction,
 } from "redux";
 import { useSyncExternalStore } from "react";
-import { type Adapter } from 'sluice/stores/adapter';
+import { type Adapter } from '@verso-js/stores/adapter';
 
 const ISO_SET_STATE = '@@isostores/SET_STATE';
 

@@ -1,4 +1,4 @@
-import { Root, defineMiddleware } from 'sluice';
+import { Root, defineMiddleware } from '@verso-js/verso';
 
 interface HeaderConfig {
   showHeader: boolean;

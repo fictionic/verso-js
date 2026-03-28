@@ -1,4 +1,4 @@
-import type { SiteConfig } from 'sluice/server';
+import type { SiteConfig } from '@verso-js/verso/server';
 import PageHeader from './PageHeader';
 
 export default {

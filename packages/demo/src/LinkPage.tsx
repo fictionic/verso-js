@@ -1,5 +1,5 @@
 import React from 'react';
-import { RootContainer, definePage } from 'sluice';
+import { RootContainer, definePage } from '@verso-js/verso';
 
 export default definePage(() => ({
   getTitle() {

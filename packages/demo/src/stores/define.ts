@@ -1,1 +1,1 @@
-export { defineZustandIsoStore } from 'sluice-store-adapters/zustand';
+export { defineZustandIsoStore } from '@verso-js/store-adapters/zustand';

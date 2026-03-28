@@ -1,0 +1,20 @@
+{
+  "name": "@verso-js/stores",
+  "private": true,
+  "type": "module",
+  "exports": {
+    ".": "./src/index.ts",
+    "./adapter": "./src/adapter.ts"
+  },
+  "peerDependencies": {
+    "react": "^19.2.4"
+  },
+  "devDependencies": {
+    "@types/react": "^19.2.14",
+    "@testing-library/react": "^16.3.2",
+    "@verso-js/store-adapters": "workspace:*",
+    "jsdom": "^29.0.0",
+    "react-dom": "^19.2.4",
+    "vitest": "^4.1.0"
+  }
+}

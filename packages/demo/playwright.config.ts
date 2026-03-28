@@ -14,7 +14,7 @@ export default defineConfig({
     },
   ],
   webServer: {
-    command: 'bun src/server.tsx',
+    command: 'verso dev',
     url: 'http://localhost:3000',
     reuseExistingServer: !process.env.CI,
   },

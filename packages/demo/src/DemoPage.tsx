@@ -1,6 +1,6 @@
 import { ProfileStore, ThemeStore, ActivityStore } from './stores';
 import StoreRoot from './StoreRoot';
-import { RootContainer, TheFold, definePage } from 'sluice';
+import { RootContainer, TheFold, definePage } from '@verso-js/verso';
 import { User } from './components/User';
 import { Prefs } from './components/Prefs';
 import { Activity } from './components/Activity';

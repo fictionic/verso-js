@@ -1,4 +1,4 @@
-import { defineMiddleware } from 'sluice';
+import { defineMiddleware } from '@verso-js/verso';
 
 export default defineMiddleware('all', (fns) => ({
   getRouteDirective: (next) => {

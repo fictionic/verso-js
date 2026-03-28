@@ -1,19 +1,19 @@
 {
-  "name": "sluice-store-adapters",
+  "name": "@verso-js/store-adapters",
   "private": true,
   "exports": {
     "./zustand": "./src/zustand.ts",
     "./redux": "./src/redux.ts"
   },
   "dependencies": {
-    "sluice": "workspace:*",
-    "zustand": "^5.0.11",
-    "redux": "^5.0.1"
+    "@verso-js/stores": "workspace:*"
   },
   "devDependencies": {
     "@types/react": "^19.2.14"
   },
   "peerDependencies": {
-    "react": "^19.2.4"
+    "react": "^19.2.4",
+    "zustand": "^5.0.11",
+    "redux": "^5.0.1"
   }
 }

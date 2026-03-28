@@ -1,8 +1,9 @@
 {
-  "name": "sluice-workspace",
+  "name": "verso-workspace",
   "private": true,
   "workspaces": [
-    "packages/sluice",
+    "packages/verso",
+    "packages/stores",
     "packages/store-adapters",
     "packages/demo"
   ]

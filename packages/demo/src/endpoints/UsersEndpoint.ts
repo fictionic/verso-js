@@ -1,4 +1,4 @@
-import { defineEndpoint } from 'sluice';
+import { defineEndpoint } from '@verso-js/verso';
 import { delay } from '../delay';
 import { cookieLatency } from './cookieLatency';
 

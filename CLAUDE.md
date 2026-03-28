@@ -1,15 +1,15 @@
 
 ## Project Overview
 
-**Sluice** is a streaming SSR framework, and **isomorphic-stores** is its state management layer — a framework-agnostic adapter system for plugging Zustand, Redux, etc. into Sluice's SSR model.
+**Verso** is a streaming SSR framework, and **isomorphic-stores** is its state management layer — a framework-agnostic adapter system for plugging Zustand, Redux, etc. into Verso's SSR model.
 
-**Architecture**: Sluice owns the server and the bundler. The server targets Node's standard HTTP APIs (works on Bun/Deno via Node compat). The bundler is Vite. Both are theoretically pluggable via adapters later, but there is no formal adapter system now — `BundleResult` (`bundle.ts`) is the clean boundary for the bundler, and standard `Request`/`Response` is the boundary for the server. `viteBundler.ts` is the Vite-based bundler.
+**Architecture**: Verso owns the server and the bundler. The server targets Node's standard HTTP APIs (works on Bun/Deno via Node compat). The bundler is Vite. Both are theoretically pluggable via adapters later, but there is no formal adapter system now — `BundleResult` (`bundle.ts`) is the clean boundary for the bundler, and standard `Request`/`Response` is the boundary for the server. `viteBundler.ts` is the Vite-based bundler.
 
-**CLI** (in progress): `sluice dev` starts a Vite dev server with HMR composed with sluice's SSR handler. `sluice build` writes production bundles to disk + `manifest.json`. `sluice start` serves pre-built bundles + SSR. The user does not own the server file — sluice orchestrates HTTP serving, and the user provides configuration (routes, API endpoints, etc.) via `sluice.config.ts`.
+**CLI** (in progress): `verso dev` starts a Vite dev server with HMR composed with verso's SSR handler. `verso build` writes production bundles to disk + `manifest.json`. `verso start` serves pre-built bundles + SSR. The user does not own the server file — verso orchestrates HTTP serving, and the user provides configuration (routes, API endpoints, etc.) via `verso.config.ts`.
 
 **Dev runtime**: Bun is used for running/building/installing during development, but framework code must avoid Bun-specific APIs.
 
-The core idea: stores are created server-side before render, async data is declared via `waitFor`, and Sluice's `Root` component blocks rendering until the store is ready. Client-side components can also create stores independently via `useCreateClientStore`.
+The core idea: stores are created server-side before render, async data is declared via `waitFor`, and Verso's `Root` component blocks rendering until the store is ready. Client-side components can also create stores independently via `useCreateClientStore`.
 
 A secondary goal: replace the pattern of bubbling all UI updates up through a root element (which triggers full-tree re-renders) with granular per-component subscriptions via selectors.
 
@@ -22,24 +22,32 @@ package.json                # workspace root
 tsconfig.base.json          # shared compiler options
 bunfig.toml
 packages/
-├── sluice/                 # SSR framework + isomorphic-stores
-│   ├── package.json        # name: "sluice"
+├── verso/                 # SSR framework
+│   ├── package.json        # name: "@verso-js/verso"
 │   ├── tsconfig.json       # extends ../../tsconfig.base.json
 │   ├── vitest.config.ts    # @/ alias
+│   └── src/verso/          # SSR framework source
+├── stores/                # isomorphic-stores core library (defineIsoStore, IsoStoreProvider, types)
+│   ├── package.json        # name: "@verso-js/stores"
+│   ├── tsconfig.json
+│   ├── vitest.config.ts
 │   └── src/
-│       ├── sluice/         # SSR framework
-│       └── stores/         # isomorphic-stores library
+│       ├── index.ts        # public API: types + defineIsoStore + IsoStoreProvider
+│       ├── adapter.ts      # adapter author API (Adapter type + defineIsoStore)
+│       ├── provider.tsx    # IsoStoreProvider component
+│       ├── core/           # internal: define, types, StoreProvider, lifecycle, constants
+│       └── tests/
 ├── store-adapters/         # Zustand + Redux adapter implementations
-│   ├── package.json        # name: "sluice-store-adapters", depends on sluice
+│   ├── package.json        # name: "@verso-js/store-adapters", depends on @verso-js/stores
 │   ├── tsconfig.json
 │   └── src/
 │       ├── zustand.ts      # Zustand adapter + defineZustandIsoStore
 │       └── redux.ts        # Redux adapter + defineReduxIsoStore
-└── demo/                   # demo app (exercises sluice + stores)
-    ├── package.json        # name: "sluice-demo", depends on sluice + sluice-store-adapters
+└── demo/                   # demo app (exercises verso + stores)
+    ├── package.json        # name: "@verso-js/demo", depends on verso + @verso-js/stores
     ├── tsconfig.json
     ├── playwright.config.ts
-    ├── sluice.config.ts    # demo's sluice configuration
+    ├── verso.config.ts    # demo's verso configuration
     ├── src/
     │   ├── routes.ts       # route definitions (SiteConfig)
     │   ├── DemoPage.tsx
@@ -52,39 +60,45 @@ packages/
 
 Each package uses `@/*` as a path alias to its own `src/` directory.
 
-### sluice package exports
-- `sluice` → `src/sluice/index.ts` — primary authoring API: `definePage`, `defineMiddleware`, `defineEndpoint`, `Root`, `RootContainer`, `TheFold`, `makeRootComponent`, `RouteHandlerCtx` (type), `RouteDirective` (type)
-- `sluice/stores` → `src/stores/index.ts` — `defineIsoStore`, `IsoStoreProvider`, store types (`IsoStoreDefinition`, `IsoStoreInstance`, etc.)
-- `sluice/stores/adapter` → `src/stores/adapter.ts` — adapter author API: `Adapter` type + `defineIsoStore`
-- `sluice/fetch` → `src/sluice/core/fetch/index.ts` — isomorphic `fetch`
-- `sluice/cookies` → `src/sluice/util/cookies.ts` — `getCookie`, `setCookie`
-- `sluice/server` → `src/sluice/server/index.ts` — `createSluiceServer`, `SiteConfig`, `Routes`
-- `sluice/bundler` → `src/sluice/viteBundler.ts` — `bundle`
-- `sluice/config` → `src/sluice/config.ts` — `SluiceConfig` type
+### verso package exports
+- `@verso-js/verso` → `src/verso/index.ts` — primary authoring API: `definePage`, `defineMiddleware`, `defineEndpoint`, `Root`, `RootContainer`, `TheFold`, `makeRootComponent`, `RouteHandlerCtx` (type), `RouteDirective` (type)
+- `@verso-js/verso/fetch` → `src/verso/core/fetch/index.ts` — isomorphic `fetch`
+- `@verso-js/verso/cookies` → `src/verso/util/cookies.ts` — `getCookie`, `setCookie`
+- `@verso-js/verso/server` → `src/verso/server/index.ts` — `createVersoServer`, `SiteConfig`, `Routes`
+- `@verso-js/verso/bundler` → `src/verso/viteBundler.ts` — `bundle`
+- `@verso-js/verso/config` → `src/verso/config.ts` — `VersoConfig` type
 
-### sluice source layout
+### stores package exports
+- `@verso-js/stores` → `src/index.ts` — `defineIsoStore`, `IsoStoreProvider`, store types (`IsoStoreDefinition`, `IsoStoreInstance`, etc.)
+- `@verso-js/stores/adapter` → `src/adapter.ts` — adapter author API: `Adapter` type + `defineIsoStore`
+
+### store-adapters package exports
+- `@verso-js/store-adapters/zustand` → `src/zustand.ts` — Zustand adapter + `defineZustandIsoStore`
+- `@verso-js/store-adapters/redux` → `src/redux.ts` — Redux adapter + `defineReduxIsoStore`
+
+### verso source layout
 
 ```
-src/sluice/
+src/verso/
 ├── index.ts         # root barrel: re-exports handler APIs + components
 ├── env.ts           # isServer() / IS_SERVER environment detection
 ├── entrypoint.ts    # shared client entry code generator (used by viteBundler + dev plugin)
 ├── bundle.ts        # bundler-agnostic types (RouteAssets, BundleManifest, BundleResult)
 ├── viteBundler.ts   # Vite-based bundler; produces BundleResult via vite.build()
-├── config.ts        # SluiceConfig type for sluice.config.ts
-├── cli.ts           # CLI entry point (sluice build, sluice start, sluice dev)
+├── config.ts        # VersoConfig type for verso.config.ts
+├── cli.ts           # CLI entry point (verso build, verso start, verso dev)
 ├── cli/
-│   ├── build.ts     # sluice build: bundle + write to disk
-│   ├── start.ts     # sluice start: read manifest + serve
-│   └── dev.ts       # sluice dev: Vite dev server + SSR
+│   ├── build.ts     # verso build: bundle + write to disk
+│   ├── start.ts     # verso start: read manifest + serve
+│   └── dev.ts       # verso dev: Vite dev server + SSR
 ├── dev/
 │   ├── createDevServer.ts   # orchestrates Vite + Node HTTP server
-│   └── sluiceVitePlugin.ts  # Vite plugin: virtual entry modules per route
+│   └── versoVitePlugin.ts  # Vite plugin: virtual entry modules per route
 ├── constants.ts     # DOM attribute names
 ├── core/
 │   ├── RequestContext.ts   # server-side escape hatch: raw Request + cookies; RLS-backed
-│   ├── SluiceRequest.ts    # isomorphic request facade (URL, query params, route params)
-│   ├── SluicePipe.ts       # typed server→client pipe instance
+│   ├── VersoRequest.ts    # isomorphic request facade (URL, query params, route params)
+│   ├── VersoPipe.ts       # typed server→client pipe instance
 │   ├── elementTokenizer.ts
 │   ├── handler/
 │   │   ├── Page.ts             # definePage + Page interface
@@ -110,7 +124,7 @@ src/sluice/
 │   └── ViteBundleLoader.ts  # system middleware: injects Vite bundle scripts + stylesheets
 ├── server/
 │   ├── index.ts              # barrel export
-│   ├── createSluiceServer.ts # wires up routing, bundle serving, and SSR handler
+│   ├── createVersoServer.ts # wires up routing, bundle serving, and SSR handler
 │   ├── handleRoute.ts        # common setup for all route types
 │   ├── handlePage.ts         # orchestrates per-request SSR
 │   ├── handleEndpoint.ts     # handler for JSON endpoints
@@ -126,18 +140,6 @@ src/sluice/
     ├── cookies.ts           # isomorphic cookie get/set util
     ├── importModule.ts      # jiti wrapper for loading .ts/.tsx at runtime under Node
     └── requestLocal.ts
-
-src/stores/
-├── index.ts         # public API: types + defineIsoStore + IsoStoreProvider
-├── adapter.ts       # adapter author API (Adapter type + defineIsoStore)
-├── provider.tsx     # IsoStoreProvider component
-├── core/
-│   ├── types.ts     # all public types (IsoStoreDefinition, IsoStoreInstance, etc.)
-│   ├── define.ts    # defineIsoStore, internal logic
-│   ├── constants.ts
-│   ├── StoreProvider.tsx
-│   └── lifecycle.ts
-└── tests/
 ```
 
 ### isomorphic-stores Architecture
@@ -151,7 +153,7 @@ The `Adapter` bridges the two: `createNativeStore(nativeStoreInit)` turns the in
 Three levels of abstraction:
 1. **`defineIsoStore(isoInit, adapter, options?)`** — core library function; framework-agnostic
 2. **`getAdapter<State>()`** — adapter module (e.g. `store-adapters/src/zustand.ts`); encapsulates framework-specific types. Must be called as `getAdapter<State>()` to ensure TypeScript infers `State` from the adapter.
-3. **`defineZustandIsoStore(isoInit, options?)`** — convenience wrapper exported from `sluice-store-adapters/zustand`; combines adapter + `defineIsoStore`.
+3. **`defineZustandIsoStore(isoInit, options?)`** — convenience wrapper exported from `@verso-js/store-adapters/zustand`; combines adapter + `defineIsoStore`.
 
 ```ts
 // Zustand example
@@ -206,43 +208,43 @@ MyStore.broadcast(message);
 ### Request architecture
 
 Three layers:
-- **`SluiceRequest`** (`core/SluiceRequest.ts`) — isomorphic request facade. Constructed via `SluiceRequest.server(req)` (from the native `Request`) or `SluiceRequest.client()` (from `window.location`). Currently exposes `getURL()`, `getQuery()` (returns `URLSearchParams`), and `getParams()` (route params). Fields that require piping (method, headers) are not yet implemented. Not stored in RLS — only accessible via `RouteHandlerCtx`.
-- **`RouteHandlerCtx`** (`core/RouteHandlerCtx.ts`) — the context object passed to route handler `init` functions as `ctx`. Exposes `getConfig()` and `getRequest()`. Created via `createCtx(config, sluiceRequest)`. This is the primary API surface for route handler authors.
+- **`VersoRequest`** (`core/VersoRequest.ts`) — isomorphic request facade. Constructed via `VersoRequest.server(req)` (from the native `Request`) or `VersoRequest.client()` (from `window.location`). Currently exposes `getURL()`, `getQuery()` (returns `URLSearchParams`), and `getParams()` (route params). Fields that require piping (method, headers) are not yet implemented. Not stored in RLS — only accessible via `RouteHandlerCtx`.
+- **`RouteHandlerCtx`** (`core/RouteHandlerCtx.ts`) — the context object passed to route handler `init` functions as `ctx`. Exposes `getConfig()` and `getRequest()`. Created via `createCtx(config, versoRequest)`. This is the primary API surface for route handler authors.
 - **`RequestContext`** (`core/RequestContext.ts`) — server-side escape hatch, RLS-backed. Holds the raw `Request` and `cookies` (derived from request headers, throws client-side). Accessible anywhere via `getCurrentRequestContext()`. Intended for framework internals and advanced use cases, not everyday route handler code.
 
-### Sluice SSR pipeline
+### Verso SSR pipeline
 
-- `createSluiceServer.ts` — wires everything together. Takes `siteConfigPath` and a `BundleResult`. Dynamically imports the site config to get routes/middleware. Returns `serve` (a unified request handler that serves client bundles and SSR pages, matching routes and delegating to `handleRoute`).
-- `handleRoute.ts` — common setup for all route types. Initializes RLS (`RequestContext`, `ServerCookies`, `Fetch`), creates `SluiceRequest` and `RouteHandlerCtx`, builds the handler chain, calls `getRouteDirective()`, then delegates to `handlePage` or `handleEndpoint`.
+- `createVersoServer.ts` — wires everything together. Takes `siteConfigPath` and a `BundleResult`. Dynamically imports the site config to get routes/middleware. Returns `serve` (a unified request handler that serves client bundles and SSR pages, matching routes and delegating to `handleRoute`).
+- `handleRoute.ts` — common setup for all route types. Initializes RLS (`RequestContext`, `ServerCookies`, `Fetch`), creates `VersoRequest` and `RouteHandlerCtx`, builds the handler chain, calls `getRouteDirective()`, then delegates to `handlePage` or `handleEndpoint`.
 - `handlePage.ts` — orchestrates per-request SSR. Delegates to `makeStreamer` for streaming HTML. Takes `routeAssets: RouteAssets` (per-route scripts and stylesheets from the bundle manifest).
 - `stream.ts` — streaming HTML writer. Writes the shell (`<head>`, styles, bundle stylesheets), then streams root elements in document order. At `TheFold`, injects the dehydrated fetch cache and per-route `<script>` tags from `routeAssets.scripts`. Below-fold roots get inline `hydrateRootsUpTo` pipe calls. Handles late data arrivals and timeouts.
 - `router.ts` — route matching via `path-to-regexp`. Routes are defined in a `SiteConfig` — a map of route names to `{ path, handler, method? }` plus optional global middleware. `createRouter` compiles patterns and returns `matchRoute(path, method) => RouteMatch | null`.
 - `Root.tsx` — pass-through component; `when` is read directly from props by the stream writer.
 - `TheFold.tsx` — null-rendering sentinel; identifies the above/below-fold boundary.
 - `fetch/` — isomorphic fetch subsystem. Two audiences: consumers import `fetch` from `index.ts`; the framework uses `Fetch.serverInit()` / `Fetch.clientInit()`, `Fetch.fetch()`, and `Fetch.getCache()` from `Fetch.ts`. `Fetch.serverInit(urlPrefix)` creates a per-request `FetchCache` in RLS and sets `urlPrefix` for resolving relative URLs to absolute (required server-side since `fetch('/path')` has no implicit origin). `urlPrefix` is optional in config — defaults to the origin from `req.url`. `Fetch.clientInit()` creates the cache without a prefix (browser resolves relative URLs natively). GETs are cached, deduplicated, and dehydrated; non-GETs pass through with `urlPrefix` applied. `FetchCache` exposes `server()` and `client()` accessor objects with environment-specific APIs. `nativeFetch.ts` provides an indirection over `globalThis.fetch` for testability.
-- `ServerClientPipe.ts` — generic factory (`createPipe<Schema>`) for typed server→client data transport via inline `<script>` tags. `SluicePipe.ts` is the sluice-specific instance.
-- `client/bootstrap.ts` — client entry point. Each route gets its own generated entry that imports the page class and calls `bootstrap(PageClass, routePattern)`. Bootstrap uses `path-to-regexp` to extract route params from `location.pathname`, creates `SluiceRequest.client()` and `RouteHandlerCtx`, initializes `RequestContext` (client mode) and `Fetch`, rehydrates the fetch cache from the pipe, builds the handler chain, tokenizes elements, then hydrates roots as `hydrateRootsUpTo` events arrive.
+- `ServerClientPipe.ts` — generic factory (`createPipe<Schema>`) for typed server→client data transport via inline `<script>` tags. `VersoPipe.ts` is the verso-specific instance.
+- `client/bootstrap.ts` — client entry point. Each route gets its own generated entry that imports the page class and calls `bootstrap(PageClass, routePattern)`. Bootstrap uses `path-to-regexp` to extract route params from `location.pathname`, creates `VersoRequest.client()` and `RouteHandlerCtx`, initializes `RequestContext` (client mode) and `Fetch`, rehydrates the fetch cache from the pipe, builds the handler chain, tokenizes elements, then hydrates roots as `hydrateRootsUpTo` events arrive.
 - `bundle.ts` — bundler-agnostic types. `RouteAssets = { scripts, stylesheets }`, `BundleManifest = { [routeName]: RouteAssets }`, `BundleResult = { manifest, bundleContents }`. This is the contract between bundler implementations and the framework.
-### Dev server architecture (`sluice dev`)
+### Dev server architecture (`verso dev`)
 
-`sluice dev` starts a Vite dev server in middleware mode composed with sluice's SSR handler. Run with `cd packages/demo && node packages/sluice/bin/sluice.js dev` (or via the `sluice` bin).
+`verso dev` starts a Vite dev server in middleware mode composed with verso's SSR handler. Run with `cd packages/demo && node packages/verso/bin/verso.js dev` (or via the `verso` bin).
 
 **Two module loaders, separated by concern:**
 
-- **jiti** (`util/importModule.ts`): Used only for CLI bootstrap and loading `sluice.config.ts` (pure config, no JSX). The CLI entry (`bin/sluice.js`) uses jiti to load `cli.ts` without a build step, making the CLI work under Node without Bun.
+- **jiti** (`util/importModule.ts`): Used only for CLI bootstrap and loading `verso.config.ts` (pure config, no JSX). The CLI entry (`bin/verso.js`) uses jiti to load `cli.ts` without a build step, making the CLI work under Node without Bun.
 - **Vite `ssrLoadModule`**: Used for everything in the request path — the site config (`routes.ts`, which may import `.tsx` middleware), route handlers, and `handleRoute.ts` itself. This is critical: all code in the request path must go through the same module loader so singletons (RLS/AsyncLocalStorage, fetch cache) share one instance.
 
 **Why not jiti for everything?** jiti's Babel-based JSX transform uses classic mode (`React.createElement`), but user `.tsx` files use the automatic JSX runtime (no `import React`). Vite's SSR pipeline uses esbuild which handles this correctly, plus provides path alias resolution, HMR invalidation, and proper source maps.
 
-**Why not `ssrLoadModule` for everything?** Chicken-and-egg: we need `sluice.config.ts` to know the routes file path before Vite is created. jiti handles this one-time config load.
+**Why not `ssrLoadModule` for everything?** Chicken-and-egg: we need `verso.config.ts` to know the routes file path before Vite is created. jiti handles this one-time config load.
 
-**Singleton problem and `ssr.noExternal`:** If sluice framework code were loaded via Node's native `import()` (Vite's default for `node_modules` in SSR) while user code goes through `ssrLoadModule`, they'd get separate module instances — separate `AsyncLocalStorage`, separate fetch caches, etc. Setting `ssr.noExternal: ['sluice', 'sluice-store-adapters']` forces Vite to process framework code through its own module graph, so `import { ... } from 'sluice'` in user code resolves to the same modules that `handleRoute.ts` uses. This matches what SvelteKit, Remix, Astro, and Nuxt all do.
+**Singleton problem and `ssr.noExternal`:** If verso framework code were loaded via Node's native `import()` (Vite's default for `node_modules` in SSR) while user code goes through `ssrLoadModule`, they'd get separate module instances — separate `AsyncLocalStorage`, separate fetch caches, etc. Setting `ssr.noExternal: ['@verso-js/verso', '@verso-js/stores']` forces Vite to process framework code through its own module graph, so `import { ... } from '@verso-js/verso'` in user code resolves to the same modules that `handleRoute.ts` uses. This matches what SvelteKit, Remix, Astro, and Nuxt all do.
 
 **Per-request loading:** `handleRoute` and the route handler are loaded via `ssrLoadModule` on every request. Vite caches modules and only re-evaluates when files change, so this is effectively free — but it means server-side code changes take effect on the next request without restarting.
 
-**Client-side virtual entries:** The `sluiceVitePlugin` registers virtual modules (`virtual:sluice/route-<name>`) that generate per-route client entry code (imports the page + bootstrap). In dev, `createDevServer.ts` builds `routeScripts` pointing to these virtual module URLs (`/@id/__x00__virtual:sluice/route-<name>`), which are injected via the `ViteBundleLoader` middleware and served by Vite with HMR support.
+**Client-side virtual entries:** The `versoVitePlugin` registers virtual modules (`virtual:verso/route-<name>`) that generate per-route client entry code (imports the page + bootstrap). In dev, `createDevServer.ts` builds `routeScripts` pointing to these virtual module URLs (`/@id/__x00__virtual:verso/route-<name>`), which are injected via the `ViteBundleLoader` middleware and served by Vite with HMR support.
 
-**Environment detection:** `env.ts` exports `isServer()`. `IS_SERVER` is set in three places: (1) `bin/sluice.js` sets `globalThis.IS_SERVER = true` before jiti loads any modules, so the CLI path works under Node; (2) the Vite dev server sets it via `define` (server default) and overrides in `environments.client.define`; (3) `viteBundler.ts` defines `IS_SERVER: 'false'` for client builds. `globals.d.ts` declares `IS_SERVER` globally so consumers can use it directly for dead code elimination (e.g. `if (IS_SERVER) { await import('node:...') }`) without needing `declare const`. The `isServer()` function wraps this for ergonomic runtime checks.
+**Environment detection:** `env.ts` exports `isServer()`. `IS_SERVER` is set in three places: (1) `bin/verso.js` sets `globalThis.IS_SERVER = true` before jiti loads any modules, so the CLI path works under Node; (2) the Vite dev server sets it via `define` (server default) and overrides in `environments.client.define`; (3) `viteBundler.ts` defines `IS_SERVER: 'false'` for client builds. `globals.d.ts` declares `IS_SERVER` globally so consumers can use it directly for dead code elimination (e.g. `if (IS_SERVER) { await import('node:...') }`) without needing `declare const`. The `isServer()` function wraps this for ergonomic runtime checks.
 
 **SSR correctness note:** Zustand's `useStore` uses `useSyncExternalStore` with `getInitialState()` as the server snapshot, which returns state at construction time — before `waitFor` resolves. The Zustand adapter overrides `store.getInitialState = store.getState` so `renderToString` (called after `whenReady`) sees the resolved async values.
 
@@ -264,12 +266,12 @@ Server-side error handling: `Fetch.fetch()` fires the native fetch as a fire-and
 ### Cross-root communication
 Stores are scoped to React context trees. `broadcast` is a minimal escape hatch: send a message to all mounted instances of a store type from anywhere. Fire-and-forget, no request/response semantics.
 
-### sluice.config.ts
+### verso.config.ts
 
 User configuration for the CLI. Points to the routes file and provides server/build options:
 
 ```ts
-import type { SluiceConfig } from 'sluice/config';
+import type { VersoConfig } from '@verso-js/verso/config';
 
 export default {
   routes: './src/routes.ts',        // path to SiteConfig file (routes + middleware)
@@ -282,24 +284,24 @@ export default {
     outDir: './dist',                    // optional, default 'dist'
     cdnPrefix: undefined,                // optional, for CDN prod mode
   },
-} satisfies SluiceConfig;
+} satisfies VersoConfig;
 ```
 
 The routes file (`SiteConfig`) is a separate concern from the framework config — the bundler only needs the routes file path to follow handler imports.
 
 ### Demo site
-Run with `cd packages/demo && sluice dev` (or `npm run dev`). For production: `npm run build` then `npm run start`. Routes are defined in `src/routes.ts` as string handler paths (e.g. `'./DemoPage'`), typed with `SiteConfig`. Exercises sluice + isomorphic-stores together with Zustand stores, streaming roots, TheFold, late data arrivals, routing, and cross-root broadcast.
+Run with `cd packages/demo && verso dev` (or `npm run dev`). For production: `npm run build` then `npm run start`. Routes are defined in `src/routes.ts` as string handler paths (e.g. `'./DemoPage'`), typed with `SiteConfig`. Exercises verso + isomorphic-stores together with Zustand stores, streaming roots, TheFold, late data arrivals, routing, and cross-root broadcast.
 
 ### TODOs
 
 #### overall
 - come up with a better name
 
-#### sluice (SSR framework)
-- Verify client-side HMR works end-to-end in `sluice dev` (virtual entry modules are served by Vite with HMR support, but this hasn't been tested in a browser yet)
+#### verso (SSR framework)
+- Verify client-side HMR works end-to-end in `verso dev` (virtual entry modules are served by Vite with HMR support, but this hasn't been tested in a browser yet)
 - Client-side transitions (SPA navigation) — `navigateTo()` function that lazy-loads the target route's page entry, unmounts the current page, and mounts the new one without a full page reload
 - API to allow page authors to transport arbitrary server-side data down to the client
-- pipe server-only request data (method, headers) to the client via SluicePipe so `SluiceRequest` can be fully isomorphic
+- pipe server-only request data (method, headers) to the client via VersoPipe so `VersoRequest` can be fully isomorphic
 - add the ability to register a callback on Root mount for a particular Root
 - fetch: support for opting into response replaying of non-GET requests
 - fetch: binary (non-text) responses should bypass the cache rather than being corrupted by `response.text()`
@@ -320,18 +322,18 @@ Run with `cd packages/demo && sluice dev` (or `npm run dev`). For production: `n
 - Add a demo of `nativeStore` access in `DemoPage`: a component that reads state imperatively via `instance.nativeStore.getState()` on button click
 
 #### Notes for the future
-- **`sluice dev`**: Implemented. Vite dev server with HMR, composed with sluice's SSR handler. See "Dev server architecture" section above and `specs/vite-dev-server.md`.
-- **`sluice build`**: Implemented. Production build — writes bundles to disk + `manifest.json`.
-- **`sluice start`**: Implemented. Production server — reads pre-built manifest, serves SSR + static bundles via Node HTTP (`node:http`). Two bundle serving modes planned: (1) local prod — from disk (current), (2) CDN — manifest only, bundles served externally (not yet implemented).
+- **`verso dev`**: Implemented. Vite dev server with HMR, composed with verso's SSR handler. See "Dev server architecture" section above and `specs/vite-dev-server.md`.
+- **`verso build`**: Implemented. Production build — writes bundles to disk + `manifest.json`.
+- **`verso start`**: Implemented. Production server — reads pre-built manifest, serves SSR + static bundles via Node HTTP (`node:http`). Two bundle serving modes planned: (1) local prod — from disk (current), (2) CDN — manifest only, bundles served externally (not yet implemented).
 - **API routes**: Support non-SSR route handlers (JSON endpoints, redirects) in the routes config so the full app can be expressed without a custom server.
-- **ALS requirement**: Sluice currently requires `AsyncLocalStorage` (via `requestLocal.ts`). This limits deployment to Node, Bun, and Deno. Edge runtimes (Cloudflare Workers, Vercel Edge) don't support ALS. If edge support is needed, RLS would need an alternative implementation.
+- **ALS requirement**: Verso currently requires `AsyncLocalStorage` (via `requestLocal.ts`). This limits deployment to Node, Bun, and Deno. Edge runtimes (Cloudflare Workers, Vercel Edge) don't support ALS. If edge support is needed, RLS would need an alternative implementation.
 
 ---
 
-Bun is the current dev runtime. Use it for running, building, and installing — but sluice framework code itself must not depend on Bun-specific APIs (the framework will support Node/Deno in production).
+Bun is the current dev runtime. Use it for running, building, and installing — but verso framework code itself must not depend on Bun-specific APIs (the framework will support Node/Deno in production).
 
 - Use `bun <file>` instead of `node <file>` or `ts-node <file>`
-- Use `vitest` for testing (not `bun test` or `jest`). Config is in `packages/sluice/vitest.config.ts`. Tests needing DOM globals use `// @vitest-environment jsdom` per-file annotation.
+- Use `vitest` for testing (not `bun test` or `jest`). Config is in `packages/verso/vitest.config.ts`. Tests needing DOM globals use `// @vitest-environment jsdom` per-file annotation.
 - Use `bun build <file.html|file.ts|file.css>` instead of `webpack` or `esbuild`
 - Use `bun install` instead of `npm install` or `yarn install` or `pnpm install`
 - Use `bun run <script>` instead of `npm run <script>` or `yarn run <script>` or `pnpm run <script>`
@@ -350,7 +352,7 @@ Bun is the current dev runtime. Use it for running, building, and installing —
 
 ## Testing
 
-Use `vitest` to run tests from within `packages/sluice/`. Config is in `packages/sluice/vitest.config.ts` (defines `@` path alias).
+Use `vitest` to run tests from within `packages/verso/`. Config is in `packages/verso/vitest.config.ts` (defines `@` path alias).
 
 ```ts#index.test.ts
 import { test, expect } from "vitest";
@@ -371,5 +373,5 @@ import { test, expect } from "vitest";
 
 E2E tests use Playwright. Config is in `packages/demo/playwright.config.ts`. Tests are in `packages/demo/e2e/`. Run with `cd packages/demo && bunx playwright test`.
 
-- `e2e/helpers/fixtures.ts` provides a custom `test` fixture that patches `page.goto` to wait for sluice client hydration (`CLIENT_READY_DFD`) by default. Import `test` and `expect` from `./helpers/fixtures` in e2e tests.
+- `e2e/helpers/fixtures.ts` provides a custom `test` fixture that patches `page.goto` to wait for verso client hydration (`CLIENT_READY_DFD`) by default. Import `test` and `expect` from `./helpers/fixtures` in e2e tests.
 - Card components render a `data-card` attribute with the card title for stable test locators (e.g. `page.locator('[data-card="User Profile"]')`).

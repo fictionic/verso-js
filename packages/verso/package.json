@@ -1,0 +1,45 @@
+{
+  "name": "@verso-js/verso",
+  "private": true,
+  "type": "module",
+  "bin": {
+    "verso": "./bin/verso.js"
+  },
+  "exports": {
+    ".": "./src/verso/index.ts",
+    "./fetch": "./src/verso/core/fetch/index.ts",
+    "./cookies": "./src/verso/util/cookies.ts",
+    "./server": "./src/verso/server/index.ts",
+    "./bundler": "./src/verso/viteBundler.ts",
+    "./config": "./src/verso/config.ts",
+    "./globals": "./globals.d.ts"
+  },
+  "scripts": {
+    "test": "npx vitest run",
+    "typecheck": "bunx tsc --noEmit"
+  },
+  "peerDependencies": {
+    "typescript": "^5",
+    "react": "^19.2.4",
+    "react-dom": "^19.2.4"
+  },
+  "devDependencies": {
+    "@testing-library/react": "^16.3.2",
+    "@types/bun": "latest",
+    "@types/cookie": "^1.0.0",
+    "@types/react": "^19.2.14",
+    "@types/react-dom": "^19.2.3",
+    "@vitejs/plugin-react": "^6.0.1",
+    "jsdom": "^29.0.0",
+    "react-dom": "^19.2.4",
+    "@verso-js/stores": "workspace:*",
+    "@verso-js/store-adapters": "workspace:*",
+    "vite": "^8.0.0",
+    "vitest": "^4.1.0"
+  },
+  "dependencies": {
+    "cookie": "^1.1.1",
+    "jiti": "^2.6.1",
+    "path-to-regexp": "^8.3.0"
+  }
+}

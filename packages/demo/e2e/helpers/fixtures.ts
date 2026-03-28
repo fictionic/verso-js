@@ -8,7 +8,7 @@ export const test = base.extend({
       { name: 'latency_theme', value: '10', domain: 'localhost', path: '/' },
       { name: 'latency_activity', value: '10', domain: 'localhost', path: '/' },
     ]);
-    // patch page methods to support waiting for sluice client hydration
+    // patch page methods to support waiting for verso client hydration
     const STATE_HYDRATED = 'hydrated';
     // patch waitForLoadState
     const realWaitForLoadState = page.waitForLoadState.bind(page);

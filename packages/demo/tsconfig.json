@@ -5,6 +5,6 @@
     "paths": {
       "@/*": ["src/*"]
     },
-    "types": ["bun", "sluice/globals"]
+    "types": ["bun", "@verso-js/verso/globals"]
   }
 }

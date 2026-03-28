@@ -1,6 +1,6 @@
 import React from 'react';
-import { makeRootComponent } from 'sluice';
-import { IsoStoreProvider, type IsoStoreInstance } from 'sluice/stores';
+import { makeRootComponent } from '@verso-js/verso';
+import { IsoStoreProvider, type IsoStoreInstance } from '@verso-js/stores';
 
 interface Props {
   stores: Array<IsoStoreInstance<any>>;
