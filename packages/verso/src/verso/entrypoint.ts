@@ -3,13 +3,16 @@ import { fileURLToPath } from 'node:url';
 import type { Routes } from './server/router';
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
-const bootstrapPath = path.resolve(__dirname, 'client/bootstrap.ts');
+
+/** Default bootstrap path, correct when this module runs from source (not bundled). */
+const DEFAULT_BOOTSTRAP_PATH = path.resolve(__dirname, 'client/bootstrap.ts');
 
 export function makeUnifiedEntrypoint(
   pageRouteNames: string[],
   routes: Routes,
   routesDir: string,
   siteConfigPath: string,
+  bootstrapPath: string = DEFAULT_BOOTSTRAP_PATH,
 ): string {
   const q = (s: string) => JSON.stringify(s);
 

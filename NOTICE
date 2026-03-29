@@ -1,0 +1,9 @@
+Verso
+Copyright 2026 Dylan Forbes
+
+This project is inspired by and based on the architecture of react-server, 
+originally developed by Redfin (https://github.com/redfin/react-server). 
+
+While Verso is a from-scratch implementation, we gratefully acknowledge 
+the architectural foundations laid by the react-server team and their 
+contributions to the streaming SSR ecosystem.

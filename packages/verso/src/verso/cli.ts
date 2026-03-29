@@ -1,33 +1,21 @@
-import path from 'node:path';
-import type { VersoConfig } from './config';
-import { importModule } from './util/importModule';
-
-const VERSO_CONFIG_FILE = 'verso.config.ts';
-
-async function loadConfig(): Promise<VersoConfig> {
-  const configPath = path.resolve(process.cwd(), VERSO_CONFIG_FILE);
-  return importModule<VersoConfig>(configPath);
-}
-
 const command = process.argv[2];
 
 switch (command) {
   case 'build': {
     const { runBuild } = await import('./cli/build');
-    const config = await loadConfig();
-    await runBuild(config);
+    await runBuild();
     break;
   }
   case 'start': {
     const { runStart } = await import('./cli/start');
-    const config = await loadConfig();
-    await runStart(config);
+    const outDir = process.argv[3];
+    await runStart(outDir);
     break;
   }
   case 'dev': {
     const { runDev } = await import('./cli/dev');
-    const config = await loadConfig();
-    await runDev(config);
+    const port = parseInt(process.argv[3] ?? '3000', 10);
+    await runDev(port);
     break;
   }
   default:

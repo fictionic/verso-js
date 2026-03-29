@@ -2,15 +2,16 @@ import http from 'node:http';
 import path from 'node:path';
 import { readFile, readdir } from 'node:fs/promises';
 import { pathToFileURL } from 'node:url';
-import type { VersoConfig } from '../config';
-import { resolveOutDir } from '../config';
 import type { BundleManifest } from '../bundle';
 import { toWebRequest, sendWebResponse } from '../server/nodeHttp';
 
-export async function runStart(config: VersoConfig) {
-  const outDir = resolveOutDir(config);
-  const port = config.server?.port ?? 3000;
-  const urlPrefix = config.server?.urlPrefix ?? `http://localhost:${port}`;
+export async function runStart(outDir = 'dist') {
+  // Read build metadata (written by the plugin during `verso build`)
+  const metaPath = path.resolve(outDir, 'verso-meta.json');
+  const meta = JSON.parse(await readFile(metaPath, 'utf-8'));
+  const port = meta.server?.port ?? 3000;
+  const urlPrefix = meta.server?.urlPrefix ?? `http://localhost:${port}`;
+  const renderTimeout = meta.server?.renderTimeout;
 
   // Read client manifest
   const manifestPath = path.resolve(outDir, 'manifest.json');
@@ -34,7 +35,7 @@ export async function runStart(config: VersoConfig) {
     manifest,
     bundleContents,
     urlPrefix,
-    renderTimeout: config.server?.renderTimeout,
+    renderTimeout,
   });
 
   const server = http.createServer(async (nodeReq, nodeRes) => {

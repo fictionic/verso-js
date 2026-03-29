@@ -306,9 +306,12 @@ Run with `cd packages/demo && verso dev` (or `npm run dev`). For production: `np
 ### TODOs
 
 #### overall
-- come up with a better name
+- switch from Bun to pnpm?
+- add a `files` field to `packages/verso/package.json` before publishing to npm — `dist/` is gitignored, so it will be excluded from the published package unless explicitly included (e.g. `"files": ["dist", "src", "bin", "globals.d.ts"]`)
 
 #### verso (SSR framework)
+- [ ] Implement an optional `onError` handler in `SiteConfig` to provide custom `PageDefinition` or `Response` for pre-stream 500/404 errors.
+- [ ] Implement `Readable.fromWeb` in `packages/verso/src/verso/server/nodeHttp.ts` for more efficient, backpressure-aware response streaming (Node 18+).
 - Verify client-side HMR works end-to-end in `verso dev` (virtual entry modules are served by Vite with HMR support, but this hasn't been tested in a browser yet)
 - Client-side transitions (SPA navigation) — `navigateTo()` function that lazy-loads the target route's page entry, unmounts the current page, and mounts the new one without a full page reload
 - API to allow page authors to transport arbitrary server-side data down to the client
@@ -321,6 +324,8 @@ Run with `cd packages/demo && verso dev` (or `npm run dev`). For production: `np
 - filter out extraneous middleware methods when wiring up the chain, as an extra layer of safety (maybe as a method on MiddlewareDefinition?)
 - redo the middleware types to be less complex
 - Object.freeze on ctx?
+- Adapter system for deployment targets (Node, Bun, Deno, Cloudflare Workers, Vercel Edge). The adapter owns the HTTP listener and injects platform-specific startup code into the server entry at build time. `verso start` goes away — the build output is a standalone `node dist/server/entry.js` (or equivalent). Pattern matches SvelteKit/Astro: framework produces a `Request �� Response` handler, adapter wraps it. Note: Cloudflare and Vercel now support AsyncLocalStorage, so edge runtimes are viable targets — update the ALS note below.
+- logging system
 
 #### isomorphic-stores
 - Add a mechanism for adapters to integrate the isomorphic-stores `StoreProvider` with a framework-native provider — e.g. so the Redux adapter can render a react-redux `<Provider store={store}>` alongside the isomorphic-stores context
@@ -337,7 +342,7 @@ Run with `cd packages/demo && verso dev` (or `npm run dev`). For production: `np
 - **`verso build`**: Implemented. Two Vite build passes: (1) client build — bundles client entry + per-route chunks to `dist/bundles/` + `manifest.json`; (2) server build — bundles framework runtime + site config + all route handlers into a self-contained `dist/server/entry.js` (+ chunks) via Vite SSR build. The server entry exports `createServer(config)`.
 - **`verso start`**: Implemented. Thin shell — reads client manifest + bundles from disk, `import()`s the pre-built `dist/server/entry.js`, starts Node HTTP server. No jiti or runtime transpilation in the request path. Two bundle serving modes planned: (1) local prod — from disk (current), (2) CDN — manifest only, bundles served externally (not yet implemented).
 - **API routes**: Support non-SSR route handlers (JSON endpoints, redirects) in the routes config so the full app can be expressed without a custom server.
-- **ALS requirement**: Verso currently requires `AsyncLocalStorage` (via `requestLocal.ts`). This limits deployment to Node, Bun, and Deno. Edge runtimes (Cloudflare Workers, Vercel Edge) don't support ALS. If edge support is needed, RLS would need an alternative implementation.
+- **ALS requirement**: Verso requires `AsyncLocalStorage` (via `requestLocal.ts`). As of late 2023, this is supported on Node, Bun, Deno, Cloudflare Workers (with `nodejs_compat` flag), and Vercel Edge Runtime. No longer a blocker for edge deployment.
 
 ---
 

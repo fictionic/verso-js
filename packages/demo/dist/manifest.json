@@ -1,21 +1,23 @@
 {
-  "LinkPage": {
+  "DemoPage": {
     "scripts": [
-      "bundles/verso-zVsJ1EG2.js",
-      "bundles/entry-DV8n32NX.js"
+      "bundles/verso-DMbSYO6n.js",
+      "bundles/requestLocal-xqbgliBh.js",
+      "bundles/entry-B8Hajpb8.js"
     ],
     "preloads": [
-      "bundles/LinkPage-CZmrE8_a.js"
+      "bundles/DemoPage-BI-kBypT.js"
     ],
     "stylesheets": []
   },
-  "DemoPage": {
+  "LinkPage": {
     "scripts": [
-      "bundles/verso-zVsJ1EG2.js",
-      "bundles/entry-DV8n32NX.js"
+      "bundles/verso-DMbSYO6n.js",
+      "bundles/requestLocal-xqbgliBh.js",
+      "bundles/entry-B8Hajpb8.js"
     ],
     "preloads": [
-      "bundles/DemoPage-Bf6eB695.js"
+      "bundles/LinkPage-Dt_uSDm9.js"
     ],
     "stylesheets": []
   }

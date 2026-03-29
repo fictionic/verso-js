@@ -10,11 +10,15 @@
     "./fetch": "./src/verso/core/fetch/index.ts",
     "./cookies": "./src/verso/util/cookies.ts",
     "./server": "./src/verso/server/index.ts",
-    "./bundler": "./src/verso/viteBundler.ts",
     "./config": "./src/verso/config.ts",
+    "./plugin": {
+      "types": "./dist/plugin.d.ts",
+      "default": "./dist/plugin.js"
+    },
     "./globals": "./globals.d.ts"
   },
   "scripts": {
+    "build": "tsup",
     "test": "npx vitest run",
     "typecheck": "bunx tsc --noEmit"
   },
@@ -29,12 +33,13 @@
     "@types/cookie": "^1.0.0",
     "@types/react": "^19.2.14",
     "@types/react-dom": "^19.2.3",
+    "@verso-js/store-adapter-redux": "workspace:*",
+    "@verso-js/store-adapter-zustand": "workspace:*",
+    "@verso-js/stores": "workspace:*",
     "@vitejs/plugin-react": "^6.0.1",
     "jsdom": "^29.0.0",
     "react-dom": "^19.2.4",
-    "@verso-js/stores": "workspace:*",
-    "@verso-js/store-adapter-zustand": "workspace:*",
-    "@verso-js/store-adapter-redux": "workspace:*",
+    "tsup": "^8.5.1",
     "vite": "^8.0.0",
     "vitest": "^4.1.0"
   },

@@ -1,12 +1,9 @@
-import path from 'node:path';
-import type { VersoConfig } from '../config';
-import { createDevServer } from '../dev/createDevServer';
+import { createServer } from 'vite';
 
-export async function runDev(config: VersoConfig) {
-  const siteConfigPath = path.resolve(process.cwd(), config.routes);
-
-  await createDevServer({
-    siteConfigPath,
-    urlPrefix: config.server?.urlPrefix,
+export async function runDev(port: number) {
+  const vite = await createServer({
+    server: { port },
   });
+  await vite.listen();
+  vite.printUrls();
 }
