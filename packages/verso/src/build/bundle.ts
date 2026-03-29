@@ -1,4 +1,4 @@
-import type {RouteHandlerDefinition, RouteHandlerType} from "./core/handler/RouteHandler";
+import type {RouteHandlerDefinition, RouteHandlerType} from "../core/handler/RouteHandler";
 
 export type RouteAssets = {
   scripts: string[];

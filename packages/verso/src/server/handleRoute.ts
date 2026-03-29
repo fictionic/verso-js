@@ -1,6 +1,6 @@
 import type {RouteHandlerDefinition, RouteHandlerType} from "../core/handler/RouteHandler";
 import type {MiddlewareDefinition} from "../core/handler/Middleware";
-import {startRequest} from "../util/requestLocal";
+import {startRequest} from "../RequestLocalStorage";
 import {ServerCookies} from "./ServerCookies";
 import {Fetch} from "../core/fetch/Fetch";
 import {ResponderConfig} from "../core/handler/ResponderConfig";
@@ -9,7 +9,7 @@ import {handlePage} from "./handlePage";
 import {handleEndpoint} from "./handleEndpoint";
 import {VersoRequest} from "../core/VersoRequest";
 import {createCtx} from "../core/handler/RouteHandlerCtx";
-import type {RouteMatch} from "./router";
+import type {RouteMatch} from "../core/router";
 
 interface Options {
   urlPrefix?: string;

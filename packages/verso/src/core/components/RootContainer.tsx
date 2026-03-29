@@ -1,6 +1,6 @@
 import React from 'react';
 import { renderToString } from 'react-dom/server';
-import { PAGE_ELEMENT_TOKEN_ID_ATTR } from '../../constants';
+import { PAGE_ELEMENT_TOKEN_ID_ATTR } from '../../core/constants';
 
 type RenderableHTMLAttributes = &
   Pick<

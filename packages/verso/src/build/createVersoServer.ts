@@ -1,7 +1,7 @@
 import type {BundleResult} from "../build/bundle";
-import {createRouter, type SiteConfig} from "./router";
-import {handleRoute} from "./handleRoute";
-import {createViteBundleLoader} from "../middleware/ViteBundleLoader";
+import {createRouter, type SiteConfig} from "../core/router";
+import {handleRoute} from "../server/handleRoute";
+import {createViteBundleLoader} from "../core/middleware/ViteBundleLoader";
 
 interface VersoServerConfig {
   site: SiteConfig;

@@ -2,20 +2,23 @@ import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 import react from '@vitejs/plugin-react';
 import type { Plugin, ViteDevServer } from 'vite';
-import type { VersoConfig } from '../config';
-import type { SiteConfig, Routes } from '../server/router';
+import type { VersoConfig } from '../VersoConfig';
+import type { SiteConfig, Routes } from '../core/router';
 import type { RouteHandler, RouteHandlerDefinition } from '../core/handler/RouteHandler';
 import type { BundleManifest } from './bundle';
-import { createRouter } from '../server/router';
-import { createViteBundleLoader } from '../middleware/ViteBundleLoader';
+import { createRouter } from '../core/router';
+import { createViteBundleLoader } from '../core/middleware/ViteBundleLoader';
 import { toWebRequest, sendWebResponse } from '../server/nodeHttp';
 import { makeUnifiedEntrypoint } from './entrypoint';
-import { importModule } from '../util/importModule';
+import { importModule } from './importModule';
 
 // When compiled by tsup, import.meta.url points to dist/plugin.js.
-// Resolve the source root (src/) from the package root.
-const PACKAGE_ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '../..');
-const SOURCE_ROOT = path.resolve(PACKAGE_ROOT, 'src');
+// When running in dev from source, it points to src/build/plugin.ts.
+const __dirname = path.dirname(fileURLToPath(import.meta.url));
+const SOURCE_ROOT = __dirname.endsWith('build')
+  ? path.resolve(__dirname, '..')       // src/build/ -> src/
+  : path.resolve(__dirname, '../src'); // dist/ -> src/
+
 const HANDLE_ROUTE_PATH = path.resolve(SOURCE_ROOT, 'server/handleRoute.ts');
 const BOOTSTRAP_PATH = path.resolve(SOURCE_ROOT, 'client/bootstrap.ts');
 
@@ -280,6 +283,7 @@ export default function verso(options: VersoConfig): Plugin[] {
 
 function makeServerEntry(siteConfigModulePath: string, routes: Routes): string {
   const rootDir = path.dirname(siteConfigModulePath);
+  const createVersoServerPath = path.resolve(SOURCE_ROOT, 'build/createVersoServer.ts');
   const handlerImports: string[] = [];
   const handlerEntries: string[] = [];
 
@@ -291,7 +295,7 @@ function makeServerEntry(siteConfigModulePath: string, routes: Routes): string {
   }
 
   return `
-import { createVersoServer } from '@verso-js/verso/server';
+import { createVersoServer } from ${JSON.stringify(createVersoServerPath)};
 import site from ${JSON.stringify(siteConfigModulePath)};
 ${handlerImports.join('\n')}
 

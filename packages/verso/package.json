@@ -8,9 +8,10 @@
   "exports": {
     ".": "./src/index.ts",
     "./fetch": "./src/core/fetch/index.ts",
-    "./cookies": "./src/util/cookies.ts",
-    "./server": "./src/server/index.ts",
-    "./config": "./src/config.ts",
+    "./cookies": "./src/cookies.ts",
+    "./config": "./src/VersoConfig.ts",
+    "./env": "./src/env.ts",
+    "./request-local": "./src/RequestLocalStorage.ts",
     "./plugin": {
       "types": "./dist/plugin.d.ts",
       "default": "./dist/plugin.js"

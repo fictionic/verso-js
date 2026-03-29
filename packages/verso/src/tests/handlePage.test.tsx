@@ -5,7 +5,7 @@ import { Root, makeRootComponent } from '@/core/components/Root';
 import RootContainer from '@/core/components/RootContainer';
 import TheFold from '@/core/components/TheFold';
 import { definePage, type PageInit, type Script, type Stylesheet } from '@/core/handler/Page';
-import type { RouteMatch } from '@/server/router';
+import type {RouteMatch} from '@/core/router';
 
 // --- Helpers ---
 

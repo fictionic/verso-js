@@ -1,23 +1,21 @@
 {
   "DemoPage": {
     "scripts": [
-      "bundles/src-w9ZUkK7U.js",
-      "bundles/requestLocal-sOt4uN17.js",
-      "bundles/entry-DRCzKoHD.js"
+      "bundles/src-D2iBr5fo.js",
+      "bundles/entry-BWplMm3_.js"
     ],
     "preloads": [
-      "bundles/DemoPage-CA-6ZEl2.js"
+      "bundles/DemoPage-DX3ogitb.js"
     ],
     "stylesheets": []
   },
   "LinkPage": {
     "scripts": [
-      "bundles/src-w9ZUkK7U.js",
-      "bundles/requestLocal-sOt4uN17.js",
-      "bundles/entry-DRCzKoHD.js"
+      "bundles/src-D2iBr5fo.js",
+      "bundles/entry-BWplMm3_.js"
     ],
     "preloads": [
-      "bundles/LinkPage-UMph76jx.js"
+      "bundles/LinkPage-CgWcEcsk.js"
     ],
     "stylesheets": []
   }

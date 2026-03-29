@@ -4,8 +4,8 @@ import { handleRoute } from '@/server/handleRoute';
 import { Root } from '@/core/components/Root';
 import { definePage, type PageInit } from '@/core/handler/Page';
 import { defineEndpoint, type EndpointInit } from '@/core/handler/Endpoint';
-import { setCookie } from '@/util/cookies';
-import type { RouteMatch } from '@/server/router';
+import { setCookie } from '@/cookies';
+import type {RouteMatch} from '@/core/router';
 
 // --- Helpers ---
 

@@ -1,4 +1,4 @@
-import { getNamespace } from '../util/requestLocal';
+import { getNamespace } from '../RequestLocalStorage';
 
 const RLS = getNamespace<{ current: RequestContext }>();
 

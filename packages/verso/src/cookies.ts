@@ -1,6 +1,6 @@
 import { parse, stringifySetCookie } from 'cookie';
-import { ServerCookies, type CookieOptions } from '../server/ServerCookies';
-import { isServer } from '../env';
+import { ServerCookies, type CookieOptions } from './server/ServerCookies';
+import { isServer } from './env';
 
 export function getCookie(name: string): string | undefined {
   if (isServer()) {

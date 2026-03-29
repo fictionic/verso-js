@@ -1,7 +1,7 @@
 import { scheduleRender } from '../core/components/Root';
 import { TOKEN, tokenizeElements } from '../core/elementTokenizer';
 import { FETCH_CACHE_KEY, FN_RECEIVE_LATE_DATA_ARRIVAL, FN_HYDRATE_ROOTS_UP_TO, VersoPipe } from '../core/VersoPipe';
-import { PAGE_ELEMENT_TOKEN_ID_ATTR, PAGE_ROOT_ELEMENT_ATTR } from '../constants';
+import { PAGE_ELEMENT_TOKEN_ID_ATTR, PAGE_ROOT_ELEMENT_ATTR } from '../core/constants';
 import { hydrateRoot } from 'react-dom/client';
 import { global } from './globals';
 import {Fetch} from '../core/fetch/Fetch';
@@ -10,7 +10,7 @@ import {ResponderConfig} from '../core/handler/ResponderConfig';
 import {createHandlerChain} from '../core/handler/chain';
 import {createCtx} from '../core/handler/RouteHandlerCtx';
 import {VersoRequest} from '../core/VersoRequest';
-import {createRouter, type SiteConfig} from '../server/router';
+import {createRouter, type SiteConfig} from '../core/router';
 
 export type PageLoaders = Record<string, () => Promise<{ default: PageDefinition }>>;
 

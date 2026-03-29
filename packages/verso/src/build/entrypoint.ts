@@ -1,6 +1,6 @@
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
-import type { Routes } from './server/router';
+import type { Routes } from '../core/router';
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 

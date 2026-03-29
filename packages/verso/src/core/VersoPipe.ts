@@ -1,4 +1,4 @@
-import { createPipe, type PipeSchema } from "../util/ServerClientPipe";
+import { createPipe, type PipeSchema } from "./util/ServerClientPipe";
 import type { CachedResponse, CacheEntry } from "./fetch/cache";
 
 export const VERSO_PIPE_NAME = '__versoPipe';

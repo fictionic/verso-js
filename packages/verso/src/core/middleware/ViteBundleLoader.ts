@@ -1,6 +1,6 @@
-import type {MiddlewareDefinition} from "../core/handler/Middleware";
-import {defineMiddleware} from "../core/handler/Middleware";
-import type {Script, Stylesheet, LinkTag} from "../core/handler/Page";
+import type {MiddlewareDefinition} from "../handler/Middleware";
+import {defineMiddleware} from "../handler/Middleware";
+import type {Script, Stylesheet, LinkTag} from "../handler/Page";
 
 interface ViteBundleLoaderConfig {
   preamble: string;

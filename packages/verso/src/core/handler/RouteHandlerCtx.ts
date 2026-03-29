@@ -1,7 +1,7 @@
 import type {ResponderConfig} from "./ResponderConfig";
 import type {VersoRequest} from "../VersoRequest";
 import type {ParamData} from "path-to-regexp";
-import type {RouteMatch} from "../../server/router";
+import type {RouteMatch} from "../router";
 
 export interface RouteInfo {
   getName(): string;

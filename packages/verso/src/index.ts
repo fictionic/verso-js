@@ -8,6 +8,10 @@ export type { RouteDirective } from './core/handler/RouteHandler';
 // Environment
 export { isServer } from './env';
 
+// Utilities
+export { getCookie, setCookie } from './cookies';
+export { getNamespace } from './RequestLocalStorage';
+
 // Components
 export { Root, makeRootComponent, type RootAPI, type RootElementType } from './core/components/Root';
 export { default as RootContainer } from './core/components/RootContainer';

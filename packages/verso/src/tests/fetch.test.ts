@@ -1,5 +1,5 @@
 import { test, expect, describe, beforeEach, vi } from 'vitest';
-import { startRequest } from '@/util/requestLocal';
+import { startRequest } from '@/RequestLocalStorage';
 
 const nativeFetchMock = vi.hoisted(() => vi.fn());
 vi.mock('@/core/fetch/nativeFetch', () => ({
