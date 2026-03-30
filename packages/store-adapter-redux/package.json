@@ -8,7 +8,8 @@
     "@verso-js/stores": "workspace:*"
   },
   "devDependencies": {
-    "@types/react": "^19.2.14"
+    "@types/react": "^19.2.14",
+    "redux": "^5.0.1"
   },
   "peerDependencies": {
     "react": "^19.2.4",

@@ -31,10 +31,25 @@
       },
       "devDependencies": {
         "@types/react": "^19.2.14",
+        "redux": "^5.0.1",
       },
       "peerDependencies": {
         "react": "^19.2.4",
         "redux": "^5.0.1",
+      },
+    },
+    "packages/store-adapter-valtio": {
+      "name": "@verso-js/store-adapter-valtio",
+      "dependencies": {
+        "@verso-js/stores": "workspace:*",
+      },
+      "devDependencies": {
+        "@types/react": "^19.2.14",
+        "valtio": "^2.3.1",
+      },
+      "peerDependencies": {
+        "react": "^19.2.4",
+        "valtio": "^2.3.1",
       },
     },
     "packages/store-adapter-zustand": {
@@ -44,6 +59,7 @@
       },
       "devDependencies": {
         "@types/react": "^19.2.14",
+        "zustand": "^5.0.11",
       },
       "peerDependencies": {
         "react": "^19.2.4",
@@ -310,6 +326,8 @@
 
     "@verso-js/store-adapter-redux": ["@verso-js/store-adapter-redux@workspace:packages/store-adapter-redux"],
 
+    "@verso-js/store-adapter-valtio": ["@verso-js/store-adapter-valtio@workspace:packages/store-adapter-valtio"],
+
     "@verso-js/store-adapter-zustand": ["@verso-js/store-adapter-zustand@workspace:packages/store-adapter-zustand"],
 
     "@verso-js/stores": ["@verso-js/stores@workspace:packages/stores"],
@@ -486,6 +504,8 @@
 
     "pretty-format": ["pretty-format@27.5.1", "", { "dependencies": { "ansi-regex": "^5.0.1", "ansi-styles": "^5.0.0", "react-is": "^17.0.1" } }, "sha512-Qb1gy5OrP5+zDf2Bvnzdl3jsTf1qXVMazbvCoKhtKqVs4/YK4ozX4gKQJJVyNe+cajNPn0KoC0MC3FUmaHWEmQ=="],
 
+    "proxy-compare": ["proxy-compare@3.0.1", "", {}, "sha512-V9plBAt3qjMlS1+nC8771KNf6oJ12gExvaxnNzN/9yVRLdTv/lc+oJlnSzrdYDAvBfTStPCoiaCOTmTs0adv7Q=="],
+
     "punycode": ["punycode@2.3.1", "", {}, "sha512-vYt7UD1U9Wg6138shLtLOvdAu+8DsC/ilFtEVHcH+wydcSpNE20AfSOduf6MkRFahL5FY7X1oU7nKVZFtfq8Fg=="],
 
     "react": ["react@19.2.4", "", {}, "sha512-9nfp2hYpCwOjAN+8TZFGhtWEwgvWHXqESH8qT89AT/lWklpLON22Lc8pEtnpsZz7VmawabSU0gCjnj8aC0euHQ=="],
@@ -559,6 +579,8 @@
     "undici": ["undici@7.24.6", "", {}, "sha512-Xi4agocCbRzt0yYMZGMA6ApD7gvtUFaxm4ZmeacWI4cZxaF6C+8I8QfofC20NAePiB/IcvZmzkJ7XPa471AEtA=="],
 
     "undici-types": ["undici-types@7.18.2", "", {}, "sha512-AsuCzffGHJybSaRrmr5eHr81mwJU3kjw6M+uprWvCXiNeN9SOGwQ3Jn8jb8m3Z6izVgknn1R0FTCEAP2QrLY/w=="],
+
+    "valtio": ["valtio@2.3.1", "", { "dependencies": { "proxy-compare": "^3.0.1" }, "peerDependencies": { "@types/react": ">=18.0.0", "react": ">=18.0.0" }, "optionalPeers": ["@types/react", "react"] }, "sha512-ZsOaOEn0U9IJ96cAj3CZ3GjwpN3EJdjsi1PT4PREuB+Pcqfsczu16isT5DT1UrmHbk4PtLjk8kwNEHuR2CX56w=="],
 
     "vite": ["vite@8.0.3", "", { "dependencies": { "lightningcss": "^1.32.0", "picomatch": "^4.0.4", "postcss": "^8.5.8", "rolldown": "1.0.0-rc.12", "tinyglobby": "^0.2.15" }, "optionalDependencies": { "fsevents": "~2.3.3" }, "peerDependencies": { "@types/node": "^20.19.0 || >=22.12.0", "@vitejs/devtools": "^0.1.0", "esbuild": "^0.27.0", "jiti": ">=1.21.0", "less": "^4.0.0", "sass": "^1.70.0", "sass-embedded": "^1.70.0", "stylus": ">=0.54.8", "sugarss": "^5.0.0", "terser": "^5.16.0", "tsx": "^4.8.1", "yaml": "^2.4.2" }, "optionalPeers": ["@types/node", "@vitejs/devtools", "esbuild", "jiti", "less", "sass", "sass-embedded", "stylus", "sugarss", "terser", "tsx", "yaml"], "bin": { "vite": "bin/vite.js" } }, "sha512-B9ifbFudT1TFhfltfaIPgjo9Z3mDynBTJSUYxTjOQruf/zHH+ezCQKcoqO+h7a9Pw9Nm/OtlXAiGT1axBgwqrQ=="],
 

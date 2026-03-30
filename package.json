@@ -6,6 +6,7 @@
     "packages/stores",
     "packages/store-adapter-zustand",
     "packages/store-adapter-redux",
+    "packages/store-adapter-valtio",
     "packages/demo"
   ]
 }
