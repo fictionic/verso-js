@@ -1,4 +1,4 @@
-import React, {type ReactElement, type ReactNode} from 'react';
+import React, {StrictMode, type ReactElement, type ReactNode} from 'react';
 
 const ROOT_COMPONENT = Symbol('verso.RootComponent');
 
@@ -28,7 +28,7 @@ export function makeRootComponent<P extends object>(
   deriveRootAPI: DeriveRootAPI<P> = (p) => p,
 ): RootComponent<P> {
   return Object.assign(
-    (props: P) => <Component {...props} />,
+    Component,
     {[ROOT_COMPONENT]: { deriveRootAPI }},
   );
 }
@@ -41,9 +41,10 @@ export function ensureRootElement(element: ReactElement): RootElementType {
   return isRootElement(element) ? element : <Root>{element}</Root> as RootElementType;
 }
 
-const Passthrough: React.FC<{ children: ReactNode }> = ({ children }) => children;
+const RootPassthrough: React.FC<{ children: ReactNode }> = ({ children }) => children;
+RootPassthrough.displayName = 'Root';
 
-export const Root = makeRootComponent<RootProps>(Passthrough);
+export const Root = makeRootComponent<RootProps>(RootPassthrough);
 
 // --- scheduleRender: delay rendering until root is ready
 
@@ -56,6 +57,6 @@ export function scheduleRender(element: RootElementType){
       ...element.props,
       ...result,
     };
-    return React.cloneElement(element, props);
+    return <StrictMode>{React.cloneElement(element, props)}</StrictMode>;
   });
 }
