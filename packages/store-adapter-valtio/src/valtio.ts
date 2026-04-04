@@ -11,7 +11,7 @@ export interface ValtioClientHooks<State> {
   useSnapshot: () => Snapshot<State> | undefined;
 };
 
-export type ValtioInit<State> = (getProxy: () => State) => State;
+export type ValtioInit<State> = State | ((getProxy: () => State) => State);
 
 const empty = valtioProxy({});
 
@@ -20,10 +20,9 @@ const empty = valtioProxy({});
  * importing it, components access it via a useProxy hook that the store definition provides, alongside
  * useSnapshot. Maybe a little weird, but basically the same.
  * Note that the first two type parameters are the same because the store instance _is_ the store state--it's
- * a proxy. And the store structor is a function only to allow consumers to call onMessage: there needs to
- * be a way to access the proxy within the constructor because that's the only way to mutate the state,
- * but the constructor is what creates the proxy, so there's a chicken-and-egg problem. The only solution
- * is to provide a getter that is wired up after the fact.
+ * a proxy. The store constructor is also just the state. But then there would be no way to set up onMessage,
+ * as mutations happen directly on the proxy. To address this, the init can also be a function that accepts a
+ * getter that lazily provides the proxy after the fact.
  */
 export const getAdapter: <State extends object>() => Adapter<
   State,
@@ -34,16 +33,20 @@ export const getAdapter: <State extends object>() => Adapter<
 > = <State extends object>() => {
   return {
     createNativeStore: (init: ValtioInit<State>) => {
-      let proxy: State | null = null;
-      const getProxy = () => {
-        if (!proxy) {
-          throw new Error("proxy not yet created!");
-        }
+      if (typeof init === 'function') {
+        let proxy: State | null = null;
+        const getProxy = () => {
+          if (!proxy) {
+            throw new Error("proxy not yet created!");
+          }
+          return proxy;
+        };
+        const initialState = init(getProxy);
+        proxy = valtioProxy(initialState);
         return proxy;
-      };
-      const initialState = init(getProxy);
-      proxy = valtioProxy(initialState);
-      return proxy;
+      } else {
+        return init;
+      }
     },
     getSetState: (proxy) => (
       (state) => Object.assign(proxy, state)
