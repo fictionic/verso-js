@@ -3,7 +3,13 @@ import {useEffect, useState} from "react";
 import type {AllFunctions, IsoStoreDefinition, IsoStoreInstance, SendMessage} from "./core/types";
 import {STORE_DEFINITION_INTERNALS} from "./core/constants";
 
-const RLS = getNamespace<{ instance: IsoStoreInstance<any> | null }>();
+const RLS = getNamespace<{ instances: Map<IsoStoreDefinition<any, any, any, any, any>, IsoStoreInstance<any>> }>();
+
+function getInstances(): Map<IsoStoreDefinition<any, any, any, any, any>, IsoStoreInstance<any>> {
+  const ns = RLS();
+  if (!ns.instances) ns.instances = new Map();
+  return ns.instances;
+}
 
 export type UseClientHooks<NativeClientHooks> = () => readonly [ready: boolean, clientHooks: NativeClientHooks];
 
@@ -21,11 +27,12 @@ export function asSingleton<Opts, Message, NativeStore, NativeHooks extends AllF
 ): SingletonIsoStoreDefinition<Opts, Message, NativeStore, NativeHooks, NativeClientHooks> {
   return {
     createStore: (opts: Opts) => {
-      if (RLS().instance) {
+      const instances = getInstances();
+      if (instances.has(def)) {
         throw new Error("cannot create more than one instance of a singleton store!");
       }
       const instance = def.createStore(opts);
-      RLS().instance = instance;
+      instances.set(def, instance);
       return instance;
     },
     /**
@@ -40,7 +47,7 @@ export function asSingleton<Opts, Message, NativeStore, NativeHooks extends AllF
      */
     useClientHooks: () => {
       const [ready, setReady] = useState(false);
-      const instance = RLS().instance;
+      const instance = getInstances().get(def) ?? null;
       if (!instance) {
         throw new Error("no singleton instance has been created");
       }
