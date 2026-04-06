@@ -1,8 +1,7 @@
 import type {BaseConfig} from "./ResponderConfig";
 import type {MiddlewareDefinition, Scope} from "./Middleware";
 import type {RouteHandlerCtx} from "./RouteHandlerCtx";
-
-export type MaybePromise<T> = T | Promise<T>;
+import type {MaybePromise} from "../util/types";
 
 export type RouteHandlerType = 'page' | 'endpoint';
 

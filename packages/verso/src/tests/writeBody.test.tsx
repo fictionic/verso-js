@@ -29,6 +29,7 @@ function simplePage(elements: React.ReactElement[]): StandardizedPage {
     getScripts() { return []; },
     getSystemLinkTags() { return []; },
     getLinkTags() { return []; },
+    getBodyClasses() { return []; },
   };
 }
 

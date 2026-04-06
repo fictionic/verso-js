@@ -162,6 +162,8 @@ export class ClientController {
     this.scriptTransitioner.transitionScripts(page.getScripts());
 
     // =body=
+    const newBodyClasses = await page.getBodyClasses();
+    document.body.className = newBodyClasses.join(' ');
     // clear away the old roots
     // TODO: reuseDom
     this.reactRoots.forEach((root) => root.unmount());

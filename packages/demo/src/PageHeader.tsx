@@ -16,6 +16,13 @@ export default defineMiddleware<HeaderConfig>(() => {
       return next();
     },
 
+    async getBodyClasses(next) {
+      return [
+        ...await next(),
+        'WithHeader',
+      ];
+    },
+
     getElements(next) {
       return [
         <Root>

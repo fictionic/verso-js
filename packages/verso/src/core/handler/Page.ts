@@ -1,5 +1,6 @@
 import type {ReactElement} from 'react';
 import {defineRouteHandler, type RouteHandler, type RouteHandlerDefinition, type RouteHandlerInit, type StandardizedRouteHandler} from './RouteHandler';
+import type {MaybePromise} from '../util/types';
 
 type StringAttributesOf<T> = { [K in keyof T as T[K] extends string ? K : never]?: string }
 
@@ -62,7 +63,8 @@ export interface PageOptionalMethods {
   getScripts(): Script[];
   getSystemLinkTags(): LinkTag[];
   getLinkTags(): LinkTag[];
-  // TODO: getBodyClasses, getMetaTags,
+  getBodyClasses(): MaybePromise<string[]>;
+  // TODO: getMetaTags,
 }
 
 export interface PageRequiredMethods {
@@ -87,6 +89,7 @@ const PAGE_OPTIONAL_METHOD_DEFAULTS: PageOptionalMethods = {
   getScripts: () => [],
   getSystemLinkTags: () => [],
   getLinkTags: () => [],
+  getBodyClasses: () => [],
 };
 
 export function definePage(init: PageInit): PageDefinition {

@@ -20,16 +20,20 @@ export default definePage(() => {
   return {
     middleware: [AuthMiddleware],
 
-    getTitle() {
-      return 'isomorphic-stores demo';
-    },
-
     getRouteDirective() {
       profile1 = ProfileStore.createStore({ userId: 1 });
       theme1 = ThemeStore.createStore({ userId: 1 });
       activity = ActivityStore.createStore({});
       broadcast = ProfileStore.createStore({ userId: 3 });
       return { status: 200 };
+    },
+
+    getTitle() {
+      return 'isomorphic-stores demo';
+    },
+
+    getBodyClasses() {
+      return ['Demo'];
     },
 
     getElements() {

@@ -35,7 +35,9 @@ export function makeStreamer(page: StandardizedPage, { renderTimeout }: StreamOp
   async function writePage() {
     write(`<!DOCTYPE html><html lang="en"><head>`);
     writeHeader(page, write);
-    write(`</head><body>`);
+    write(`</head>`);
+    const bodyClasses = await page.getBodyClasses();
+    write(`<body class="${bodyClasses.join(' ')}">`);
     flush();
 
     let haveBootstrapped = false;
