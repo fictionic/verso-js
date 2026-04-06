@@ -48,11 +48,13 @@ export class ClientController {
     this.styleTransitioner = getStyleTransitioner(manifest);
     this.scriptTransitioner = getScriptTransitioner();
     self = this;
-    global.__versoController = this;
+    global.__versoController = this; // for playwright tests
   }
 
   async hydrate(method = 'GET') {
     startClientRequest();
+    this.styleTransitioner.readServerStyles();
+    this.scriptTransitioner.readServerScripts();
     // TODO: pipe down server http method, in case pages are wired up to POST or something
     const readablePipe = VersoPipe.reader();
     const fetchCache = (readablePipe.readValue(FETCH_CACHE_KEY) ?? {});
@@ -63,11 +65,6 @@ export class ClientController {
 
     await page.getRouteDirective(); // just for data fetching, for now
 
-    // Must run after getRoutedPageChain: the page module import triggers
-    // Vite's CSS side effects, creating <style data-vite-dev-id> nodes.
-    // readServerStyles reconciles those with the SSR-emitted <link> tags.
-    this.styleTransitioner.readServerStyles();
-    this.scriptTransitioner.readServerScripts(); // doesn't need to run this late, but might as well
 
     const tokens = tokenizeElements(page.getElements());
 
@@ -160,7 +157,7 @@ export class ClientController {
       document.head.appendChild(node);
     });
     // update styles. have to take care to avoid FOUC
-    const commitStyles = await this.styleTransitioner.transitionStyles(routeName, page.getStylesheets());
+    const cleanupPreviousStyles = await this.styleTransitioner.transitionStyles(routeName, page.getStylesheets());
     // update scripts. track each one and only add new ones
     this.scriptTransitioner.transitionScripts(page.getScripts());
 
@@ -207,7 +204,7 @@ export class ClientController {
       console.log(`[verso-debug] all roots hydrated, resolving CLIENT_READY_DFD`);
       global.CLIENT_READY_DFD!.resolve();
     });
-    commitStyles();
+    cleanupPreviousStyles();
   }
 
   private async getRoutedPageChain(url: URL, method: string): Promise<{ page: StandardizedPage, routeName: string }> {

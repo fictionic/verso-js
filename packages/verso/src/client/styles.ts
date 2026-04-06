@@ -21,6 +21,9 @@ export const getStyleTransitioner = (manifest: BundleManifest | null): StyleTran
       serverStyles.forEach((node) => {
         loaded.set(keyForNode(node), node);
       });
+      // in dev, we have sent down links to the vite style assets with the proper data-vite-dev-id
+      // attribute. vite is smart enough to recognize these--it won't load a duplicate inline style,
+      // and it will hot-reload them as the files change.
     },
 
     async transitionStyles(routeName: string, pageStylesheets: Stylesheet[]): Promise<() => void> {
