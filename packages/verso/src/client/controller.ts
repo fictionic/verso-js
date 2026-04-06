@@ -48,6 +48,7 @@ export class ClientController {
     this.styleTransitioner = getStyleTransitioner(manifest);
     this.scriptTransitioner = getScriptTransitioner();
     self = this;
+    global.__versoController = this;
   }
 
   async hydrate(method = 'GET') {
