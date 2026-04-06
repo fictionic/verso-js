@@ -1,4 +1,5 @@
 import type {BundleResult} from "../build/bundle";
+import type {Stylesheet} from "../core/handler/Page";
 import {createRouter, type SiteConfig} from "../core/router";
 import {handleRoute} from "../server/handleRoute";
 import {createViteBundleLoader} from "../core/middleware/ViteBundleLoader";
@@ -31,20 +32,24 @@ export async function createVersoServer(config: VersoServerConfig): Promise<Vers
 
   // Build per-route script/stylesheet/preload maps from the manifest
   const routeScripts: Record<string, string[]> = {};
-  const routeStylesheets: Record<string, string[]> = {};
+  const routeStylesheets: Record<string, Stylesheet[]> = {};
   const routePreloads: Record<string, string[]> = {};
   for (const [routeName, assets] of Object.entries(manifest)) {
     routeScripts[routeName] = assets.scripts.map(s => `/${s}`);
-    routeStylesheets[routeName] = assets.stylesheets.map(s => `/${s}`);
+    routeStylesheets[routeName] = assets.stylesheets.map(s => ({ href: `/${s}` }));
     routePreloads[routeName] = (assets.preloads ?? []).map(s => `/${s}`);
   }
 
-  const bundleLoader = createViteBundleLoader({
-    preamble: '',
+  // global preload for the manifest itself, for client transition css
+  // (so the dynamic import() from bootstrap() will be instant)
+  const manifestUrl = '/bundles/manifest.js';
+
+  const bundleLoader = createViteBundleLoader(() => ({
     routeScripts,
     routeStylesheets,
     routePreloads,
-  });
+    globalPreloads: [manifestUrl],
+  }));
   const systemMiddleware = [bundleLoader];
 
   return {

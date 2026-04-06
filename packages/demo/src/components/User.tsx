@@ -1,6 +1,7 @@
 import React, { useState } from 'react';
 import { ProfileStore } from '../stores';
 import { Card, Panel, Label } from './ui';
+import {navigateTo} from '@verso-js/verso';
 
 export function User() {
   const username = ProfileStore.hooks.useStore((s) => s.username);
@@ -53,6 +54,11 @@ export function User() {
             disabled={!input}
           >
             Rename
+          </button>
+          <button
+            onClick={() => navigateTo('/link')}
+          >
+            NAVIGATE
           </button>
         </div>
       </Panel>

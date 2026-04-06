@@ -1,3 +1,5 @@
+import './base.css';
+import './demo-page.css';
 import { ProfileStore, ThemeStore, ActivityStore } from './stores';
 import { RootContainer, TheFold, definePage } from '@verso-js/verso';
 import { User } from './components/User';
@@ -22,31 +24,6 @@ export default definePage(() => {
       return 'isomorphic-stores demo';
     },
 
-    getStylesheets() {
-      return [{ text: `
-        *, *::before, *::after { box-sizing: border-box; }
-        body { margin: 0; background: #11111b; font-family: 'Inter', system-ui, -apple-system, sans-serif; color: #cdd6f4; }
-        code {
-          font-family: 'JetBrains Mono', 'Fira Code', ui-monospace, monospace;
-          background: #313244; padding: 2px 6px; border-radius: 4px; font-size: 0.875em; color: #cba6f7;
-        }
-        button {
-          background: #313244; color: #cdd6f4; border: 1px solid #45475a;
-          border-radius: 6px; padding: 6px 14px; font-size: 13px; cursor: pointer;
-          transition: background 0.15s; white-space: nowrap;
-        }
-        button:hover { background: #45475a; }
-        button:disabled { opacity: 0.4; cursor: not-allowed; }
-        input {
-          background: #313244; border: 1px solid #45475a; color: #cdd6f4;
-          border-radius: 6px; padding: 6px 10px; font-size: 13px; outline: none;
-        }
-        input:focus { border-color: #6c7086; }
-        input::placeholder { color: #585b70; }
-        @keyframes pulse { 0%, 100% { opacity: 1; } 50% { opacity: 0.35; } }
-        ` }];
-    },
-
     getRouteDirective() {
       profile1 = ProfileStore.createStore({ userId: 1 });
       theme1 = ThemeStore.createStore({ userId: 1 });
@@ -59,8 +36,8 @@ export default definePage(() => {
       return [
         <RootContainer style={{ maxWidth: 960, margin: '0 auto', padding: '40px 20px' }}>
           <div>
-            <h1 style={{ color: '#cba6f7', margin: '0 0 6px', fontSize: '28px' }}>isomorphic-stores</h1>
-            <p style={{ color: '#6c7086', margin: '0 0 40px', fontSize: '15px', lineHeight: 1.6 }}>
+            <h1 className="demo-header-title">isomorphic-stores</h1>
+            <p className="demo-header-subtitle">
               Framework-agnostic SSR state management. Stores are created server-side,
               async data is declared via <code>waitFor</code>, and the SSR framework blocks
               rendering until the store is ready. Roots stream in progressively; <code>TheFold</code>

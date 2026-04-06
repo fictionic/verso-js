@@ -3,6 +3,7 @@ import {FETCH_CACHE_KEY, FN_HYDRATE_ROOTS_UP_TO, FN_RECEIVE_LATE_DATA_ARRIVAL, V
 import type {Script, StandardizedPage} from "../core/handler/Page";
 import {writeBody} from "./writeBody";
 import {writeHeader} from "./writeHeader";
+import {PAGE_HEADER_SCRIPT_ELEMENT_ATTR} from "../core/constants";
 
 const encoder = new TextEncoder();
 
@@ -114,13 +115,10 @@ function renderScript(script: Script): string {
   const type = script.type ? ` type="${script.type}"` : '';
   const async = script.async ? ' async' : '';
   const defer = script.defer ? ' defer' : '';
-  if (script.content) {
-    return `<script${type}>${script.content}</script>\n`;
+  if ('content' in script) {
+    return `<script ${PAGE_HEADER_SCRIPT_ELEMENT_ATTR}${type}>${script.content}</script>\n`;
   }
-  if (script.src) {
-    return `<script${async}${defer}${type} src="${script.src}"></script>\n`;
-  }
-  return '';
+  return `<script ${PAGE_HEADER_SCRIPT_ELEMENT_ATTR}${async}${defer}${type} src="${script.src}"></script>\n`;
 }
 
 function buffered(writer: WritableStreamDefaultWriter) {

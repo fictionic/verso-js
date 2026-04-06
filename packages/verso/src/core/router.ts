@@ -22,7 +22,11 @@ export interface RouteMatch {
   method: string;
 };
 
-export function createRouter(routes: Routes) {
+export interface Router {
+  matchRoute: (path: string, method: string) => RouteMatch | null;
+};
+
+export function createRouter(routes: Routes): Router {
   const compiled = Object.entries(routes).map(([routeName, routeConfig]) => {
     const { path, handler, method } = routeConfig;
     const methods = !!method ? ensureArray(method) : ['GET'];
@@ -34,7 +38,7 @@ export function createRouter(routes: Routes) {
     };
   });
   return {
-    matchRoute: (path: string, method: string): RouteMatch | null => {
+    matchRoute: (path, method) => {
       for (const { routeName, matchFn, methods, handler } of compiled) {
         if (!methods.includes(method.toUpperCase())) {
           continue;

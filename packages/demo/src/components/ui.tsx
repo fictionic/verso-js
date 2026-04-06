@@ -1,4 +1,5 @@
 import React from 'react';
+import './ui.css';
 
 export function Card({
   title,
@@ -12,23 +13,12 @@ export function Card({
   children: React.ReactNode;
 }) {
   return (
-    <div
-      data-card={title}
-      style={{
-        background: '#1e1e2e',
-        border: '1px solid #313244',
-        borderRadius: 12,
-        padding: 24,
-        marginBottom: 24,
-      }}
-    >
-      <div style={{ display: 'flex', alignItems: 'baseline', gap: 10, marginBottom: 6 }}>
-        <h3 style={{ color: '#cba6f7', margin: 0, fontSize: 18 }}>{title}</h3>
-        <code style={{ fontSize: 12 }}>{tag}</code>
+    <div data-card={title} className="card">
+      <div className="card-header">
+        <h3 className="card-title">{title}</h3>
+        <code className="card-tag">{tag}</code>
       </div>
-      <p style={{ color: '#6c7086', margin: '0 0 18px', fontSize: 13, lineHeight: 1.5 }}>
-        {description}
-      </p>
+      <p className="card-description">{description}</p>
       {children}
     </div>
   );
@@ -36,15 +26,7 @@ export function Card({
 
 export function Panel({ children, style }: { children: React.ReactNode; style?: React.CSSProperties }) {
   return (
-    <div
-      style={{
-        background: '#181825',
-        border: '1px solid #313244',
-        borderRadius: 8,
-        padding: 16,
-        ...style,
-      }}
-    >
+    <div className="panel" style={style}>
       {children}
     </div>
   );
@@ -52,16 +34,6 @@ export function Panel({ children, style }: { children: React.ReactNode; style?: 
 
 export function Label({ children }: { children: React.ReactNode }) {
   return (
-    <p
-      style={{
-        color: '#6c7086',
-        fontSize: 12,
-        margin: '0 0 8px',
-        textTransform: 'uppercase',
-        letterSpacing: '0.05em',
-      }}
-    >
-      {children}
-    </p>
+    <p className="label">{children}</p>
   );
 }

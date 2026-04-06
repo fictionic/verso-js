@@ -1,14 +1,14 @@
 import { test, expect, describe, beforeEach, vi } from 'vitest';
-import { startRequest } from '@/RequestLocalStorage';
+import { startRequest } from '../RequestLocalStorage';
 
 const nativeFetchMock = vi.hoisted(() => vi.fn());
-vi.mock('@/core/fetch/nativeFetch', () => ({
+vi.mock('../core/fetch/nativeFetch', () => ({
   nativeFetch: nativeFetchMock,
 }));
 
-import { Fetch } from '@/core/fetch/Fetch';
+import { Fetch } from '../core/fetch/Fetch';
 const { serverInit: init, fetch, getCache } = Fetch;
-import { FetchCache } from '@/core/fetch/cache';
+import { FetchCache } from '../core/fetch/cache';
 
 // --- Helpers ---
 

@@ -9,8 +9,8 @@ export class VersoRequest {
     return new VersoRequest(url, params);
   }
 
-  static clientInit(params: ParamData) {
-    const url = new URL(window.location.href);
+  static clientInit(relativeUrl: string, params: ParamData) {
+    const url = new URL(window.location.origin + relativeUrl);
     return new VersoRequest(url, params);
   }
 
@@ -24,6 +24,7 @@ export class VersoRequest {
   }
 
   getURL() {
+    // TODO: note somewhere that this is not isomorphic because location.hash isn't sent to the server
     return this.url;
   }
 

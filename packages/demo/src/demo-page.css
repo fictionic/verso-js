@@ -1,0 +1,12 @@
+.demo-header-title {
+  color: #cba6f7;
+  margin: 0 0 6px;
+  font-size: 28px;
+}
+
+.demo-header-subtitle {
+  color: #6c7086;
+  margin: 0 0 40px;
+  font-size: 15px;
+  line-height: 1.6;
+}

@@ -1,9 +1,9 @@
 import { test, expect, describe } from 'vitest';
-import { createHandlerChain } from '@/core/handler/chain';
-import { defineRouteHandler, type RouteHandler } from '@/core/handler/RouteHandler';
-import { defineMiddleware } from '@/core/handler/Middleware';
-import { ResponderConfig } from '@/core/handler/ResponderConfig';
-import { startRequest } from '@/RequestLocalStorage';
+import { createHandlerChain } from '../core/handler/chain';
+import { defineRouteHandler, type RouteHandler } from '../core/handler/RouteHandler';
+import { defineMiddleware } from '../core/handler/Middleware';
+import { ResponderConfig } from '../core/handler/ResponderConfig';
+import { startRequest } from '../RequestLocalStorage';
 import type {RouteHandlerCtx} from '../core/handler/RouteHandlerCtx';
 
 // --- Helpers ---

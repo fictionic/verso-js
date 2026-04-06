@@ -29,6 +29,25 @@ export function renderContainerOpen(element: RootContainerElementType, index: nu
   return html.slice(0, -(DIV_CLOSE.length)) + '\n';
 }
 
+// for client transitions
+export function applyContainerProps(el: HTMLElement, props: RootContainerProps) {
+  for (const [key, value] of Object.entries(props)) {
+    if (key === 'children' || key.startsWith('on') || value == null) {
+      // TODO: more props to skip? ideally we should match exactly what renderToString does
+      continue;
+    }
+    if (key === 'className') {
+      el.className = value;
+    } else if (key === 'style' && typeof value === 'object') {
+      Object.assign(el.style, value);
+    } else if (key === 'tabIndex') {
+      el.tabIndex = value;
+    } else {
+      el.setAttribute(key, String(value));
+    }
+  }
+}
+
 export function renderContainerClose(): string {
   return `${DIV_CLOSE}\n`;
 }

@@ -1,11 +1,11 @@
 import React from 'react';
 import { test, expect, describe } from 'vitest';
-import { handleRoute } from '@/server/handleRoute';
-import { Root, makeRootComponent } from '@/core/components/Root';
-import RootContainer from '@/core/components/RootContainer';
-import TheFold from '@/core/components/TheFold';
-import { definePage, type PageInit, type Script, type Stylesheet } from '@/core/handler/Page';
-import type {RouteMatch} from '@/core/router';
+import { handleRoute } from '../server/handleRoute';
+import { Root, makeRootComponent } from '../core/components/Root';
+import RootContainer from '../core/components/RootContainer';
+import TheFold from '../core/components/TheFold';
+import { definePage, type PageInit, type Script, type Stylesheet } from '../core/handler/Page';
+import type {RouteMatch} from '../core/router';
 
 // --- Helpers ---
 
@@ -65,7 +65,7 @@ describe('handlePage', () => {
     const html = await render(P);
 
     expect(html).toContain('<title>My App</title>');
-    expect(html).toContain('<style type="text/css">body { color: red; }</style>');
+    expect(html).toContain('<style data-verso-style-element type="text/css">body { color: red; }</style>');
   });
 
   test('renders stylesheet link tags', async () => {
@@ -74,7 +74,7 @@ describe('handlePage', () => {
     });
     const html = await render(P);
 
-    expect(html).toContain('<link rel="stylesheet" href="/styles.css">');
+    expect(html).toContain('<link data-verso-style-element rel="stylesheet" href="/styles.css">');
   });
 
   test('renders multiple root elements in order', async () => {
@@ -243,21 +243,6 @@ describe('handlePage', () => {
     expect(html).toContain('Waited');
   });
 
-  test('scheduleRender merges resolved props via cloneElement', async () => {
-    const DataRoot = makeRootComponent<{ message?: string; children: React.ReactNode }>(
-      ({ message, children }) => <div><span>{message ?? 'none'}</span>{children}</div>,
-      () => ({ when: Promise.resolve({ message: 'injected' }) }),
-    );
-
-    const P = simplePage([
-      <DataRoot><p>Body</p></DataRoot>,
-    ]);
-    const html = await render(P);
-
-    expect(html).toContain('injected');
-    expect(html).toContain('Body');
-  });
-
   test('skips rendering on renderToString error', async () => {
     const BrokenComponent = () => { throw new Error('boom'); };
     const BrokenRoot = makeRootComponent<{ children?: React.ReactNode }>(
@@ -285,7 +270,7 @@ describe('handlePage', () => {
     ], { scripts: [{ src: '/bundle.js', async: true, type: 'module' }] });
     const html = await render(P);
 
-    expect(html).toContain('<script async type="module" src="/bundle.js">');
+    expect(html).toContain('<script data-verso-script-element async type="module" src="/bundle.js">');
   });
 
   test('times out and skips pending elements', async () => {

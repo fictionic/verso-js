@@ -1,15 +1,50 @@
 import type {ReactElement} from 'react';
 import {defineRouteHandler, type RouteHandler, type RouteHandlerDefinition, type RouteHandlerInit, type StandardizedRouteHandler} from './RouteHandler';
 
-export type Stylesheet = { href: string } | { text: string; type?: string; media?: string };
+type StringAttributesOf<T> = { [K in keyof T as T[K] extends string ? K : never]?: string }
 
-export type Script = {
-  src?: string;
-  content?: string;
-  async?: boolean;
-  defer?: boolean;
-  type?: string;
-};
+export type Stylesheet =
+  | { href: string; dataAttr?: { name: string; value?: string } }
+  | { text: string; type?: string; media?: string; dataAttr?: { name: string; value?: string } };
+
+export function getStyleAttrs(stylesheet: Stylesheet): StringAttributesOf<HTMLLinkElement | HTMLStyleElement> {
+  const attrs: Record<string, string> = {};
+  if ('href' in stylesheet) {
+    attrs.href = stylesheet.href;
+  } else {
+    if (stylesheet.type) attrs.type = stylesheet.type;
+    if (stylesheet.media) attrs.media = stylesheet.media;
+  }
+  if (stylesheet.dataAttr) {
+    attrs[stylesheet.dataAttr.name] = stylesheet.dataAttr.value ?? '';
+  }
+  return attrs;
+}
+
+export type Script =
+  ({ src: string } | { content: string }) &
+  { async?: boolean; defer?: boolean; type?: string };
+
+export function getScriptAttrs(script: Script): StringAttributesOf<HTMLScriptElement> {
+  return {
+    ...(
+      'type' in script ? {
+        type: script.type,
+      } : {}
+    ),
+    ...(
+      'src' in script ? {
+        src: script.src,
+      } : {}
+    ),
+  };
+}
+
+export function setNodeAttrs<T extends HTMLElement>(node: T, attrs: StringAttributesOf<T>) {
+  Object.keys(attrs).forEach((attr) => {
+    node.setAttribute(attr, (attrs as any)[attr]);
+  });
+}
 
 export type LinkTag = {
   rel: string;

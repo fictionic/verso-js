@@ -1,0 +1,46 @@
+.card {
+  background: #1e1e2e;
+  border: 1px solid #313244;
+  border-radius: 12px;
+  padding: 24px;
+  margin-bottom: 24px;
+}
+
+.card-header {
+  display: flex;
+  align-items: baseline;
+  gap: 10px;
+  margin-bottom: 6px;
+}
+
+.card-title {
+  color: #cba6f7;
+  margin: 0;
+  font-size: 18px;
+}
+
+.card-tag {
+  font-size: 12px;
+}
+
+.card-description {
+  color: #6c7086;
+  margin: 0 0 18px;
+  font-size: 13px;
+  line-height: 1.5;
+}
+
+.panel {
+  background: #181825;
+  border: 1px solid #313244;
+  border-radius: 8px;
+  padding: 16px;
+}
+
+.label {
+  color: #6c7086;
+  font-size: 12px;
+  margin: 0 0 8px;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+}

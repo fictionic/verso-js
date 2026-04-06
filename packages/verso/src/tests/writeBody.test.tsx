@@ -1,12 +1,12 @@
 import React from 'react';
 import { test, expect, describe, vi } from 'vitest';
-import { Root, makeRootComponent } from '@/core/components/Root';
-import RootContainer from '@/core/components/RootContainer';
-import TheFold from '@/core/components/TheFold';
-import type { StandardizedPage } from '@/core/handler/Page';
+import { Root, makeRootComponent } from '../core/components/Root';
+import RootContainer from '../core/components/RootContainer';
+import TheFold from '../core/components/TheFold';
+import type { StandardizedPage } from '../core/handler/Page';
 
-vi.mock('@/core/components/RootContainer', async (importOriginal) => {
-  const original = await importOriginal<typeof import('@/core/components/RootContainer')>();
+vi.mock('../core/components/RootContainer', async (importOriginal) => {
+  const original = await importOriginal<typeof import('../core/components/RootContainer')>();
   return {
     ...original,
     renderContainerOpen: vi.fn((_element, index) => `<div data-container="${index}">`),
@@ -15,7 +15,7 @@ vi.mock('@/core/components/RootContainer', async (importOriginal) => {
 });
 
 // import handleBody after mocks are set up
-const { writeBody } = await import('@/server/writeBody');
+const { writeBody } = await import('../server/writeBody');
 
 function simplePage(elements: React.ReactElement[]): StandardizedPage {
   return {

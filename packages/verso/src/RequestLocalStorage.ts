@@ -1,13 +1,11 @@
-const fallback = new Map<symbol, any>();
+import type { AsyncLocalStorage } from 'node:async_hooks'; // type imports erased at runtime
 
-let als: { getStore(): Map<symbol, any> | undefined; run<R>(store: Map<symbol, any>, fn: () => R): R } | null = null;
+type ModuleNamespaces = Map<symbol, any>;
+
+let als: AsyncLocalStorage<ModuleNamespaces> | null = null;
 if (IS_SERVER) {
   const { AsyncLocalStorage } = await import('node:async_hooks');
-  als = new AsyncLocalStorage<Map<symbol, any>>();
-}
-
-function getStore(): Map<symbol, any> {
-  return als?.getStore() ?? fallback;
+  als = new AsyncLocalStorage<ModuleNamespaces>();
 }
 
 export function startRequest<R>(fn: () => R): R {
@@ -15,11 +13,25 @@ export function startRequest<R>(fn: () => R): R {
   return als.run(new Map(), fn);
 }
 
-export function getNamespace<T extends object = Partial<Record<string, any>>>(): () => T {
-  const key = Symbol();
-  return () => {
-    const store = getStore();
-    if (!store.has(key)) store.set(key, {});
-    return store.get(key) as T;
-  };
+let clientStore: ModuleNamespaces | null = null;
+
+export function startClientRequest(): void {
+  clientStore = new Map();
 }
+
+export function getNamespace<T extends object = Partial<Record<string, any>>>(): () => T {
+  const moduleKey = Symbol();
+  return () => {
+    let store: ModuleNamespaces | null = null;
+    if (IS_SERVER) {
+      store = als!.getStore() ?? null;
+    } else {
+      store = clientStore;
+    }
+    if (!store) {
+      throw new Error("RLS() access outside of request!");
+    }
+    if (!store.has(moduleKey)) store.set(moduleKey, {});
+    return store.get(moduleKey) as T;
+  };
+};

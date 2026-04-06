@@ -6,5 +6,6 @@
       "@/*": ["src/*"]
     },
     "types": ["bun", "@verso-js/verso/globals"]
-  }
+  },
+  "include": ["src"]
 }

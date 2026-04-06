@@ -1,4 +1,4 @@
-import type { SiteConfig } from '@verso-js/verso/server';
+import type { SiteConfig } from '@verso-js/verso';
 import PageHeader from './PageHeader';
 
 export default {

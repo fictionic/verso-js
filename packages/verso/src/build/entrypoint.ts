@@ -4,7 +4,7 @@ import type { Routes } from '../core/router';
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 
-/** Default bootstrap path, correct when this module runs from source (not bundled). */
+/** TODO Default bootstrap path, correct when this module runs from source (not bundled). */
 const DEFAULT_BOOTSTRAP_PATH = path.resolve(__dirname, 'client/bootstrap.ts');
 
 export function makeUnifiedEntrypoint(
@@ -13,6 +13,7 @@ export function makeUnifiedEntrypoint(
   routesDir: string,
   siteConfigPath: string,
   bootstrapPath: string = DEFAULT_BOOTSTRAP_PATH,
+  isBuild: boolean,
 ): string {
   const q = (s: string) => JSON.stringify(s);
 
@@ -20,6 +21,10 @@ export function makeUnifiedEntrypoint(
     const absoluteHandlerPath = path.resolve(routesDir, routes[name]!.handler);
     return `  ${q(name)}: () => import(${q(absoluteHandlerPath)})`;
   });
+
+  const manifest = isBuild ?
+    "await import(/* @vite-ignore */ '/bundles/manifest.js?v=' + __BUILD_ID__).then(m => m.default)" : // we've preloaded this so it should be instant
+    "null"; // not needed in dev mode -- vite handles css on client transitions
 
   return (
 `import siteConfig from ${q(siteConfigPath)};
@@ -29,7 +34,10 @@ const pageLoaders = {
 ${loaderEntries.join(',\n')}
 };
 
-bootstrap(siteConfig, pageLoaders);`
+
+const manifest = ${manifest};
+
+bootstrap(siteConfig, pageLoaders, manifest);`
   );
 }
 

@@ -48,15 +48,11 @@ export const Root = makeRootComponent<RootProps>(RootPassthrough);
 
 // --- scheduleRender: delay rendering until root is ready
 
-export function scheduleRender(element: RootElementType){
+export function scheduleRender(element: RootElementType): Promise<ReactElement> {
   const { deriveRootAPI } = element.type[ROOT_COMPONENT];
   const { when } = deriveRootAPI(element.props);
   const ready = when ?? Promise.resolve();
-  return ready.then((result) => {
-    const props = {
-      ...element.props,
-      ...result,
-    };
-    return <StrictMode>{React.cloneElement(element, props)}</StrictMode>;
+  return ready.then(() => {
+    return <StrictMode>{element}</StrictMode>;
   });
 }
