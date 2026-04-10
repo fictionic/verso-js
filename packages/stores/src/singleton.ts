@@ -1,6 +1,6 @@
 import {getNamespace} from "@verso-js/verso";
 import {useEffect, useState} from "react";
-import type {AllFunctions, IsoStoreDefinition, IsoStoreInstance, SendMessage} from "./core/types";
+import type {AllFunctions, CreateStoreArgs, IsoStoreDefinition, IsoStoreInstance, SendMessage} from "./core/types";
 import {STORE_DEFINITION_INTERNALS} from "./core/constants";
 
 const RLS = getNamespace<{ instances: Map<IsoStoreDefinition<any, any, any, any, any>, IsoStoreInstance<any>> }>();
@@ -14,7 +14,7 @@ function getInstances(): Map<IsoStoreDefinition<any, any, any, any, any>, IsoSto
 export type UseClientHooks<NativeClientHooks> = () => readonly [ready: boolean, clientHooks: NativeClientHooks];
 
 export interface SingletonIsoStoreDefinition<Opts, Message, NativeStore, NativeHooks extends AllFunctions<NativeHooks>, NativeClientHooks extends AllFunctions<NativeClientHooks>> {
-  createStore: (opts: Opts) => IsoStoreInstance<NativeStore>;
+  createStore: (...args: CreateStoreArgs<Opts>) => IsoStoreInstance<NativeStore>;
   hooks: NativeHooks;
   useClientHooks: UseClientHooks<NativeClientHooks>;
   message: SendMessage<Message>;
@@ -26,12 +26,12 @@ export function asSingleton<Opts, Message, NativeStore, NativeHooks extends AllF
   def: IsoStoreDefinition<Opts, Message, NativeStore, NativeHooks, NativeClientHooks>
 ): SingletonIsoStoreDefinition<Opts, Message, NativeStore, NativeHooks, NativeClientHooks> {
   return {
-    createStore: (opts: Opts) => {
+    createStore: (...args: CreateStoreArgs<Opts>) => {
       const instances = getInstances();
       if (instances.has(def)) {
         throw new Error("cannot create more than one instance of a singleton store!");
       }
-      const instance = def.createStore(opts);
+      const instance = def.createStore(...args);
       instances.set(def, instance);
       return instance;
     },
@@ -41,7 +41,7 @@ export function asSingleton<Opts, Message, NativeStore, NativeHooks extends AllF
     hooks: def.hooks,
     /**
      * allows cross-root access to the singleton. has to be resilient against the store
-     * not being ready at call time, since an arbitrary root won't be blocked by its resolution
+     * not being ready at call time, since an arbitrary root won't be blocked by its resolution.
      * this is clientside only, because if you need server-side access to the store, your root
      * needs to be gated on its resolution, so you can just use the regular .hooks bag.
      */
