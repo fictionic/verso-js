@@ -1,7 +1,15 @@
 import {useSyncExternalStore, useCallback, useRef} from 'react';
-import {createStoryStore, type StoryInit, type Selector, type StoryStore, type Equals, shallow, type Select} from "./vanilla";
+import {
+  createStoryStore,
+  type StoryInit,
+  type Selector,
+  type StoryStore,
+  type Equals,
+  type Select
+} from "./vanilla";
+import {shallow} from './shallow';
 
-type UseStoryStore = <State, T>(store: StoryStore<State>, selector: Selector<State, T>) => T;
+export type UseStoryStore = <State, T>(store: StoryStore<State>, selector: Selector<State, T>) => T;
 
 const IDENTITY = <T>(a: T) => a;
 
@@ -19,13 +27,17 @@ export const useStoryStore: UseStoryStore = (store, selector) => {
 
 export type UseStory<State> = Select<State>;
 
-export type Story<State> = UseStory<State> & StoryStore<State>;
+export type Story<State> = UseStory<State> & {
+  store: StoryStore<State>;
+}
 
 export const createStory = <State extends object>(init: StoryInit<State>): Story<State> => {
   const store = createStoryStore(init);
-  const useStory: UseStory<State> = <T>(selector: Selector<State, T>) => useStoryStore(store, selector);
-  Object.assign(useStory, store);
-  return useStory as Story<State>;
+  const hook: UseStory<State> = <T>(selector: Selector<State, T>) => useStoryStore(store, selector);
+  const useStory: Story<State> = Object.assign(hook, {
+    store,
+  });
+  return useStory;
 };
 
 

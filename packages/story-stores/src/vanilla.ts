@@ -84,16 +84,16 @@ export const createStoryStore = <State extends object>(init: StoryInit<State>): 
   const select: Select<State> = (selector) => selector(state);
 
   const update: Update<State> = (recipe) => {
-    state = produce(state, recipe); // pre-frozen
+    state = produce(state, recipe);
     if (batchDepth > 0) {
-      pendingEmits.add(emit); // will dedupe if the same store is already pending an emit
+      pendingEmits.add(emit); // no-op if this store is already pending an emit
     } else {
       emit();
     }
   };
 
   const didInitRef = { current: false };
-  const listenerConsumers: Array<() => void> = []; // TODO better name
+  const listenerPrimings: Array<() => void> = [];
 
   // TODO: right now listen() is pretty rudimentary. a more robust version would:
   // - create a dependency graph
@@ -103,18 +103,19 @@ export const createStoryStore = <State extends object>(init: StoryInit<State>): 
     if (didInitRef.current) {
       throw new Error("cannot listen after init");
     }
-    listenerConsumers.push(() => consumer(store.select(selector)));
+    listenerPrimings.push(() => consumer(store.select(selector)));
     return store.subscribe(selector, consumer, equals);
   };
 
   state = init({ select, update, listen });
-  Object.freeze(state);
+  Object.freeze(state); // freeze initial state ourselves; then future updates will be frozen by immer
 
   const initialState = state; // for getServerSnapshot
   const selectInitial: Select<State> = (selector) => selector(initialState);
 
   didInitRef.current = true;
-  batch(() => listenerConsumers.forEach((fn) => fn()));
+  batch(() => listenerPrimings.forEach((fn) => fn()));
+  listenerPrimings.length = 0; // might as well free for GC
 
   return {
     select,
@@ -123,5 +124,3 @@ export const createStoryStore = <State extends object>(init: StoryInit<State>): 
     selectInitial,
   };
 }
-
-export { shallow } from './shallow';

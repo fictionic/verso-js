@@ -3,6 +3,7 @@
   "private": true,
   "type": "module",
   "exports": {
+    ".": "./src/index.ts",
     "./vanilla": "./src/vanilla.ts",
     "./react": "./src/react.ts",
     "./adapter": "./src/adapter.ts"
