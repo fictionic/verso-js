@@ -1,6 +1,6 @@
 import { defineZustandIsoStore } from './define';
 import { asSingleton } from '@verso-js/stores';
-import { fetch } from '@verso-js/verso/fetch';
+import { fetch } from '@verso-js/verso';
 
 interface ThemeState {
   theme: 'light' | 'dark';

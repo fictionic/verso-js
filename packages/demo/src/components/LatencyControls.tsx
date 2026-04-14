@@ -1,5 +1,5 @@
 import React from 'react';
-import { getCookie, setCookie } from '@verso-js/verso/cookies';
+import { getCookie, setCookie } from '@verso-js/verso';
 
 const OPTIONS = [10, 100, 500, 1000];
 

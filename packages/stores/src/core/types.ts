@@ -15,12 +15,6 @@ export type MessageHandler<Message> = (message: Message) => void;
 export interface IsoStoreInstance<NativeStore> {
   whenReady: Promise<void>;
   nativeStore: NativeStore;
-  [STORE_INSTANCE_INTERNALS]: {
-    identifier: InstanceID;
-    definition: IsoStoreDefinition<any, any, any, any, any>;
-    messageHandlers: Array<MessageHandler<any>>;
-    onMount: () => void;
-  };
 }
 
 export type StoreProvider<NativeStore> = React.FC<{
@@ -40,8 +34,25 @@ export interface IsoStoreDefinition<Opts, Message, NativeStore, NativeHooks exte
   hooks: NativeHooks;
   useCreateClientStore: UseCreateClientStore<Opts, NativeClientHooks>;
   broadcast: SendMessage<Message>;
+}
+
+// ---------------------------------------------------------------------------
+// Internal types (not exported from package index)
+// ---------------------------------------------------------------------------
+
+export interface InternalIsoStoreInstance<NativeStore> extends IsoStoreInstance<NativeStore> {
+  [STORE_INSTANCE_INTERNALS]: {
+    identifier: InstanceID;
+    definition: InternalIsoStoreDefinition<any, any, any, any, any>;
+    messageHandlers: Array<MessageHandler<any>>;
+    onMount: () => void;
+  };
+}
+
+export interface InternalIsoStoreDefinition<Opts, Message, NativeStore, NativeHooks extends AllFunctions<NativeHooks>, NativeClientHooks extends AllFunctions<NativeClientHooks>> extends IsoStoreDefinition<Opts, Message, NativeStore, NativeHooks, NativeClientHooks> {
+  createStore: (...args: CreateStoreArgs<Opts>) => InternalIsoStoreInstance<NativeStore>;
   [STORE_DEFINITION_INTERNALS]: {
-    instancesByProvider: Map<ProviderID, IsoStoreInstance<NativeStore>>;
+    instancesByProvider: Map<ProviderID, InternalIsoStoreInstance<NativeStore>>;
     StoreProvider: StoreProvider<NativeStore>;
     adapter: Adapter<any, NativeStore, any, any, any>;
   };

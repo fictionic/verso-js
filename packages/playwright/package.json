@@ -1,8 +1,23 @@
 {
   "name": "@verso-js/playwright",
-  "private": true,
+  "version": "0.0.0",
+  "type": "module",
+  "main": "./dist/fixtures.js",
+  "types": "./dist/fixtures.d.ts",
   "exports": {
-    ".": "./src/fixtures.ts"
+    ".": {
+      "types": "./dist/fixtures.d.ts",
+      "default": "./dist/fixtures.js"
+    }
+  },
+  "files": [
+    "dist",
+    "README.md"
+  ],
+  "scripts": {
+    "build": "tsup",
+    "dev": "tsup --watch",
+    "typecheck": "bunx tsc --noEmit"
   },
   "peerDependencies": {
     "@playwright/test": ">=1.0.0"

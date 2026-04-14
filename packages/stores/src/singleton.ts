@@ -1,6 +1,6 @@
 import {getNamespace} from "@verso-js/verso";
 import {useEffect, useState} from "react";
-import type {AllFunctions, CreateStoreArgs, IsoStoreDefinition, IsoStoreInstance, SendMessage} from "./core/types";
+import type {AllFunctions, CreateStoreArgs, InternalIsoStoreDefinition, IsoStoreDefinition, IsoStoreInstance, SendMessage} from "./core/types";
 import {STORE_DEFINITION_INTERNALS} from "./core/constants";
 
 const RLS = getNamespace<{ instances: Map<IsoStoreDefinition<any, any, any, any, any>, IsoStoreInstance<any>> }>();
@@ -18,8 +18,6 @@ export interface SingletonIsoStoreDefinition<Opts, Message, NativeStore, NativeH
   hooks: NativeHooks;
   useClientHooks: UseClientHooks<NativeClientHooks>;
   message: SendMessage<Message>;
-  // don't need to copy over the internals, because they're on the original definition
-  // which is accessible through the internals of the store instance returned by createStore()
 };
 
 export function asSingleton<Opts, Message, NativeStore, NativeHooks extends AllFunctions<NativeHooks>, NativeClientHooks extends AllFunctions<NativeClientHooks>>(
@@ -43,7 +41,8 @@ export function asSingleton<Opts, Message, NativeStore, NativeHooks extends AllF
      * allows cross-root access to the singleton. has to be resilient against the store
      * not being ready at call time, since an arbitrary root won't be blocked by its resolution.
      * this is clientside only, because if you need server-side access to the store, your root
-     * needs to be gated on its resolution, so you can just use the regular .hooks bag.
+     * needs to be gated on its resolution, so you might as well just Provide it, and then you
+     * should just be using the regular .hooks bag.
      */
     useClientHooks: () => {
       const [ready, setReady] = useState(false);
@@ -56,7 +55,7 @@ export function asSingleton<Opts, Message, NativeStore, NativeHooks extends AllF
           setReady(true);
         });
       }, []);
-      const adapter = def[STORE_DEFINITION_INTERNALS].adapter;
+      const adapter = (def as InternalIsoStoreDefinition<Opts, Message, NativeStore, NativeHooks, NativeClientHooks>)[STORE_DEFINITION_INTERNALS].adapter;
       const useNativeStore = () => ready ? instance.nativeStore : adapter.empty;
       const clientHooks = adapter.useClientHooks(useNativeStore, ready);
       return [ready, clientHooks];

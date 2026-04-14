@@ -4,15 +4,14 @@ import type { RoutesMap } from '../core/router';
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 
-/** TODO Default bootstrap path, correct when this module runs from source (not bundled). */
-const DEFAULT_BOOTSTRAP_PATH = path.resolve(__dirname, 'client/bootstrap.ts');
+const DEFAULT_BOOTSTRAP_PATH = path.resolve(__dirname, 'bootstrap.js');
 
 export function makeUnifiedEntrypoint(
   pageRouteNames: string[],
   routes: RoutesMap,
   routesDir: string,
   siteConfigPath: string,
-  bootstrapPath: string = DEFAULT_BOOTSTRAP_PATH,
+  bootstrapPath: string = DEFAULT_BOOTSTRAP_PATH, // TODO: is this needed?
   isBuild: boolean,
 ): string {
   const q = (s: string) => JSON.stringify(s);
@@ -41,9 +40,9 @@ bootstrap(siteConfig, pageLoaders, manifest);`
   );
 }
 
-export function makeServerEntry(siteConfigModulePath: string, routes: RoutesMap, sourceRoot: string): string {
+export function makeServerEntry(siteConfigModulePath: string, routes: RoutesMap, distRoot: string): string {
   const rootDir = path.dirname(siteConfigModulePath);
-  const createVersoServerPath = path.resolve(sourceRoot, 'build/createVersoServer.ts');
+  const createVersoServerPath = path.resolve(distRoot, 'build.js');
   const handlerImports: string[] = [];
   const handlerEntries: string[] = [];
 

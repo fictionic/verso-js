@@ -1,5 +1,5 @@
-import { isServer } from '../../env';
-import { getNamespace } from '../../RequestLocalStorage';
+import { isServer } from '../env';
+import { getNamespace } from '../RequestLocalStorage';
 import { FetchCache, type CachedResponse } from './cache';
 import { nativeFetch } from './nativeFetch';
 

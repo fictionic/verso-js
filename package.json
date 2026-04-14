@@ -10,5 +10,13 @@
     "packages/story-stores",
     "packages/playwright",
     "packages/demo"
-  ]
+  ],
+  "scripts": {
+    "build": "bun run --filter '*' build",
+    "typecheck": "bun run --filter '*' typecheck"
+  },
+  "devDependencies": {
+    "tsup": "^8.5.1",
+    "typescript": "5"
+  }
 }

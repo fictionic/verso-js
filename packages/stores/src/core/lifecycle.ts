@@ -1,8 +1,8 @@
 import {useEffect} from "react";
 import {STORE_DEFINITION_INTERNALS, STORE_INSTANCE_INTERNALS} from "./constants";
-import {type IsoStoreInstance, type ProviderID} from "./types";
+import {type InternalIsoStoreInstance, type ProviderID} from "./types";
 
-export function useIsoStoreLifecycle(providerId: ProviderID, instance: IsoStoreInstance<unknown> | null) {
+export function useIsoStoreLifecycle(providerId: ProviderID, instance: InternalIsoStoreInstance<unknown> | null) {
   useEffect(() => {
     if (instance === null) return;
     const internals = instance[STORE_INSTANCE_INTERNALS];

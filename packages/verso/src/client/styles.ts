@@ -37,7 +37,7 @@ export const getStyleTransitioner = (manifest: BundleManifest | null): StyleTran
         if (loaded.has(key)) {
           return Promise.resolve(loaded.get(key)!);
         } else {
-          if (IS_DEV) {
+          if (globalThis.IS_DEV) {
             // vite will have automatically injected a new style. just use that.
             const viteId = key;
             const viteStyle = findViteStyle(viteId);
@@ -72,7 +72,7 @@ export const getStyleTransitioner = (manifest: BundleManifest | null): StyleTran
         if (result.status === 'fulfilled') {
           const node = result.value;
           document.head.appendChild(node); // insert / move all nodes into correct ordering, for css specificity
-          if (IS_DEV) {
+          if (globalThis.IS_DEV) {
             if (node.disabled) {
               // reenable disabled vite styles from prior transitions
               node.disabled = false;
@@ -85,7 +85,7 @@ export const getStyleTransitioner = (manifest: BundleManifest | null): StyleTran
         // return a function that cleans up dangling styles from the previous route
         for (const [key, node] of loaded) {
           if (currentKeys.has(key)) continue;
-          if (IS_DEV) {
+          if (globalThis.IS_DEV) {
             node.disabled = true; // keep in DOM for vite's sheetsMap
           } else {
             node.remove();
@@ -107,7 +107,7 @@ function findViteStyle(viteId: string): HTMLStyleElement | null {
 }
 
 function keyFor(stylesheet: Stylesheet): string {
-  if (IS_DEV) {
+  if (globalThis.IS_DEV) {
     const { dataAttr } = stylesheet;
     if (dataAttr?.name === DEV_VITE_STYLE_ID_ATTR && dataAttr.value) {
       return dataAttr.value;
@@ -120,7 +120,7 @@ function keyFor(stylesheet: Stylesheet): string {
 }
 
 function keyForNode(node: StyleElement): string {
-  if (IS_DEV) {
+  if (globalThis.IS_DEV) {
     const viteAttr = node.getAttribute(DEV_VITE_STYLE_ID_ATTR);
     if (viteAttr) {
       return viteAttr;
@@ -150,7 +150,7 @@ function createStyleNode(style: Stylesheet): StyleElement {
 }
 
 async function getRouteStylesheets(routeName: string, manifest: BundleManifest | null): Promise<Stylesheet[]> {
-  if (IS_DEV) {
+  if (globalThis.IS_DEV) {
     try {
       const res = await fetch(`${DEV_ROUTE_CSS_PATH}?route=${encodeURIComponent(routeName)}`);
       if (!res.ok) return [];

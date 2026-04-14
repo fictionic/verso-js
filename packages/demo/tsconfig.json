@@ -5,7 +5,7 @@
     "paths": {
       "@/*": ["src/*"]
     },
-    "types": ["bun", "@verso-js/verso/globals"]
+    "types": ["bun", "@verso-js/verso/defines"]
   },
   "include": ["src"]
 }

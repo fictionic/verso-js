@@ -2,15 +2,15 @@
 import { afterEach, beforeEach, expect, test } from "vitest";
 import { act, cleanup, render, screen, waitFor as waitForDom } from "@testing-library/react";
 import { defineZustandIsoStore } from "@verso-js/store-adapter-zustand";
-import { startClientRequest } from "@verso-js/verso/request-local";
+import { setupRLS, teardownRLS } from "@verso-js/verso/test-helpers";
 import { IsoStoreProvider } from "../IsoStoreProvider";
 import { asSingleton } from "../singleton";
 
-beforeEach(() => {
-  startClientRequest();
+beforeEach(setupRLS);
+afterEach(() => {
+  teardownRLS();
+  cleanup();
 });
-
-afterEach(cleanup);
 
 // ─── createStore ────────────────────────────────────────────────────────────
 

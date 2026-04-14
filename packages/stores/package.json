@@ -1,13 +1,28 @@
 {
   "name": "@verso-js/stores",
-  "private": true,
+  "version": "0.0.0",
   "type": "module",
+  "main": "./dist/index.js",
+  "types": "./dist/index.d.ts",
   "exports": {
-    ".": "./src/index.ts",
-    "./adapter": "./src/adapter.ts"
+    ".": {
+      "types": "./dist/index.d.ts",
+      "default": "./dist/index.js"
+    },
+    "./adapter": {
+      "types": "./dist/adapter.d.ts",
+      "default": "./dist/adapter.js"
+    }
   },
+  "files": [
+    "dist",
+    "README.md"
+  ],
   "scripts": {
-    "test": "vitest --run"
+    "build": "tsup",
+    "dev": "tsup --watch",
+    "test": "vitest --run",
+    "typecheck": "bunx tsc --noEmit"
   },
   "peerDependencies": {
     "react": "^19.2.4"

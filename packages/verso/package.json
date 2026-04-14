@@ -1,28 +1,38 @@
 {
   "name": "@verso-js/verso",
-  "private": true,
+  "version": "0.0.0",
   "type": "module",
   "bin": {
-    "verso": "./bin/verso.js"
+    "verso": "./dist/cli.js"
   },
+  "main": "./dist/index.js",
+  "types": "./dist/index.d.ts",
   "exports": {
-    ".": "./src/index.ts",
-    "./fetch": "./src/core/fetch/index.ts",
-    "./cookies": "./src/cookies.ts",
-    "./config": "./src/VersoConfig.ts",
-    "./env": "./src/env.ts",
-    "./request-local": "./src/RequestLocalStorage.ts",
+    ".": {
+      "types": "./dist/index.d.ts",
+      "default": "./dist/index.js"
+    },
+    "./test-helpers": {
+      "types": "./dist/test-helpers.d.ts",
+      "default": "./dist/test-helpers.js"
+    },
     "./plugin": {
       "types": "./dist/plugin.d.ts",
       "default": "./dist/plugin.js"
     },
-    "./globals": "./globals.d.ts"
+    "./defines": "./defines.d.ts"
   },
+  "files": [
+    "dist",
+    "globals.d.ts",
+    "README.md"
+  ],
   "engines": {
     "node": ">=18"
   },
   "scripts": {
     "build": "tsup",
+    "dev": "tsup --watch",
     "test": "npx vitest run",
     "typecheck": "bunx tsc --noEmit"
   },

@@ -1,5 +1,5 @@
 import { defineZustandIsoStore } from './define';
-import { fetch } from '@verso-js/verso/fetch';
+import { fetch } from '@verso-js/verso';
 
 interface ProfileState {
   username: string;

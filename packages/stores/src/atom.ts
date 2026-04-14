@@ -33,7 +33,6 @@ const getAdapter: <T>() => Adapter<
   AtomHooks<T>,
   AtomClientHooks<T>
 > = <T>() => {
-
   const useHooks = (useNativeStore: () => Atom<T>): AtomHooks<T> => {
     const store = useNativeStore();
     return {

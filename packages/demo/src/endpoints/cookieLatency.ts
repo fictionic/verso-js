@@ -1,4 +1,4 @@
-import { getCookie } from '@verso-js/verso/cookies';
+import { getCookie } from '@verso-js/verso';
 
 export function cookieLatency(key: string, fallback: number): number {
   const val = getCookie(`latency_${key}`);

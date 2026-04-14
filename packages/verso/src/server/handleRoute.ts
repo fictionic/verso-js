@@ -1,6 +1,6 @@
 import type {RouteHandlerDefinition, RouteHandlerType} from "../core/handler/RouteHandler";
 import type {MiddlewareDefinition} from "../core/handler/Middleware";
-import {startRequest} from "../RequestLocalStorage";
+import {startRequest} from "../core/RequestLocalStorage";
 import {ServerCookies} from "./ServerCookies";
 import {Fetch} from "../core/fetch/Fetch";
 import {ResponderConfig} from "../core/handler/ResponderConfig";

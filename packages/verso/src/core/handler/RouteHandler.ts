@@ -7,7 +7,7 @@ export type RouteHandlerType = 'page' | 'endpoint';
 
 export type RouteDirective = {
   status: number;
-  redirectLocation?: string;
+  redirectLocation?: string; // TODO implement these
   hasDocument?: boolean;
 } /* TODO | {
   proxyRoute: string;

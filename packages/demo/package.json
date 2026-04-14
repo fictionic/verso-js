@@ -1,6 +1,7 @@
 {
   "name": "@verso-js/demo",
   "private": true,
+  "type": "module",
   "scripts": {
     "dev": "verso dev",
     "build": "verso build",

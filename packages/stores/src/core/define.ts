@@ -19,6 +19,7 @@ import {
   type IsoStoreDefinition,
   type IsoStoreInit,
   type IsoStoreInstance,
+  type InternalIsoStoreInstance,
   type MessageHandler,
   type OnMessage,
   type ProviderID,
@@ -53,9 +54,9 @@ export function defineIsoStore<Opts, State extends object, Message, NativeStoreI
   type NativeStore = NativeStoreOf<A>;
   const definitionId = Symbol() as DefinitionID;
 
-  const instancesByProvider: Map<ProviderID, IsoStoreInstance<NativeStore>> = new Map();
+  const instancesByProvider: Map<ProviderID, InternalIsoStoreInstance<NativeStore>> = new Map();
 
-  const createStore = (...args: CreateStoreArgs<Opts>): IsoStoreInstance<NativeStore> => {
+  const createStore = (...args: CreateStoreArgs<Opts>): InternalIsoStoreInstance<NativeStore> => {
     const opts = args[0] as Opts;
     const asyncKeys = new Set<keyof State>();
     const blocking: Set<PendingValue<any>> = new Set();
@@ -139,7 +140,7 @@ export function defineIsoStore<Opts, State extends object, Message, NativeStoreI
     };
   };
 
-  type IsoContext = IsoStoreInstance<NativeStore> | null;
+  type IsoContext = InternalIsoStoreInstance<NativeStore> | null;
   const context = createContext<IsoContext>(null);
 
   const hooks: HooksOf<A> = adapter.useHooks(() => {
@@ -152,7 +153,7 @@ export function defineIsoStore<Opts, State extends object, Message, NativeStoreI
 
   const useCreateClientStore: UseCreateClientStore<Opts, ClientHooksOf<A>> = (...args) => {
     const [ready, setReady] = useState<boolean>(false);
-    const instanceRef = useRef<IsoStoreInstance<NativeStore> | null>(null);
+    const instanceRef = useRef<InternalIsoStoreInstance<NativeStore> | null>(null);
 
     const providerId = useMemo(() => Symbol() as ProviderID, []);
 

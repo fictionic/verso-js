@@ -1,9 +1,9 @@
-type GetClientController = typeof import('./client/controller').getClientController;
+type GetClientController = typeof import('./controller').getClientController;
 
 let getController: GetClientController | null = null;
 
-if (!IS_SERVER) {
-  import('./client/controller').then(({ getClientController }) => {
+if (!globalThis.IS_SERVER) {
+  import('./controller').then(({ getClientController }) => {
     getController = getClientController;
   });
 }

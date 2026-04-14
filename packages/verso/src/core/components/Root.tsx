@@ -15,7 +15,7 @@ interface RootProps extends RootAPI {
 
 type DeriveRootAPI<P> = (props: P) => RootAPI;
 
-interface RootComponent<P> extends React.FC<P> {
+export interface RootComponent<P> extends React.FC<P> {
   [ROOT_COMPONENT]: {
     deriveRootAPI: DeriveRootAPI<P>;
   };

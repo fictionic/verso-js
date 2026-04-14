@@ -3,7 +3,7 @@ import { fileURLToPath } from 'node:url';
 import { writeFile } from 'node:fs/promises';
 import react from '@vitejs/plugin-react';
 import type { Plugin, ViteDevServer } from 'vite';
-import type { VersoConfig } from '../VersoConfig';
+import type { VersoConfig } from './VersoConfig';
 import type { VersoRoutes, RoutesMap } from '../core/router';
 import type { RouteHandler } from '../core/handler/RouteHandler';
 import type { Script, Stylesheet } from '../core/handler/Page';
@@ -16,15 +16,13 @@ import { toWebRequest, sendWebResponse } from '../server/nodeHttp';
 import { makeUnifiedEntrypoint, makeServerEntry } from './entrypoint';
 import { importModule } from './importModule';
 
-// When compiled by tsup, import.meta.url points to dist/plugin.js.
-// When running in dev from source, it points to src/build/plugin.ts.
+// import.meta.url always points to dist/plugin.js — the plugin is only ever
+// loaded via the @verso-js/verso/plugin package export, never from source.
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
-const SOURCE_ROOT = __dirname.endsWith('build')
-  ? path.resolve(__dirname, '..')       // src/build/ -> src/
-  : path.resolve(__dirname, '../src'); // dist/ -> src/
+const DIST_ROOT = __dirname; // dist/
 
-const HANDLE_ROUTE_PATH = path.resolve(SOURCE_ROOT, 'server/handleRoute.ts');
-const BOOTSTRAP_PATH = path.resolve(SOURCE_ROOT, 'client/bootstrap.ts');
+const HANDLE_ROUTE_PATH = path.resolve(DIST_ROOT, 'server.js');
+const BOOTSTRAP_PATH = path.resolve(DIST_ROOT, 'bootstrap.js');
 
 const CLIENT_ENTRY_VIRTUAL_ID = 'virtual:verso/entry';
 const CLIENT_ENTRY_RESOLVED_ID = '\0' + CLIENT_ENTRY_VIRTUAL_ID;
@@ -88,9 +86,6 @@ export default function verso(options: VersoConfig): Plugin[] {
 
         const shared: Record<string, any> = {
           resolve: {
-            alias: {
-              '@/': path.resolve(SOURCE_ROOT) + '/',
-            },
             dedupe: ['react', 'react-dom'],
           },
           ssr: {
@@ -98,17 +93,25 @@ export default function verso(options: VersoConfig): Plugin[] {
           },
         };
 
+        // Define strategy:
+        // - `IS_SERVER` (bare) is the public contract for user code (declared
+        //   in globals.d.ts). Replace it for DCE on server-only branches.
+        // - `globalThis.IS_SERVER` / `globalThis.IS_DEV` is what verso's own
+        //   source uses internally, so the dist files can run in Node without
+        //   a ReferenceError. Replace those too so Vite can DCE our runtime.
         if (env.command === 'serve') {
           return {
             ...shared,
             define: {
               IS_SERVER: 'true',
-              IS_DEV: 'true', // tell styleTransitioner to adopt vite styles
+              'globalThis.IS_SERVER': 'true',
+              'globalThis.IS_DEV': 'true', // tell styleTransitioner to adopt vite styles
             },
             environments: {
               client: {
                 define: {
                   IS_SERVER: 'false',
+                  'globalThis.IS_SERVER': 'false',
                 },
               },
             },
@@ -116,11 +119,13 @@ export default function verso(options: VersoConfig): Plugin[] {
         }
 
         if (env.command === 'build') {
+          const isServerLit = isSSRBuild ? 'true' : 'false';
           return {
             ...shared,
             define: {
-              IS_SERVER: isSSRBuild ? 'true' : 'false',
-              IS_DEV: 'false',
+              IS_SERVER: isServerLit,
+              'globalThis.IS_SERVER': isServerLit,
+              'globalThis.IS_DEV': 'false',
               __BUILD_ID__: new Date().getTime(), // unique opaque id
             },
             build: {
@@ -176,7 +181,7 @@ export default function verso(options: VersoConfig): Plugin[] {
 
         if (id === SERVER_ENTRY_RESOLVED_ID) {
           if (!routes) throw new Error('Routes not loaded yet');
-          return makeServerEntry(routesPath, routes, SOURCE_ROOT);
+          return makeServerEntry(routesPath, routes, DIST_ROOT);
         }
       },
 
@@ -308,7 +313,7 @@ export default function verso(options: VersoConfig): Plugin[] {
               // Ensure the handler module graph is populated before walking it
               await vite.ssrLoadModule(handlerPath);
               const { collectCss } = await vite.ssrLoadModule(
-                path.resolve(SOURCE_ROOT, 'build/collectCss.ts'),
+                path.resolve(DIST_ROOT, 'collectCss.js'),
               ) as typeof import('./collectCss');
               const stylesheets = await collectCss(vite, handlerPath);
               res.setHeader('Content-Type', 'application/json');
@@ -328,7 +333,7 @@ export default function verso(options: VersoConfig): Plugin[] {
 
             // Collect CSS from Vite's module graph for this handler
             const { collectCss } = await vite.ssrLoadModule(
-              path.resolve(SOURCE_ROOT, 'build/collectCss.ts'),
+              path.resolve(DIST_ROOT, 'collectCss.js'),
             ) as typeof import('./collectCss');
             currentRouteStylesheets = {
               [route.routeName]: await collectCss(vite, handlerPath),

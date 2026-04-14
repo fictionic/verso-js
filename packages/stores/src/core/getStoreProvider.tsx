@@ -1,9 +1,9 @@
 import {useMemo, type Context, type ReactNode} from "react";
-import {type IsoStoreInstance, type ProviderID, type StoreProvider} from "./types";
+import {type InternalIsoStoreInstance, type IsoStoreInstance, type ProviderID, type StoreProvider} from "./types";
 import {useIsoStoreLifecycle} from "./lifecycle";
 
 export function getStoreProvider<NativeStore>(
-  context: Context<IsoStoreInstance<NativeStore> | null>,
+  context: Context<InternalIsoStoreInstance<NativeStore> | null>,
 ): StoreProvider<NativeStore> {
 
   const {Provider} = context;
@@ -17,9 +17,10 @@ export function getStoreProvider<NativeStore>(
     children,
   }: Props) {
     const identifier = useMemo<ProviderID>(() => Symbol() as ProviderID, []);
-    useIsoStoreLifecycle(identifier, instance);
+    const internal = instance as InternalIsoStoreInstance<NativeStore>;
+    useIsoStoreLifecycle(identifier, internal);
     return (
-      <Provider value={instance}>
+      <Provider value={internal}>
         {children}
       </Provider>
     );

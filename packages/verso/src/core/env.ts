@@ -1,3 +1,3 @@
 export function isServer(): boolean {
-  return IS_SERVER;
+  return globalThis.IS_SERVER;
 }

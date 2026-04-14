@@ -64,11 +64,11 @@ export interface PageOptionalMethods {
   getSystemLinkTags(): LinkTag[];
   getLinkTags(): LinkTag[];
   getBodyClasses(): MaybePromise<string[]>;
-  // TODO: getMetaTags,
+  // TODO: getMetaTags, getBase, getBodyStartContent
 }
 
 export interface PageRequiredMethods {
-  getElements(): ReactElement[];
+  getElements(): ReactElement[]; // TODO should this become optional once proxyRoute is implemented?
 };
 
 export type Page = RouteHandler<'page', PageOptionalMethods, PageRequiredMethods>;
