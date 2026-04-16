@@ -22,6 +22,7 @@ function simplePage(elements: React.ReactElement[]): StandardizedPage {
     getRouteDirective() { return { status: 200 } },
     getElements() { return elements; },
     getTitle() { return 'Test'; },
+    getBase() { return null; },
     getSystemStylesheets() { return []; },
     getStylesheets() { return []; },
     getHeaders() { return []; },
@@ -29,6 +30,7 @@ function simplePage(elements: React.ReactElement[]): StandardizedPage {
     getScripts() { return []; },
     getSystemLinkTags() { return []; },
     getLinkTags() { return []; },
+    getMetaTags() { return []; },
     getBodyClasses() { return []; },
   };
 }

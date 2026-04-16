@@ -4,7 +4,7 @@ import {ResponderConfig} from "../core/handler/ResponderConfig";
 import {VersoRequest} from "../core/VersoRequest";
 import {createCtx} from "../core/handler/RouteHandlerCtx";
 import {createHandlerChain} from "../core/handler/chain";
-import {setNodeAttrs, type StandardizedPage} from "../core/handler/Page";
+import {getMetaTagAttrs, setNodeAttrs, type MetaTag, type StandardizedPage} from "../core/handler/Page";
 import {createRoot, hydrateRoot, type Root} from "react-dom/client";
 import {TOKEN, tokenizeElements} from "../core/elementTokenizer";
 import {scheduleRender} from "../core/components/Root";
@@ -146,6 +146,19 @@ export class ClientController {
 
     // =header=
     document.title = page.getTitle();
+    // update base tag
+    const base = page.getBase();
+    let baseNode = document.head.querySelector('base');
+    if (base === null) {
+      baseNode?.parentNode?.removeChild(baseNode);
+    } else {
+      if (!baseNode) {
+        baseNode = document.createElement('base');
+        document.head.prepend(baseNode);
+      }
+      if (base.href) baseNode.href = base.href;
+      if (base.target) baseNode.target = base.target;
+    }
     // update links. can just blindly throw away old ones and add new ones
     document.querySelectorAll(`[${PAGE_HEADER_LINK_ELEMENT_ATTR}]`).forEach(node => {
       node.parentNode?.removeChild(node);
@@ -155,6 +168,9 @@ export class ClientController {
       setNodeAttrs(node, link);
       document.head.appendChild(node);
     });
+    // update meta tags. throw away old ones and add new ones
+    document.head.querySelectorAll('meta').forEach(node => node.parentNode?.removeChild(node));
+    page.getMetaTags().forEach((tag) => renderMetaTag(tag));
     // update styles. have to take care to avoid FOUC
     const cleanupPreviousStyles = await this.styleTransitioner.transitionStyles(routeName, page.getStylesheets());
     // update scripts. track each one and only add new ones
@@ -232,3 +248,16 @@ export class ClientController {
   }
 }
 
+function renderMetaTag(tag: MetaTag) {
+  const meta = document.createElement('meta');
+  for (const [k, v] of Object.entries(getMetaTagAttrs(tag))) {
+    meta.setAttribute(k, v);
+  }
+  if (tag.noscript) {
+    const noscript = document.createElement('noscript');
+    noscript.appendChild(meta);
+    document.head.appendChild(noscript);
+  } else {
+    document.head.appendChild(meta);
+  }
+}

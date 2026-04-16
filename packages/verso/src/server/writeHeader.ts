@@ -1,12 +1,32 @@
 import {PAGE_HEADER_LINK_ELEMENT_ATTR, PAGE_HEADER_STYLE_ELEMENT_ATTR} from "../core/constants";
-import type {StandardizedPage, Stylesheet, LinkTag} from "../core/handler/Page";
+import {getMetaTagAttrs} from "../core/handler/Page";
+import type {StandardizedPage, Stylesheet, LinkTag, MetaTag, BaseTag} from "../core/handler/Page";
 
 export function writeHeader(page: StandardizedPage, write: (html: string) => void) {
+  write('<meta charset="utf-8" />');
+  write(renderBaseTag(page.getBase()));
+  write(renderMetaTags(page.getMetaTags()));
   write(`<title>${page.getTitle()}</title>`);
   write(renderLinkTags(page.getSystemLinkTags()));
   write(renderLinkTags(page.getLinkTags()));
   write(renderStylesheets(page.getSystemStylesheets()));
   write(renderStylesheets(page.getStylesheets()));
+}
+
+function renderBaseTag(base: BaseTag | null): string {
+  if (!base) return '';
+  let s = '<base';
+  if (base.href) s += ` href="${base.href}"`;
+  if (base.target) s += ` target="${base.target}"`;
+  return s + '>';
+}
+
+function renderMetaTags(tags: MetaTag[]): string {
+  return tags.map(t => {
+    const attrs = Object.entries(getMetaTagAttrs(t)).map(([k, v]) => ` ${k}="${v}"`).join('');
+    const tag = `<meta${attrs}>`;
+    return t.noscript ? `<noscript>${tag}</noscript>` : tag;
+  }).join('\n');
 }
 
 function renderLinkTags(tags: LinkTag[]): string {
