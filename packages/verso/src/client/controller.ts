@@ -18,6 +18,8 @@ import {StyleTransitioner} from "./styles";
 import { ScriptTransitioner } from "./scripts";
 import type {BundleManifest} from "../build/bundle";
 import {HistoryManager, type NavigationDirection} from "./history";
+import type {ReactElement} from "react";
+import {flushSync} from "react-dom";
 
 let self: ClientController | null = null;
 export function getClientController(): ClientController {
@@ -186,7 +188,11 @@ export class ClientController {
     document.body.innerHTML = '';
     // write new roots
     const tokens = tokenizeElements(page.getElements());
-    const rootHydrationDfds: Record<number, PromiseWithResolvers<void>> = {};
+    // we need them to be mounted in the correct order.
+    // kick off scheduleRender right away, but don't mount a root
+    // until all previous roots have mounted
+    type PendingRoot = { renderPromise: Promise<ReactElement>, reactRoot: Root };
+    const pendingRoots: PendingRoot[] = [];
     let currentContainer: Node = document.body;
     tokens.forEach((token, i) => {
       switch (token.type) {
@@ -206,21 +212,25 @@ export class ClientController {
         case TOKEN.ROOT: {
           const newNode = document.createElement('div');
           currentContainer.appendChild(newNode);
-          const newRoot = createRoot(newNode);
-          this.reactRoots.push(newRoot);
-          const dfd = Promise.withResolvers<void>();
-          rootHydrationDfds[i] = dfd;
-          scheduleRender(token.element)
-            .then(rootElement => newRoot.render(rootElement))
-            .then(dfd.resolve, dfd.reject);
+          const reactRoot = createRoot(newNode);
+          this.reactRoots.push(reactRoot);
+          const renderPromise = scheduleRender(token.element);
+          pendingRoots.push({ renderPromise, reactRoot });
           break;
         }
       }
     });
-    await Promise.allSettled(Object.values(rootHydrationDfds).map(dfd => dfd.promise)).then(() => {
-      console.log(`[verso-debug] all roots hydrated, resolving CLIENT_READY_DFD`);
-      global.CLIENT_READY_DFD!.resolve();
-    });
+
+    await pendingRoots.reduce(async (previous: Promise<void>, { renderPromise, reactRoot }) => {
+      await previous;
+      const rootElement = await renderPromise
+      return flushSync(() => reactRoot.render(rootElement));
+      // without flushSync, the concurrent scheduler could mount roots out of order (I think)
+    }, Promise.resolve());
+
+    console.log(`[verso-debug] all roots hydrated, resolving CLIENT_READY_DFD`);
+    global.CLIENT_READY_DFD!.resolve();
+
     cleanupPreviousStyles();
   }
 
