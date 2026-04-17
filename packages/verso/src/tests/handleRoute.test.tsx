@@ -71,7 +71,8 @@ describe('handleRoute', () => {
     const response = await routePage(init);
 
     expect(response.status).toBe(500);
-    expect(response.body).toBeNull();
+    expect(response.headers.get('Content-Type')).toBe('text/html; charset=utf-8');
+    expect(await response.text()).toContain('500');
     spy.mockRestore();
   });
 

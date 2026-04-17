@@ -66,7 +66,14 @@ export class ClientController {
     Fetch.clientInit();
     Fetch.getCache().client().rehydrate(fetchCache);
 
-    const { page } = await this.getRoutedPageChain(new URL(window.location.href), method); // TODO error handling
+    let page: StandardizedPage;
+    try {
+      ({ page } = await this.getRoutedPageChain(new URL(window.location.href), method));
+    } catch (e) {
+      console.error('[verso] hydration failed: no route matched current URL', e);
+      global.CLIENT_READY_DFD!.resolve();
+      return;
+    }
 
     await page.getRouteDirective(); // just for data fetching, for now
 
@@ -137,7 +144,14 @@ export class ClientController {
     // TODO: clear out VersoPipe script, for tidiness
     Fetch.clientInit(); // just initiate an empty cache, since Fetch assumes it'll exist
 
-    const { page, routeName } = await this.getRoutedPageChain(new URL(url, window.location.origin), 'GET' /* all client requests are GET */); // TODO error handling
+    let routed: { page: StandardizedPage, routeName: string };
+    try {
+      routed = await this.getRoutedPageChain(new URL(url, window.location.origin), 'GET' /* all client requests are GET */);
+    } catch (e) {
+      console.error('[verso] navigation failed, staying on current page', e);
+      return;
+    }
+    const { page, routeName } = routed;
 
     await page.getRouteDirective(); // TODO: redirects...?
 

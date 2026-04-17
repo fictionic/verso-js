@@ -10,6 +10,7 @@ import {handleEndpoint} from "./handleEndpoint";
 import {VersoRequest} from "../core/VersoRequest";
 import {createCtx} from "../core/handler/RouteHandlerCtx";
 import type {RouteMatch} from "../core/router";
+import {html500} from "./errorPages";
 
 interface Options {
   urlPrefix?: string;
@@ -37,8 +38,9 @@ export async function handleRoute<T extends RouteHandlerType>(
       statusCode = directive.status;
     } catch (err) {
       console.error('[verso] error during getRouteDirective', err);
-      return new Response(null, {
+      return new Response(html500, {
         status: 500,
+        headers: { 'Content-Type': 'text/html; charset=utf-8' },
       });
     }
     const headers = new Headers();

@@ -15,6 +15,7 @@ import { createViteBundleLoader } from '../core/middleware/ViteBundleLoader';
 import { toWebRequest, sendWebResponse } from '../server/nodeHttp';
 import { makeUnifiedEntrypoint, makeServerEntry } from './entrypoint';
 import { importModule } from './importModule';
+import { html404, html500 } from '../server/errorPages';
 
 // import.meta.url always points to dist/plugin.js — the plugin is only ever
 // loaded via the @verso-js/verso/plugin package export, never from source.
@@ -332,7 +333,8 @@ export default function verso(options: VersoConfig): Plugin[] {
 
               if (!route) {
                 res.statusCode = 404;
-                res.end();
+                res.setHeader('Content-Type', 'text/html; charset=utf-8');
+                res.end(html404);
                 return;
               }
 
@@ -361,7 +363,8 @@ export default function verso(options: VersoConfig): Plugin[] {
               vite.ssrFixStacktrace(e as Error);
               console.error('[verso]', e);
               res.statusCode = 500;
-              res.end();
+              res.setHeader('Content-Type', 'text/html; charset=utf-8');
+              res.end(html500);
             }
           });
         };

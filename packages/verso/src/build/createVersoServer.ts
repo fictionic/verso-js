@@ -3,6 +3,7 @@ import type {Stylesheet} from "../core/handler/Page";
 import {createRouter, type VersoRoutes} from "../core/router";
 import {handleRoute} from "../server/handleRoute";
 import {createViteBundleLoader} from "../core/middleware/ViteBundleLoader";
+import {html404} from "../server/errorPages";
 
 interface VersoServerConfig {
   site: VersoRoutes;
@@ -67,7 +68,10 @@ export async function createVersoServer(config: VersoServerConfig): Promise<Vers
       // SSR route matching
       const route = router.matchRoute(url.pathname, req.method);
       if (!route) {
-        return Promise.resolve(new Response(null, { status: 404 }));
+        return Promise.resolve(new Response(html404, {
+          status: 404,
+          headers: { 'Content-Type': 'text/html; charset=utf-8' },
+        }));
       }
       const handler = handlersByRoute[route.routeName]!;
       const allMiddleware = [...systemMiddleware, ...(site.middleware ?? [])];
