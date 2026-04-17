@@ -1,9 +1,9 @@
 import { isServer } from '../env';
-import { getNamespace } from '../RequestLocalStorage';
+import { getRLS } from '../RequestLocalStorage';
 import { FetchCache, type CachedResponse } from './cache';
 import { nativeFetch } from './nativeFetch';
 
-const RLS = getNamespace<{
+const RLS = getRLS<{
   cache: FetchCache;
   urlPrefix: string | null;
 }>();

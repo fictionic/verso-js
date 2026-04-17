@@ -23,9 +23,9 @@ export function resetClientRequest(): void {
   clientStore = null;
 }
 
-export function getNamespace<T extends object = Partial<Record<string, any>>>(): () => T {
+export function getRLS<T extends object = Partial<Record<string, any>>>(): () => T {
   const moduleKey = Symbol();
-  return () => {
+  const RLS = () => {
     let store: ModuleNamespaces | null = null;
     if (globalThis.IS_SERVER) {
       store = als!.getStore() ?? null;
@@ -38,4 +38,16 @@ export function getNamespace<T extends object = Partial<Record<string, any>>>():
     if (!store.has(moduleKey)) store.set(moduleKey, {});
     return store.get(moduleKey) as T;
   };
+  const throwIncorrectRLS = (prop: string) => {
+    throw new Error(`Use of RLS.${prop} should be RLS().${prop}!`);
+  };
+  return new Proxy(RLS, {
+    get(_, prop) {
+      throwIncorrectRLS(String(prop));
+    },
+    set(_, prop) {
+      throwIncorrectRLS(String(prop));
+      return false;
+    },
+  });
 };

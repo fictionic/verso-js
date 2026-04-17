@@ -1,6 +1,6 @@
-import {getNamespace} from "../RequestLocalStorage";
+import {getRLS} from "../RequestLocalStorage";
 
-const RLS = getNamespace<{current: ResponderConfig}>();
+const RLS = getRLS<{current: ResponderConfig}>();
 
 // export type BaseConfig = Record<string, unknown>;
 export type BaseConfig = object; // ^breaks when you define a config with `interface` because typescript

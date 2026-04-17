@@ -1,9 +1,9 @@
-import {getNamespace} from "@verso-js/verso";
+import {getRLS} from "@verso-js/verso";
 import {useEffect, useState} from "react";
 import type {AllFunctions, CreateStoreArgs, InternalIsoStoreDefinition, IsoStoreDefinition, IsoStoreInstance, SendMessage} from "./core/types";
 import {STORE_DEFINITION_INTERNALS} from "./core/constants";
 
-const RLS = getNamespace<{ instances: Map<IsoStoreDefinition<any, any, any, any, any>, IsoStoreInstance<any>> }>();
+const RLS = getRLS<{ instances: Map<IsoStoreDefinition<any, any, any, any, any>, IsoStoreInstance<any>> }>();
 
 function getInstances(): Map<IsoStoreDefinition<any, any, any, any, any>, IsoStoreInstance<any>> {
   const ns = RLS();

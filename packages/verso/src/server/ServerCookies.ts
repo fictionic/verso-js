@@ -1,9 +1,9 @@
 import { parse, stringifySetCookie, type Cookies, type SetCookie } from 'cookie';
-import { getNamespace } from '../core/RequestLocalStorage';
+import { getRLS } from '../core/RequestLocalStorage';
 
 export type CookieOptions = Omit<SetCookie, 'name' | 'value'>;
 
-const RLS = getNamespace<{ current: ServerCookies }>();
+const RLS = getRLS<{ current: ServerCookies }>();
 
 export class ServerCookies {
   private requestCookies: Cookies;

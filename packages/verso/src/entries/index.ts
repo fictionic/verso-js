@@ -11,7 +11,7 @@ export { isServer } from '../core/env';
 // Utilities
 export { fetch } from '../core/fetch';
 export { getCookie, setCookie } from '../core/cookies';
-export { getNamespace } from '../core/RequestLocalStorage';
+export { getRLS } from '../core/RequestLocalStorage';
 export { navigateTo } from '../client/navigateTo';
 
 // Components

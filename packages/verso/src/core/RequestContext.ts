@@ -1,6 +1,6 @@
-import { getNamespace } from './RequestLocalStorage';
+import { getRLS } from './RequestLocalStorage';
 
-const RLS = getNamespace<{ current: RequestContext }>();
+const RLS = getRLS<{ current: RequestContext }>();
 
 // TODO: what should this be for?
 export class RequestContext {
