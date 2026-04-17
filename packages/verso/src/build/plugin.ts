@@ -102,6 +102,7 @@ export default function verso(options: VersoConfig): Plugin[] {
         if (env.command === 'serve') {
           return {
             ...shared,
+            appType: 'custom',
             define: {
               IS_SERVER: 'true',
               'globalThis.IS_SERVER': 'true',
@@ -290,73 +291,82 @@ export default function verso(options: VersoConfig): Plugin[] {
           allMiddleware = [bundleLoader, ...(site.middleware ?? [])];
         })();
 
-        // Add middleware directly (not via return) so it runs BEFORE Vite's
-        // built-in static file serving. Unmatched routes fall through to Vite.
-        vite.middlewares.use(async (req, res, next) => {
-          await setupPromise;
-          if (!routes) return next();
+        return () => {
+          vite.middlewares.use(async (req, res) => {
+            await setupPromise;
+            if (!routes) {
+              console.log("[verso] no routes loaded?");
+              res.statusCode = 500;
+              res.end();
+              return;
+            }
 
-          try {
-            const url = new URL(req.url ?? '/', urlPrefix);
+            try {
+              const url = new URL(req.url ?? '/', urlPrefix);
 
-            // Dev-only endpoint: return the CSS stylesheet list for a route, so the
-            // client can transition stylesheets during programmatic navigation the
-            // same way it does in prod (from the bundle manifest).
-            if (url.pathname === DEV_ROUTE_CSS_PATH) {
-              const routeName = url.searchParams.get('route');
-              if (!routeName || !routes[routeName]) {
+              // Dev-only endpoint: return the CSS stylesheet list for a route, so the
+              // client can transition stylesheets during programmatic navigation the
+              // same way it does in prod (from the bundle manifest).
+              if (url.pathname === DEV_ROUTE_CSS_PATH) {
+                const routeName = url.searchParams.get('route');
+                if (!routeName || !routes[routeName]) {
+                  res.statusCode = 404;
+                  res.end();
+                  return;
+                }
+                const handlerPath = resolveHandler(routesPath, routes[routeName].handler);
+                // Ensure the handler module graph is populated before walking it
+                await vite.ssrLoadModule(handlerPath);
+                const { collectCss } = await vite.ssrLoadModule(
+                  path.resolve(DIST_ROOT, 'collectCss.js'),
+                ) as typeof import('./collectCss');
+                const stylesheets = await collectCss(vite, handlerPath);
+                res.setHeader('Content-Type', 'application/json');
+                res.end(JSON.stringify({ stylesheets }));
+                return;
+              }
+
+              const route = router.matchRoute(url.pathname, req.method ?? 'GET');
+
+              if (!route) {
                 res.statusCode = 404;
                 res.end();
                 return;
               }
-              const handlerPath = resolveHandler(routesPath, routes[routeName].handler);
-              // Ensure the handler module graph is populated before walking it
-              await vite.ssrLoadModule(handlerPath);
+
+              const handlerPath = resolveHandler(routesPath, route.handler);
+              const handler = await ssrLoadDefault<RouteHandler<any, any, any>>(
+                vite,
+                handlerPath,
+              );
+
+              // Collect CSS from Vite's module graph for this handler
               const { collectCss } = await vite.ssrLoadModule(
                 path.resolve(DIST_ROOT, 'collectCss.js'),
               ) as typeof import('./collectCss');
-              const stylesheets = await collectCss(vite, handlerPath);
-              res.setHeader('Content-Type', 'application/json');
-              res.end(JSON.stringify({ stylesheets }));
-              return;
+              currentRouteStylesheets = {
+                [route.routeName]: await collectCss(vite, handlerPath),
+              };
+
+              const { handleRoute } = await vite.ssrLoadModule(HANDLE_ROUTE_PATH) as typeof import('../server/handleRoute');
+              const request = toWebRequest(req, url);
+              const response = await handleRoute(
+                handler.type,
+                route,
+                handler,
+                allMiddleware,
+                request,
+                { urlPrefix },
+              );
+              await sendWebResponse(res, response);
+            } catch (e) {
+              vite.ssrFixStacktrace(e as Error);
+              console.error('[verso]', e);
+              res.statusCode = 500;
+              res.end();
             }
-
-            const route = router.matchRoute(url.pathname, req.method ?? 'GET');
-
-            if (!route) return next();
-
-            const handlerPath = resolveHandler(routesPath, route.handler);
-            const handler = await ssrLoadDefault<RouteHandler<any, any, any>>(
-              vite,
-              handlerPath,
-            );
-
-            // Collect CSS from Vite's module graph for this handler
-            const { collectCss } = await vite.ssrLoadModule(
-              path.resolve(DIST_ROOT, 'collectCss.js'),
-            ) as typeof import('./collectCss');
-            currentRouteStylesheets = {
-              [route.routeName]: await collectCss(vite, handlerPath),
-            };
-
-            const { handleRoute } = await vite.ssrLoadModule(HANDLE_ROUTE_PATH) as typeof import('../server/handleRoute');
-            const request = toWebRequest(req, url);
-            const response = await handleRoute(
-              handler.type,
-              route,
-              handler,
-              allMiddleware,
-              request,
-              { urlPrefix },
-            );
-            await sendWebResponse(res, response);
-          } catch (e) {
-            vite.ssrFixStacktrace(e as Error);
-            console.error('[verso]', e);
-            res.statusCode = 500;
-            res.end();
-          }
-        });
+          });
+        };
       },
     },
   ];
