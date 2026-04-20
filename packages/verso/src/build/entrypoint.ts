@@ -1,78 +1,136 @@
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
-import type { RoutesMap } from '../core/router';
+import type {VersoConfig} from './config';
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 
-const DEFAULT_BOOTSTRAP_PATH = path.resolve(__dirname, 'bootstrap.js');
+const BOOTSTRAP_PATH = path.resolve(__dirname, 'bootstrap.js');
+const SERVER_PATH = path.resolve(__dirname, 'build.js');
 
-export function makeUnifiedEntrypoint(
-  pageRouteNames: string[],
-  routes: RoutesMap,
-  routesDir: string,
-  siteConfigPath: string,
-  bootstrapPath: string = DEFAULT_BOOTSTRAP_PATH, // TODO: is this needed?
-  isBuild: boolean,
-): string {
-  const q = (s: string) => JSON.stringify(s);
+export interface EntrypointGenerator {
+  generateHandlerClientEntrypoint(): string;
+  generateServerEntrypoint(): string;
+}
 
-  const loaderEntries = pageRouteNames.map(name => {
-    const absoluteHandlerPath = path.resolve(routesDir, routes[name]!.handler);
-    return `  ${q(name)}: () => import(${q(absoluteHandlerPath)})`;
-  });
+export function getEntrypointGenerator(
+  handlerBasePath: string,
+  versoConfig: VersoConfig,
+  writeManifest: boolean,
+): EntrypointGenerator {
 
-  const manifest = isBuild ?
-    "await import(/* @vite-ignore */ '/bundles/manifest.js?v=' + __BUILD_ID__).then(m => m.default)" : // we've preloaded this so it should be instant
-    "null"; // not needed in dev mode -- vite handles css on client transitions
+  const { routes, middleware, server: serverSettings } = versoConfig;
+  const middlewarePaths = (middleware ?? [])
+    .map((modulePath) => path.resolve(handlerBasePath, modulePath));
 
-  return (
-`import siteConfig from ${q(siteConfigPath)};
-import { bootstrap } from ${q(bootstrapPath)};
+  return {
+    generateHandlerClientEntrypoint(): string {
+      const pageImporterEntries = Object.entries(routes)
+        .map(([routeName, routeConfig]) => {
+          // clientside, we generate lazy-loaders so each page is only imported when routed to
+          const absolutePagePath = path.resolve(handlerBasePath, routeConfig.handler);
+          return `${quote(routeName)}: () => import(${quote(absolutePagePath)})`;
+        });
+
+      const {
+        importStatements: middlewareImportStatements,
+        importNames: middlewareImportNames,
+      } = generateStaticImports(middlewarePaths, 'middleware');
+
+      const manifest = writeManifest ?
+        "await import(/* @vite-ignore */ '/bundles/manifest.js?v=' + __BUILD_ID__).then(m => m.default)" : // we've preloaded this so it should be instant
+        "null"; // not needed in dev mode -- vite handles css on client transitions
+
+      return `
+import { bootstrap } from ${quote(BOOTSTRAP_PATH)};
+
+const routes = ${JSON.stringify(routes)};
 
 const pageLoaders = {
-${loaderEntries.join(',\n')}
+  ${pageImporterEntries.join(',\n  ')}
 };
 
+${middlewareImportStatements.join('\n')}
+const middleware = [${middlewareImportNames.join(', ')}];
 
 const manifest = ${manifest};
 
-bootstrap(siteConfig, pageLoaders, manifest);`
+bootstrap(routes, pageLoaders, middleware, manifest);
+`.trim();
+    },
+
+    generateServerEntrypoint(): string {
+      const routeHandlerArray = Object.entries(routes)
+        .map(([routeName, routeConfig]) => {
+          return {
+            routeName,
+            modulePath: path.resolve(handlerBasePath, routeConfig.handler),
+          };
+        });
+      const routeHandlerModulePaths = routeHandlerArray.map(({ modulePath }) => modulePath);
+      const {
+        importStatements: routeHandlerImportStatements,
+        importNames: routeHandlerImportNames,
+      } = generateStaticImports(routeHandlerModulePaths, 'handler');
+      const routeHandlerImportEntries = routeHandlerArray
+        .map(({ routeName }, i) => `${quote(routeName)}: ${routeHandlerImportNames[i]}`);
+
+      const {
+        importStatements: middlewareImportStatements,
+        importNames: middlewareImportNames,
+      }  = generateStaticImports(middlewarePaths, 'middleware');
+
+      return `
+import { createVersoServer } from ${quote(SERVER_PATH)};
+
+const routes = ${JSON.stringify(routes)};
+
+${routeHandlerImportStatements.join('\n')}
+const routeHandlers = {
+  ${routeHandlerImportEntries.join(',\n  ')}
+};
+
+${middlewareImportStatements.join('\n')}
+const middleware = [${middlewareImportNames.join(',\n')}];
+
+const serverSettings = ${JSON.stringify(serverSettings)};
+
+export async function getServer(bundleResult) {
+  return createVersoServer(
+    routes,
+    routeHandlers,
+    middleware,
+    bundleResult,
+    serverSettings,
   );
 }
 
-export function makeServerEntry(siteConfigModulePath: string, routes: RoutesMap, distRoot: string): string {
-  const rootDir = path.dirname(siteConfigModulePath);
-  const createVersoServerPath = path.resolve(distRoot, 'build.js');
-  const handlerImports: string[] = [];
-  const handlerEntries: string[] = [];
-
-  for (const [routeName, routeConfig] of Object.entries(routes)) {
-    const handlerPath = path.resolve(rootDir, routeConfig.handler);
-    const safeName = routeName.replace(/[^a-zA-Z0-9_]/g, '_');
-    handlerImports.push(`import handler_${safeName} from ${JSON.stringify(handlerPath)};`);
-    handlerEntries.push(`  ${JSON.stringify(routeName)}: handler_${safeName},`);
-  }
-
-  return `
-import { createVersoServer } from ${JSON.stringify(createVersoServerPath)};
-import site from ${JSON.stringify(siteConfigModulePath)};
-${handlerImports.join('\n')}
-
-const handlersByRoute = {
-${handlerEntries.join('\n')}
+export function getSettings() {
+  return serverSettings;
+}
+`.trim();
+    }
+  };
 };
 
-export async function createServer(config) {
-  return createVersoServer({
-    site,
-    bundleResult: {
-      manifest: config.manifest,
-      bundleContents: config.bundleContents,
-      handlersByRoute,
-    },
-    urlPrefix: config.urlPrefix,
-    renderTimeout: config.renderTimeout,
+function quote(s: string) {
+  return JSON.stringify(s);
+}
+
+type StaticImports = {
+  importStatements: string[];
+  importNames: string[];
+};
+function generateStaticImports(modulePaths: string[], key: string): StaticImports {
+  const importStatements: string[] = [];
+  const importNames: string[] = [];
+  modulePaths.forEach((modulePath, i) => {
+    const importName = `${key}_${i}`;
+    importNames.push(importName);
+    importStatements.push(`import ${importName} from ${quote(modulePath)};`);
   });
+  return {
+    importStatements,
+    importNames,
+  };
 }
-`.trimStart();
-}
+

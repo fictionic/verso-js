@@ -1,5 +1,3 @@
-import type {RouteHandlerDefinition, RouteHandlerType} from "../core/handler/RouteHandler";
-
 export const BUNDLES_DIR = 'bundles';
 
 export type RouteAssets = {
@@ -17,8 +15,5 @@ export type BundleResult = {
   manifest: BundleManifest;
   bundleContents: {
     [bundlePath: string]: string;
-  };
-  handlersByRoute: {
-    [routeName: string]: RouteHandlerDefinition<RouteHandlerType, any, any>;
   };
 };

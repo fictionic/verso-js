@@ -1,19 +1,6 @@
 import {match, type ParamData} from "path-to-regexp";
 import {ensureArray} from "../util/array";
-import type {MiddlewareDefinition} from "../core/handler/Middleware";
-
-export type VersoRoutes = {
-  middleware?: MiddlewareDefinition[];
-  routes: RoutesMap;
-};
-
-export type RoutesMap = {
-  [routeName: string]: {
-    path: string;
-    handler: string;
-    method?: string | string[];
-  };
-};
+import type {RoutesMap} from "../build/config";
 
 export interface RouteMatch {
   routeName: string;

@@ -1,1 +1,2 @@
-export { collectCss } from '../build/collectCss';
+import { collectCss } from '../build/collectCss';
+export default collectCss;

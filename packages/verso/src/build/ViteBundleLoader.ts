@@ -1,6 +1,5 @@
-import type {MiddlewareDefinition} from "../handler/Middleware";
-import {defineMiddleware} from "../handler/Middleware";
-import type {Script, Stylesheet, LinkTag} from "../handler/Page";
+import type {LinkTag, Script, Stylesheet} from "../core/handler/PageHeader";
+import { defineMiddleware, type MiddlewareDefinition } from "../core/handler/Middleware";
 
 export interface ViteBundleLoaderConfig {
   routeScripts: Record<string, string[]>;

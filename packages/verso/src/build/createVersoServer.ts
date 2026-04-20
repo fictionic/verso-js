@@ -1,35 +1,41 @@
 import type {BundleResult} from "../build/bundle";
 import type {Stylesheet} from "../core/handler/Page";
-import {createRouter, type VersoRoutes} from "../core/router";
+import type {MiddlewareDefinition} from "../core/handler/Middleware";
+import {createRouter} from "../core/router";
 import {handleRoute} from "../server/handleRoute";
-import {createViteBundleLoader} from "../core/middleware/ViteBundleLoader";
-import {html404} from "../server/errorPages";
-
-interface VersoServerConfig {
-  site: VersoRoutes;
-  bundleResult: BundleResult;
-  urlPrefix?: string;
-  renderTimeout?: number;
-}
+import {html404, html500} from "../server/errorPages";
+import {createViteBundleLoader} from "./ViteBundleLoader";
+import type {RoutesMap, ServerSettings} from './config';
+import type {RouteHandlerDefinition} from "../core/handler/RouteHandler";
 
 interface VersoServer {
   serve: (req: Request) => Promise<Response>;
 }
 
-export async function createVersoServer(config: VersoServerConfig): Promise<VersoServer> {
+export type RouteHandlers = {
+  [routeName: string]: RouteHandlerDefinition<any, any, any>;
+};
+
+export async function createVersoServer(
+  routes: RoutesMap,
+  routeHandlers: RouteHandlers,
+  middleware: MiddlewareDefinition[],
+  bundleResult: BundleResult,
+  serverSettings: ServerSettings,
+): Promise<VersoServer> {
   const bundlesByPath = new Map<string, { contents: string; contentType: string }>();
-  for (const [bundlePath, contents] of Object.entries(config.bundleResult.bundleContents)) {
-    const isCss = bundlePath.endsWith('.css');
+  const { bundleContents } = bundleResult;
+  for (const [bundlePath, contents] of Object.entries(bundleContents)) {
+    const isCss = bundlePath.endsWith('.css'); // TODO allow for configuring different css extensions?
     bundlesByPath.set(`/${bundlePath}`, {
       contents,
       contentType: isCss ? 'text/css' : 'application/javascript',
     });
   }
 
-  const site = config.site;
-  const { routes } = site;
   const router = createRouter(routes);
-  const { handlersByRoute, manifest } = config.bundleResult;
+
+  const { manifest } = bundleResult;
 
   // Build per-route script/stylesheet/preload maps from the manifest
   const routeScripts: Record<string, string[]> = {};
@@ -51,6 +57,7 @@ export async function createVersoServer(config: VersoServerConfig): Promise<Vers
     routePreloads,
     globalPreloads: [manifestUrl],
   }));
+
   const systemMiddleware = [bundleLoader];
 
   return {
@@ -73,11 +80,16 @@ export async function createVersoServer(config: VersoServerConfig): Promise<Vers
           headers: { 'Content-Type': 'text/html; charset=utf-8' },
         }));
       }
-      const handler = handlersByRoute[route.routeName]!;
-      const allMiddleware = [...systemMiddleware, ...(site.middleware ?? [])];
-      return handleRoute(handler.type, route, handler, allMiddleware, req, {
-        urlPrefix: config.urlPrefix,
-      });
+      const handler = routeHandlers[route.routeName];
+      if (!handler) {
+        console.error("no handler for route!");
+        return Promise.resolve(new Response(html500, {
+          status: 500,
+          headers: { 'Content-Type': 'text/html; charset=utf-8' },
+        }));
+      }
+      const allMiddleware = [...systemMiddleware, ...middleware];
+      return handleRoute(handler.type, route, handler, allMiddleware, req, serverSettings);
     }
   };
 }

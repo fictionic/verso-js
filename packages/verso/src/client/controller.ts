@@ -1,10 +1,11 @@
-import {createRouter, type Router, type VersoRoutes} from "../core/router";
+import {createRouter, type Router} from "../core/router";
 import type {PageLoaders} from "./bootstrap";
 import {ResponderConfig} from "../core/handler/ResponderConfig";
 import {VersoRequest} from "../core/VersoRequest";
 import {createCtx} from "../core/handler/RouteHandlerCtx";
 import {createHandlerChain} from "../core/handler/chain";
 import {getMetaTagAttrs, setNodeAttrs, type MetaTag, type StandardizedPage} from "../core/handler/Page";
+import {type MiddlewareDefinition} from "../core/handler/Middleware";
 import {createRoot, hydrateRoot, type Root} from "react-dom/client";
 import {TOKEN, tokenizeElements} from "../core/elementTokenizer";
 import {scheduleRender} from "../core/components/Root";
@@ -20,6 +21,7 @@ import type {BundleManifest} from "../build/bundle";
 import {HistoryManager, type NavigationDirection} from "./history";
 import type {ReactElement} from "react";
 import {flushSync} from "react-dom";
+import type {RoutesMap} from "../build/config";
 
 let self: ClientController | null = null;
 export function getClientController(): ClientController {
@@ -36,18 +38,18 @@ export interface NavigateOptions {
 }
 
 export class ClientController {
-  private site: VersoRoutes;
   private router: Router;
   private pageLoaders: PageLoaders;
+  private middleware: MiddlewareDefinition[];
   private reactRoots: Root[];
   private styleTransitioner: StyleTransitioner;
   private scriptTransitioner: ScriptTransitioner;
   private historyManager: HistoryManager;
 
-  constructor(site: VersoRoutes, pageLoaders: PageLoaders, manifest: BundleManifest | null) {
-    this.site = site;
-    this.router = createRouter(site.routes);
+  constructor(routes: RoutesMap, pageLoaders: PageLoaders, middleware: MiddlewareDefinition[], manifest: BundleManifest | null) {
+    this.router = createRouter(routes);
     this.pageLoaders = pageLoaders;
+    this.middleware = middleware;
     this.reactRoots = [];
     this.styleTransitioner = new StyleTransitioner(manifest);
     this.scriptTransitioner = new ScriptTransitioner();
@@ -208,7 +210,7 @@ export class ClientController {
     type PendingRoot = { renderPromise: Promise<ReactElement>, reactRoot: Root };
     const pendingRoots: PendingRoot[] = [];
     let currentContainer: Node = document.body;
-    tokens.forEach((token, i) => {
+    tokens.forEach((token) => {
       switch (token.type) {
         case TOKEN.CONTAINER_OPEN: {
           const newContainer = document.createElement('div');
@@ -254,7 +256,7 @@ export class ClientController {
     if (!route) {
       throw new Error(`[verso] no route for ${url}`);
     }
-    const loader = this.pageLoaders[route.routeName];
+    const loader = this.pageLoaders[route.routeName]; // TODO need to use same logic as entrypoint.ts to construct the "safe" route name
     if (!loader) {
       throw new Error(`[verso] no page loader for route ${route.routeName}`);
     }
@@ -266,7 +268,7 @@ export class ClientController {
     const req = VersoRequest.clientInit(urlString, route.params);
     const ctx = createCtx(config, req, route);
     return {
-      page: createHandlerChain('page', pageDef, this.site.middleware ?? [], config, ctx),
+      page: createHandlerChain('page', pageDef, this.middleware ?? [], config, ctx),
       routeName: route.routeName,
     };
   }

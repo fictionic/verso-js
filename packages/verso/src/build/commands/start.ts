@@ -7,13 +7,6 @@ import { BUNDLES_DIR } from '../bundle';
 import { toWebRequest, sendWebResponse } from '../../server/nodeHttp';
 
 export async function runStart(outDir = 'dist') {
-  // Read build metadata (written by the plugin during `verso build`)
-  const metaPath = path.resolve(outDir, 'verso-meta.json');
-  const meta = JSON.parse(await readFile(metaPath, 'utf-8'));
-  const port = meta.server?.port ?? 3000;
-  const urlPrefix = meta.server?.urlPrefix ?? `http://localhost:${port}`;
-  const renderTimeout = meta.server?.renderTimeout;
-
   // Read client manifest
   const manifestPath = path.resolve(outDir, 'manifest.json');
   const manifest: BundleManifest = JSON.parse(await readFile(manifestPath, 'utf-8'));
@@ -31,13 +24,15 @@ export async function runStart(outDir = 'dist') {
 
   // Load pre-built server entry (self-contained: framework + handlers + site config)
   const serverEntryPath = pathToFileURL(path.resolve(outDir, 'server', 'entry.js')).href;
-  const { createServer } = await import(serverEntryPath);
-  const versoServer = await createServer({
+  const { getServer, getSettings} = (await import(serverEntryPath));
+  const versoServer = await getServer({
     manifest,
     bundleContents,
-    urlPrefix,
-    renderTimeout,
   });
+
+  const { port: _port, urlPrefix: _urlPrefix } = getSettings();
+  const port = _port ?? 3000;
+  const urlPrefix = _urlPrefix ?? `http://localhost:${port}`;
 
   const server = http.createServer(async (nodeReq, nodeRes) => {
     try {
@@ -53,6 +48,6 @@ export async function runStart(outDir = 'dist') {
   });
 
   server.listen(port, () => {
-    console.log(`[verso] Server started at ${urlPrefix}`);
+    console.log(`[verso] Server started on port ${port}`);
   });
 }

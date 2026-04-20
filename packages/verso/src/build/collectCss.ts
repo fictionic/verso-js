@@ -35,6 +35,8 @@ export async function collectCss(vite: ViteDevServer, handlerPath: string): Prom
   }));
 }
 
+export type CollectCss = typeof collectCss;
+
 function appendQuery(url: string, param: string): string {
   return url.includes('?') ? `${url}&${param}` : `${url}?${param}`;
 }

@@ -19,5 +19,5 @@ export { Root, makeRootComponent, type RootAPI, type RootComponent, type RootEle
 export { default as RootContainer } from '../core/components/RootContainer';
 export { default as TheFold } from '../core/components/TheFold';
 
-// Site setup
-export type { VersoRoutes } from '../core/router';
+// Configuration
+export { defineConfig, type VersoConfig } from '../build/config';

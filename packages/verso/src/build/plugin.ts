@@ -2,28 +2,30 @@ import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { writeFile } from 'node:fs/promises';
 import react from '@vitejs/plugin-react';
-import type { Plugin, ViteDevServer } from 'vite';
-import type { VersoConfig } from './VersoConfig';
-import type { VersoRoutes, RoutesMap } from '../core/router';
+import type { BuildEnvironmentOptions, ConfigEnv, Plugin, ViteDevServer } from 'vite';
+import type { VersoConfig } from './config';
 import type { RouteHandler } from '../core/handler/RouteHandler';
 import type { Script, Stylesheet } from '../core/handler/Page';
 import type { BundleManifest } from './bundle';
 import { BUNDLES_DIR } from './bundle';
 import { DEV_ROUTE_CSS_PATH } from '../core/constants';
 import { createRouter } from '../core/router';
-import { createViteBundleLoader } from '../core/middleware/ViteBundleLoader';
+import { createViteBundleLoader } from './ViteBundleLoader';
 import { toWebRequest, sendWebResponse } from '../server/nodeHttp';
-import { makeUnifiedEntrypoint, makeServerEntry } from './entrypoint';
-import { importModule } from './importModule';
+import { getEntrypointGenerator, type EntrypointGenerator } from './entrypoint';
+import { createJiti, type Jiti } from 'jiti';
 import { html404, html500 } from '../server/errorPages';
+import type {CollectCss} from './collectCss';
+import type {HandleRoute} from '../server/handleRoute';
+import type { MiddlewareDefinition } from '../core/handler/Middleware';
 
-// import.meta.url always points to dist/plugin.js — the plugin is only ever
-// loaded via the @verso-js/verso/plugin package export, never from source.
-const __dirname = path.dirname(fileURLToPath(import.meta.url));
-const DIST_ROOT = __dirname; // dist/
+const VERSO_CONFIG_FILE_NAME = 'verso.config.ts';
 
-const HANDLE_ROUTE_PATH = path.resolve(DIST_ROOT, 'server.js');
-const BOOTSTRAP_PATH = path.resolve(DIST_ROOT, 'bootstrap.js');
+const VERSO_DIST_ROOT = path.dirname(fileURLToPath(import.meta.url)); // we are running from dist/plugin.js
+
+// some modules we have to import dynamically through the vite module graph
+const HANDLE_ROUTE_PATH = path.resolve(VERSO_DIST_ROOT, 'server.js');
+const COLLECT_CSS_PATH = path.resolve(VERSO_DIST_ROOT, 'collectCss.js')
 
 const CLIENT_ENTRY_VIRTUAL_ID = 'virtual:verso/entry';
 const CLIENT_ENTRY_RESOLVED_ID = '\0' + CLIENT_ENTRY_VIRTUAL_ID;
@@ -32,26 +34,39 @@ const SERVER_ENTRY_VIRTUAL_ID = 'virtual:verso/server-entry';
 const SERVER_ENTRY_RESOLVED_ID = '\0' + SERVER_ENTRY_VIRTUAL_ID;
 
 const VERSO_PACKAGES = [
+  // packages that use IS_SERVER or RequestLocalStorage
   '@verso-js/verso',
   '@verso-js/stores',
-  '@verso-js/store-adapter-zustand',
-  '@verso-js/store-adapter-redux',
-  '@verso-js/store-adapter-valtio',
-  // TODO: is there a better way?
 ];
 
-export default function verso(options: VersoConfig): Plugin[] {
-  const routesPath = path.resolve(process.cwd(), options.routes);
-  const routesDir = path.dirname(routesPath);
+export default async function verso(configPathOverride?: string): Promise<Plugin[]> {
 
-  // Lazily populated after Vite server is up (dev) or at build time
-  let site: VersoRoutes | undefined;
-  let routes: RoutesMap | undefined;
-  let isBuild = false;
-  let isSSRBuild = false;
-  let handlerPathToRoute: Record<string, string> = {};
-  let resolvedRoot = '';
-  let resolvedOutDir = '';
+  // first load verso.config.ts
+  const versoConfigPath = configPathOverride ?? path.resolve(process.cwd(), VERSO_CONFIG_FILE_NAME);
+  const versoConfig = await importWithJiti<VersoConfig>(versoConfigPath);
+
+  // then set up the context objects to be shared between plugins
+  type VersoPluginConfigContext = {
+    viteConfigEnv: ConfigEnv;
+    viteBuildOpts: BuildEnvironmentOptions | null;
+  };
+  let configContext: VersoPluginConfigContext | null = null;
+
+  function isBuild() {
+    return configContext!.viteConfigEnv.command === 'build';
+  }
+
+  function isSSRBuild() {
+    return !!configContext!.viteBuildOpts?.ssr;
+  }
+
+  type VersoPluginContext = {
+    entrypointGenerator: EntrypointGenerator;
+    handlerPathToRoute: Record<string, string>;
+    resolvedRootDir: string;
+    resolvedOutDir: string;
+  };
+  let pluginContext: VersoPluginContext | null = null;
 
   return [
     // React plugin must be at the top level (not returned from a config hook)
@@ -63,27 +78,12 @@ export default function verso(options: VersoConfig): Plugin[] {
     {
       name: '@verso-js/verso:config',
 
-      async config(_userConfig, env) {
-        if (env.command === 'build') {
-          isBuild = true; // needed for passing the manifest to the unified entrypoint
-          isSSRBuild = !!_userConfig.build?.ssr;
+      async config(viteUserConfig, env) {
 
-          // Load routes via jiti so virtual modules and generateBundle
-          // have them available. Handlers are NOT loaded here — they may
-          // import CSS or other assets that jiti can't process. Handler
-          // type inspection happens in buildStart via a temporary Vite
-          // server that can process the full module graph.
-          if (!routes) {
-            site = await importModule<VersoRoutes>(routesPath);
-            routes = site.routes;
-
-            handlerPathToRoute = {};
-            for (const [routeName, routeConfig] of Object.entries(routes)) {
-              const handlerPath = path.resolve(routesDir, routeConfig.handler);
-              handlerPathToRoute[handlerPath] = routeName;
-            }
-          }
-        }
+        configContext = {
+          viteConfigEnv: env,
+          viteBuildOpts: viteUserConfig.build ?? null
+        };
 
         const shared: Record<string, any> = {
           resolve: {
@@ -121,19 +121,19 @@ export default function verso(options: VersoConfig): Plugin[] {
         }
 
         if (env.command === 'build') {
-          const isServerLit = isSSRBuild ? 'true' : 'false';
+          const isServerReplacement = isSSRBuild() ? 'true' : 'false';
           return {
             ...shared,
             define: {
-              IS_SERVER: isServerLit,
-              'globalThis.IS_SERVER': isServerLit,
+              IS_SERVER: isServerReplacement,
+              'globalThis.IS_SERVER': isServerReplacement,
               'globalThis.IS_DEV': 'false',
               __BUILD_ID__: new Date().getTime(), // unique opaque id
             },
             build: {
-              manifest: !isSSRBuild,
-              emptyOutDir: !isSSRBuild,
-              rolldownOptions: isSSRBuild ? {
+              manifest: !isSSRBuild(),
+              emptyOutDir: !isSSRBuild(),
+              rolldownOptions: isSSRBuild() ? {
                 input: { entry: SERVER_ENTRY_VIRTUAL_ID },
                 output: {
                   format: 'es' as const,
@@ -154,10 +154,24 @@ export default function verso(options: VersoConfig): Plugin[] {
         }
       },
 
-      configResolved(config) {
-        resolvedRoot = config.root;
-        resolvedOutDir = path.resolve(config.root, config.build.outDir);
+      async configResolved(config) {
+        const resolvedRootDir = config.root; // the user might have set a custom root dir
+        const resolvedOutDir = path.resolve(config.root, config.build.outDir);
+
+        const handlerPathToRoute: Record<string, string> = {};
+        for (const [routeName, routeConfig] of Object.entries(versoConfig.routes)) {
+          const handlerPath = path.resolve(resolvedRootDir, routeConfig.handler);
+          handlerPathToRoute[handlerPath] = routeName;
+        }
+
+        pluginContext = {
+          resolvedOutDir,
+          resolvedRootDir,
+          handlerPathToRoute,
+          entrypointGenerator: getEntrypointGenerator(resolvedRootDir, versoConfig, isBuild()),
+        };
       },
+
     },
 
     {
@@ -174,22 +188,20 @@ export default function verso(options: VersoConfig): Plugin[] {
         }
       },
 
-      load(id) {
+      async load(id) {
+        const { entrypointGenerator } = pluginContext!;
         if (id === CLIENT_ENTRY_RESOLVED_ID) {
-          if (!routes) throw new Error('Routes not loaded yet');
-          const allRouteNames = Object.keys(routes);
-          return makeUnifiedEntrypoint(allRouteNames, routes, routesDir, routesPath, BOOTSTRAP_PATH, isBuild);
+          return entrypointGenerator.generateHandlerClientEntrypoint();
         }
 
         if (id === SERVER_ENTRY_RESOLVED_ID) {
-          if (!routes) throw new Error('Routes not loaded yet');
-          return makeServerEntry(routesPath, routes, DIST_ROOT);
+          return entrypointGenerator.generateServerEntrypoint();
         }
       },
 
       async writeBundle(_options, bundle) {
         // Only emit manifest + meta during client build
-        if (isSSRBuild) return;
+        if (isSSRBuild()) return;
 
         // Parse Vite's built-in manifest (has transitive CSS + import chains)
         const viteManifestAsset = bundle['.vite/manifest.json'];
@@ -216,8 +228,8 @@ export default function verso(options: VersoConfig): Plugin[] {
         const routeManifestKeys: Record<string, string> = {};
         for (const [key, entry] of Object.entries(viteManifest)) {
           if (!entry.isDynamicEntry) continue;
-          const absoluteKey = path.resolve(resolvedRoot, key);
-          const routeName = matchHandlerPath(absoluteKey, handlerPathToRoute);
+          const absoluteKey = path.resolve(pluginContext!.resolvedRootDir, key);
+          const routeName = matchHandlerPath(absoluteKey, pluginContext!.handlerPathToRoute);
           if (routeName) {
             routeManifestKeys[routeName] = key;
           }
@@ -225,7 +237,7 @@ export default function verso(options: VersoConfig): Plugin[] {
 
         // Build verso manifest from Vite's
         const manifest: BundleManifest = {};
-        for (const routeName of Object.keys(routes!)) {
+        for (const routeName of Object.keys(versoConfig.routes)) {
           const routeKey = routeManifestKeys[routeName];
           const routeEntry = routeKey ? viteManifest[routeKey] : undefined;
 
@@ -241,21 +253,13 @@ export default function verso(options: VersoConfig): Plugin[] {
           manifest[routeName] = { scripts: entryScripts, preloads, stylesheets };
         }
 
-        // Write manifest + meta to disk
+        // Write manifest to disk
         const manifestJson = JSON.stringify(manifest, null, 2);
-        const port = options.server?.port ?? 3000;
-        const versoMeta = JSON.stringify({
-          server: {
-            port,
-            urlPrefix: options.server?.urlPrefix ?? `http://localhost:${port}`,
-            renderTimeout: options.server?.renderTimeout,
-          },
-        }, null, 2);
 
         await Promise.all([
-          writeFile(path.join(resolvedOutDir, 'manifest.json'), manifestJson),
-          writeFile(path.join(resolvedOutDir, `${BUNDLES_DIR}/manifest.js`), `export default ${manifestJson}`),
-          writeFile(path.join(resolvedOutDir, 'verso-meta.json'), versoMeta),
+          writeFile(path.join(pluginContext!.resolvedOutDir, 'manifest.json'), manifestJson),
+          writeFile(path.join(pluginContext!.resolvedOutDir, `${BUNDLES_DIR}/manifest.js`), `export default ${manifestJson}`),
+          // TODO: can these be deduped?
         ]);
       },
     },
@@ -263,50 +267,43 @@ export default function verso(options: VersoConfig): Plugin[] {
     {
       name: '@verso-js/verso:dev-server',
 
-      configureServer(vite: ViteDevServer) {
-        const port = options.server?.port ?? 3000;
-        const urlPrefix = options.server?.urlPrefix ?? `http://localhost:${port}`;
+      async configureServer(vite: ViteDevServer) {
+        const { server: serverSettings } = versoConfig;
+        const port = serverSettings?.port ?? 3000;
+        const urlPrefix = serverSettings?.urlPrefix ?? `http://localhost:${port}`;
+
+        const { routes } = versoConfig;
+        const router = createRouter(routes);
+
         const entryUrl = `/@id/__x00__${CLIENT_ENTRY_VIRTUAL_ID}`;
 
-        let router: ReturnType<typeof createRouter>;
-        let allMiddleware: any[];
-        let collectCss: typeof import('./collectCss').collectCss;
-        let handleRoute: typeof import('../server/handleRoute').handleRoute;
+        const collectCss = await importWithVite<CollectCss>(vite, COLLECT_CSS_PATH);
+        const handleRoute = await importWithVite<HandleRoute>(vite, HANDLE_ROUTE_PATH);
         let currentRouteStylesheets: Record<string, Stylesheet[]> = {};
-        const setupPromise = (async () => {
-          site = await ssrLoadDefault<VersoRoutes>(vite, routesPath);
-          routes = site.routes;
-          router = createRouter(routes);
 
-          ({ collectCss } = await vite.ssrLoadModule(path.resolve(DIST_ROOT, 'collectCss.js')) as typeof import('./collectCss'));
-          ({ handleRoute } = await vite.ssrLoadModule(HANDLE_ROUTE_PATH) as typeof import('../server/handleRoute'));
+        const routeScripts: Record<string, string[]> = {};
+        for (const routeName of Object.keys(routes)) {
+          routeScripts[routeName] = [entryUrl];
+        }
+        const viteDevScripts: Script[] = [
+          { content: react.preambleCode.replace('__BASE__', '/'), type: 'module' }, // vite react hmr preamble (inline)
+          { src: '/@vite/client', type: 'module' }, // vite dev client
+        ];
+        const bundleLoader = createViteBundleLoader(() => ({
+          routeScripts,
+          routeStylesheets: currentRouteStylesheets,
+          globalScripts: viteDevScripts,
+        }));
+        const systemMiddleware = [bundleLoader];
 
-          const routeScripts: Record<string, string[]> = {};
-          for (const routeName of Object.keys(routes)) {
-            routeScripts[routeName] = [entryUrl];
-          }
-          const viteDevScripts: Script[] = [
-            { content: react.preambleCode.replace('__BASE__', '/'), type: 'module' }, // vite react hmr preamble (inline)
-            { src: '/@vite/client', type: 'module' }, // vite dev client
-          ];
-          const bundleLoader = createViteBundleLoader(() => ({
-            routeScripts,
-            routeStylesheets: currentRouteStylesheets,
-            globalScripts: viteDevScripts,
-          }));
-          allMiddleware = [bundleLoader, ...(site.middleware ?? [])];
-        })();
+        const siteMiddlewarePaths = versoConfig.middleware ?? [];
+        const siteMiddleware = await Promise.all(
+          siteMiddlewarePaths.map((modulePath) => importWithVite<MiddlewareDefinition>(vite, modulePath))
+        );
+        const allMiddleware: Array<MiddlewareDefinition> = [...systemMiddleware, ...siteMiddleware];
 
         return () => {
           vite.middlewares.use(async (req, res) => {
-            await setupPromise;
-            if (!routes) {
-              console.log("[verso] no routes loaded?");
-              res.statusCode = 500;
-              res.end();
-              return;
-            }
-
             try {
               const url = new URL(req.url ?? '/', urlPrefix);
 
@@ -320,7 +317,7 @@ export default function verso(options: VersoConfig): Plugin[] {
                   res.end();
                   return;
                 }
-                const handlerPath = resolveHandler(routesPath, routes[routeName].handler);
+                const handlerPath = path.resolve(pluginContext!.resolvedRootDir, routes[routeName].handler);
                 // Ensure the handler module graph is populated before walking it
                 await vite.ssrLoadModule(handlerPath);
                 const stylesheets = await collectCss(vite, handlerPath);
@@ -338,8 +335,8 @@ export default function verso(options: VersoConfig): Plugin[] {
                 return;
               }
 
-              const handlerPath = resolveHandler(routesPath, route.handler);
-              const handler = await ssrLoadDefault<RouteHandler<any, any, any>>(
+              const handlerPath = path.resolve(pluginContext!.resolvedRootDir, route.handler);
+              const handler = await importWithVite<RouteHandler<any, any, any>>(
                 vite,
                 handlerPath,
               );
@@ -402,6 +399,7 @@ function resolveImportFiles(
   return files;
 }
 
+// TODO: what is this abstraction?
 function matchHandlerPath(
   facadeId: string,
   handlerPathToRoute: Record<string, string>,
@@ -415,12 +413,23 @@ function matchHandlerPath(
   return undefined;
 }
 
-async function ssrLoadDefault<T>(vite: ViteDevServer, modulePath: string): Promise<T> {
-  const mod = await vite.ssrLoadModule(modulePath);
-  return (mod.default ?? mod) as T;
+// for importing modules without a vite dev server.
+// only needed for loading the verso config file
+let jiti: Jiti;
+async function importWithJiti<T>(modulePath: string): Promise<T> {
+  if (!jiti) jiti = createJiti(import.meta.url);
+  return await importWith(jiti.import.bind(jiti), modulePath);
 }
 
-function resolveHandler(siteConfigPath: string, handlerPath: string): string {
-  const routesDir = path.dirname(siteConfigPath);
-  return path.resolve(routesDir, handlerPath);
+async function importWithVite<T>(vite: ViteDevServer, modulePath: string): Promise<T> {
+  return await importWith(vite.ssrLoadModule.bind(vite), modulePath);
+}
+
+async function importWith<T>(importer: (modulePath: string) => Promise<any>, modulePath: string): Promise<T> {
+  const module = await importer(modulePath);
+  const defaultExport = module.default as T;
+  if (!defaultExport) {
+    throw new Error(`no default export found when importing ${modulePath}`);
+  }
+  return defaultExport;
 }

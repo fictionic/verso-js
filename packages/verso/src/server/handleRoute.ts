@@ -11,13 +11,9 @@ import {VersoRequest} from "../core/VersoRequest";
 import {createCtx} from "../core/handler/RouteHandlerCtx";
 import type {RouteMatch} from "../core/router";
 import {html500} from "./errorPages";
+import type {ServerSettings} from "../build/config";
 
 const REDIRECT_STATUSES = [301, 302, 303, 307, 308];
-
-interface Options {
-  urlPrefix?: string;
-  renderTimeout?: number;
-};
 
 export async function handleRoute<T extends RouteHandlerType>(
   type: T,
@@ -25,7 +21,7 @@ export async function handleRoute<T extends RouteHandlerType>(
   routeHandlerDef: RouteHandlerDefinition<T, any, any>,
   globalMiddleware: MiddlewareDefinition[],
   nativeRequest: Request,
-  options: Options,
+  options: ServerSettings,
 ) {
   const response = await startRequest(async () => {
     const req = VersoRequest.serverInit(nativeRequest, route.params);
@@ -98,3 +94,5 @@ export async function handleRoute<T extends RouteHandlerType>(
   });
   return response;
 }
+
+export type HandleRoute = typeof handleRoute;

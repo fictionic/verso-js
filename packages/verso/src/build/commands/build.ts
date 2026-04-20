@@ -11,6 +11,7 @@ export async function runBuild() {
   await viteBuild({
     logLevel: 'warn',
     build: { minify: false },
+    // TODO: make minification configurable
   });
 
   // Server build — plugin detects ssr: true and adjusts config accordingly
