@@ -1,4 +1,4 @@
-import { parse, stringifySetCookie, type Cookies, type SetCookie } from 'cookie';
+import { parseCookie, parseSetCookie, stringifyCookie, stringifySetCookie, type Cookies, type SetCookie } from 'cookie';
 import { getRLS } from '../core/RequestLocalStorage';
 
 export type CookieOptions = Omit<SetCookie, 'name' | 'value'>;
@@ -11,7 +11,7 @@ export class ServerCookies {
   private headersLocked: boolean;
 
   constructor(req: Request) {
-    this.requestCookies = parse(req.headers.get('cookie') ?? '');
+    this.requestCookies = parseCookie(req.headers.get('cookie') ?? '');
     this.responseCookies = new Map();
     this.headersLocked = false;
     RLS().current = this;
@@ -21,11 +21,22 @@ export class ServerCookies {
     return this.requestCookies[name] ?? undefined;
   }
 
+  getRequestCookieHeader(): string {
+    return stringifyCookie(this.requestCookies);
+  }
+
   setResponseCookie(name: string, value: string, options?: CookieOptions) {
     if (this.headersLocked) {
       throw new Error("cannot set cookies after HTTP headers have been sent");
     }
     this.responseCookies.set(name, { value, options });
+  }
+
+  setResponseSetCookieHeaders(headers: string[]) {
+    headers.forEach((header) => {
+      const { name, value, ...options } = parseSetCookie(header);
+      this.setResponseCookie(name, value ?? '', options);
+    });
   }
 
   getResponseCookie(name: string): string | undefined {

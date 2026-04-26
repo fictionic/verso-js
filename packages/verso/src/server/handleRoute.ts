@@ -21,12 +21,12 @@ export async function handleRoute<T extends RouteHandlerType>(
   routeHandlerDef: RouteHandlerDefinition<T, any, any>,
   globalMiddleware: MiddlewareDefinition[],
   nativeRequest: Request,
-  options: ServerSettings,
+  settings: ServerSettings,
 ) {
   const response = await startRequest(async () => {
     const req = VersoRequest.serverInit(nativeRequest, route.params);
     const cookies = new ServerCookies(nativeRequest);
-    Fetch.serverInit(options.urlPrefix ?? new URL(nativeRequest.url).origin);
+    Fetch.serverInit(nativeRequest, settings);
     const config = new ResponderConfig();
     const ctx = createCtx(config, req, route);
     const handler = createHandlerChain(type, routeHandlerDef, globalMiddleware, config, ctx);
@@ -34,7 +34,6 @@ export async function handleRoute<T extends RouteHandlerType>(
     const headers = new Headers();
     function concatHeaders(newHeaders: Headers) {
       newHeaders.forEach((value, name) => {
-        // idk why Headers has ^these args flipped...
         headers.append(name, value);
       });
     }
@@ -79,7 +78,7 @@ export async function handleRoute<T extends RouteHandlerType>(
     switch(type) {
       case 'page':
         headers.append('Content-Type', 'text/html; charset=utf-8');
-        streamable = await handlePage(handler, options);
+        streamable = await handlePage(handler, settings);
         break;
       case 'endpoint':
         streamable = await handleEndpoint(handler);

@@ -18,6 +18,7 @@ vi.mock('../core/components/RootContainer', async (importOriginal) => {
 const { writeBody } = await import('../server/writeBody');
 
 function simplePage(elements: React.ReactElement[]): StandardizedPage {
+  // TODO build this out of the defined defaults
   return {
     getRouteDirective() { return { status: 200 } },
     getElements() { return elements; },

@@ -1,6 +1,6 @@
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
-import type {VersoConfig} from './config';
+import {fillServerSettings, type VersoConfig} from './config';
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 
@@ -18,7 +18,8 @@ export function getEntrypointGenerator(
   writeManifest: boolean,
 ): EntrypointGenerator {
 
-  const { routes, middleware, server: serverSettings } = versoConfig;
+  const { routes, middleware, server: _serverSettings } = versoConfig;
+  const serverSettings = fillServerSettings(_serverSettings);
   const middlewarePaths = (middleware ?? [])
     .map((modulePath) => path.resolve(handlerBasePath, modulePath));
 

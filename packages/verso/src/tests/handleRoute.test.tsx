@@ -6,6 +6,7 @@ import { definePage, type PageInit } from '../core/handler/Page';
 import { defineEndpoint, type EndpointInit } from '../core/handler/Endpoint';
 import { setCookie } from '../core/cookies';
 import type {RouteMatch} from '../core/router';
+import {fillServerSettings} from '../build/config';
 
 // --- Helpers ---
 
@@ -33,16 +34,12 @@ function makeEndpoint(directive: { status: number }, data: string): EndpointInit
 
 async function routePage(init: PageInit) {
   const req = new Request('http://localhost/');
-  return handleRoute('page', DEFAULT_ROUTE, definePage(init), [], req, {
-    urlPrefix: 'http://localhost',
-  });
+  return handleRoute('page', DEFAULT_ROUTE, definePage(init), [], req, fillServerSettings());
 }
 
 async function routeEndpoint(init: EndpointInit) {
   const req = new Request('http://localhost/');
-  return handleRoute('endpoint', DEFAULT_ROUTE, defineEndpoint(init), [], req, {
-    urlPrefix: 'http://localhost',
-  });
+  return handleRoute('endpoint', DEFAULT_ROUTE, defineEndpoint(init), [], req, fillServerSettings());
 }
 
 // --- Tests ---

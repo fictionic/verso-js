@@ -3,7 +3,7 @@ import { fileURLToPath } from 'node:url';
 import { writeFile } from 'node:fs/promises';
 import react from '@vitejs/plugin-react';
 import type { BuildEnvironmentOptions, ConfigEnv, Plugin, ViteDevServer } from 'vite';
-import type { VersoConfig } from './config';
+import { fillServerSettings, type VersoConfig } from './config';
 import type { RouteHandler } from '../core/handler/RouteHandler';
 import type { Script, Stylesheet } from '../core/handler/Page';
 import type { BundleManifest } from './bundle';
@@ -11,7 +11,7 @@ import { BUNDLES_DIR } from './bundle';
 import { DEV_ROUTE_CSS_PATH } from '../core/constants';
 import { createRouter } from '../core/router';
 import { createViteBundleLoader } from './ViteBundleLoader';
-import { toWebRequest, sendWebResponse } from '../server/nodeHttp';
+import { toURL, toWebRequest, sendWebResponse } from './nodeHttp';
 import { getEntrypointGenerator, type EntrypointGenerator } from './entrypoint';
 import { createJiti, type Jiti } from 'jiti';
 import { html404, html500 } from '../server/errorPages';
@@ -264,9 +264,8 @@ export default async function verso(configPathOverride?: string): Promise<Plugin
       name: '@verso-js/verso:dev-server',
 
       async configureServer(vite: ViteDevServer) {
-        const { server: serverSettings } = versoConfig;
-        const port = serverSettings?.port ?? 3000;
-        const urlPrefix = serverSettings?.urlPrefix ?? `http://localhost:${port}`;
+        const serverSettings = fillServerSettings(versoConfig.server);
+        const { port } = serverSettings;
 
         const { routes } = versoConfig;
         const router = createRouter(routes);
@@ -301,7 +300,7 @@ export default async function verso(configPathOverride?: string): Promise<Plugin
         return () => {
           vite.middlewares.use(async (req, res) => {
             try {
-              const url = new URL(req.url ?? '/', urlPrefix);
+              const url = toURL(req, port);
 
               // Dev-only endpoint: return the CSS stylesheet list for a route, so the
               // client can transition stylesheets during programmatic navigation the
@@ -349,7 +348,7 @@ export default async function verso(configPathOverride?: string): Promise<Plugin
                 handler,
                 allMiddleware,
                 request,
-                { urlPrefix },
+                serverSettings,
               );
               await sendWebResponse(res, response);
             } catch (e) {

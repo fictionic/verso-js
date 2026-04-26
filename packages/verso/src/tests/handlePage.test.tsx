@@ -6,6 +6,7 @@ import RootContainer from '../core/components/RootContainer';
 import TheFold from '../core/components/TheFold';
 import { definePage, type PageInit, type Script, type Stylesheet } from '../core/handler/Page';
 import type {RouteMatch} from '../core/router';
+import {fillServerSettings} from '../build/config';
 
 // --- Helpers ---
 
@@ -26,7 +27,7 @@ const DEFAULT_ROUTE: RouteMatch = { routeName: 'test', params: {}, handler: './T
 
 async function render(init: PageInit): Promise<string> {
   const req = new Request('http://localhost/');
-  const response = await handleRoute('page', DEFAULT_ROUTE, definePage(init), [], req, { renderTimeout: TEST_RENDER_TIMEOUT_MS, urlPrefix: 'http://localhost' });
+  const response = await handleRoute('page', DEFAULT_ROUTE, definePage(init), [], req, fillServerSettings({ renderTimeout: TEST_RENDER_TIMEOUT_MS }));
   return collectStream(response.body!);
 }
 
@@ -100,7 +101,7 @@ describe('handlePage', () => {
       <Root when={when}><div>Delayed</div></Root>,
     ]);
     const req = new Request('http://localhost/');
-    const response = await handleRoute('page', DEFAULT_ROUTE, definePage(P), [], req, { urlPrefix: 'http://localhost' });
+    const response = await handleRoute('page', DEFAULT_ROUTE, definePage(P), [], req, fillServerSettings());
 
     // Resolve the promise so the stream can complete
     resolve();
@@ -118,7 +119,7 @@ describe('handlePage', () => {
       <Root><div>Fast</div></Root>,
     ]);
     const req = new Request('http://localhost/');
-    const response = await handleRoute('page', DEFAULT_ROUTE, definePage(P), [], req, { urlPrefix: 'http://localhost' });
+    const response = await handleRoute('page', DEFAULT_ROUTE, definePage(P), [], req, fillServerSettings());
 
     // Fast resolves immediately, slow resolves after
     resolveFirst();
@@ -234,7 +235,7 @@ describe('handlePage', () => {
       <DelayedRoot delay={when}><span>Waited</span></DelayedRoot>,
     ]);
     const req = new Request('http://localhost/');
-    const response = await handleRoute('page', DEFAULT_ROUTE, definePage(P), [], req, { urlPrefix: 'http://localhost' });
+    const response = await handleRoute('page', DEFAULT_ROUTE, definePage(P), [], req, fillServerSettings());
 
     resolve();
     const html = await collectStream(response.body!);
@@ -283,7 +284,7 @@ describe('handlePage', () => {
     ]);
 
     const req = new Request('http://localhost/');
-    const response = await handleRoute('page', DEFAULT_ROUTE, definePage(P), [], req, { renderTimeout: 50, urlPrefix: 'http://localhost' });
+    const response = await handleRoute('page', DEFAULT_ROUTE, definePage(P), [], req, fillServerSettings({ renderTimeout: 50 }));
     const html = await collectStream(response.body!);
 
     expect(html).toContain('Ready');

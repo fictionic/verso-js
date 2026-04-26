@@ -1,5 +1,11 @@
 import type http from 'node:http';
 
+export function toURL(nodeReq: http.IncomingMessage, fallbackPort: number): URL {
+  const proto = nodeReq.headers['x-forwarded-proto'] ?? 'http';
+  const host = nodeReq.headers.host ?? `localhost:${fallbackPort}`;
+  return new URL(nodeReq.url ?? '/', `${proto}://${host}`);
+}
+
 export function toWebRequest(nodeReq: http.IncomingMessage, url: URL): Request {
   const headers = new Headers();
   for (const [key, value] of Object.entries(nodeReq.headers)) {

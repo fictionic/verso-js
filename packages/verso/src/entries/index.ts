@@ -9,7 +9,7 @@ export type { RouteDirective } from '../core/handler/RouteHandler';
 export { isServer } from '../core/env';
 
 // Utilities
-export { fetch } from '../core/fetch';
+export { fetch, setFetchInterceptor, type FetchRequestInterceptor, type FetchRequestSettings, type InterceptResult, type VersoFetchInit } from '../core/fetch';
 export { getCookie, setCookie } from '../core/cookies';
 export { getRLS } from '../core/RequestLocalStorage';
 export { navigateTo } from '../client/navigateTo';

@@ -78,7 +78,6 @@ export function makeStreamer(page: StandardizedPage, { renderTimeout }: StreamOp
 
   function bootstrapClient(theFoldIndex: number) {
     const fetchCache = Fetch.getCache().server().dehydrate();
-    console.log('[handlePage:debug] dehydrated cache keys:', Object.keys(fetchCache), 'entries:', Object.entries(fetchCache).map(([k, v]) => `${k}: response=${!!v.response}, requesters=${v.requesters}`));
     writeablePipe.writeValue(FETCH_CACHE_KEY, fetchCache);
     for (const script of [...page.getSystemScripts(), ...page.getScripts()]) {
       write(renderScript(script));
@@ -92,9 +91,9 @@ export function makeStreamer(page: StandardizedPage, { renderTimeout }: StreamOp
     if (pending.length === 0) return Promise.resolve();
 
     return Promise.allSettled(
-      pending.map(({ url, promise }) => {
+      pending.map(({ request, promise }) => {
         return promise.then((response) => {
-          writeablePipe.callFn(FN_RECEIVE_LATE_DATA_ARRIVAL, [url, response]);
+          writeablePipe.callFn(FN_RECEIVE_LATE_DATA_ARRIVAL, [request, response]);
           flush();
         })
       })).then(() => {});

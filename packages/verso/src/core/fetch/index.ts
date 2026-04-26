@@ -1,6 +1,7 @@
-import { Fetch } from "./Fetch";
+import { Fetch, setFetchInterceptor } from "./Fetch";
 
 const { fetch } = Fetch;
 
-// provide just the function that consumers actually want
-export { fetch };
+// application-facing exports
+export { fetch, setFetchInterceptor };
+export type { FetchRequestInterceptor, FetchRequestSettings, InterceptResult, VersoFetchInit } from './types';

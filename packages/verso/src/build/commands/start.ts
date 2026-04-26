@@ -4,7 +4,7 @@ import { readFile, readdir } from 'node:fs/promises';
 import { pathToFileURL } from 'node:url';
 import type { BundleManifest } from '../bundle';
 import { BUNDLES_DIR } from '../bundle';
-import { toWebRequest, sendWebResponse } from '../../server/nodeHttp';
+import { toURL, toWebRequest, sendWebResponse } from '../nodeHttp';
 
 export async function runStart(outDir = 'dist') {
   // Read client manifest
@@ -24,19 +24,17 @@ export async function runStart(outDir = 'dist') {
 
   // Load pre-built server entry (self-contained: framework + handlers + site config)
   const serverEntryPath = pathToFileURL(path.resolve(outDir, 'server', 'entry.js')).href;
-  const { getServer, getSettings} = await import(serverEntryPath);
+  const { getServer, getSettings } = await import(serverEntryPath);
   const versoServer = await getServer({
     manifest,
     bundleContents,
   });
 
-  const { port: _port, urlPrefix: _urlPrefix } = getSettings();
-  const port = _port ?? 3000;
-  const urlPrefix = _urlPrefix ?? `http://localhost:${port}`;
+  const { port } = getSettings();
 
   const server = http.createServer(async (nodeReq, nodeRes) => {
     try {
-      const url = new URL(nodeReq.url ?? '/', urlPrefix);
+      const url = toURL(nodeReq, port);
       const request = toWebRequest(nodeReq, url);
       const response = await versoServer.serve(request);
       await sendWebResponse(nodeRes, response);
