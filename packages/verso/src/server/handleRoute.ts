@@ -40,7 +40,14 @@ export async function handleRoute<T extends RouteHandlerType>(
 
     let directive: RouteDirective;
     try {
-      directive = await handler.getRouteDirective();
+      const { routerTimeout } = settings;
+      const failsafe = new Promise<never>((_, reject) => {
+        setTimeout(() => reject(new Error("[verso] router timeout")), routerTimeout);
+      });
+      directive = await Promise.race([
+        handler.getRouteDirective(),
+        failsafe,
+      ]);
     } catch (err) {
       console.error('[verso] error during getRouteDirective', err);
       return new Response(html500, {
