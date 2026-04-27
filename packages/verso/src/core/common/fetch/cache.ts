@@ -2,7 +2,7 @@ export type DehydratedCache = Record<string, Array<DehydratedCacheEntry>>;
 
 export type PendingEntry = {
   request: CacheableRequest;
-  promise: Promise<CachedResponse>;
+  responsePromise: Promise<CachedResponse>;
 };
 
 export type CacheableRequest = {
@@ -185,7 +185,7 @@ export class FetchCache {
                 method: entry.aux.method,
                 body: entry.aux.body,
               },
-              promise: entry.dfd.promise,
+              responsePromise: entry.dfd.promise,
             });
           });
         });

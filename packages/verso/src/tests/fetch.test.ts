@@ -295,7 +295,7 @@ describe('fetch cache lifecycle', () => {
 
         // clean up: resolve so the promise chain completes
         net.resolve('/api/slow', {});
-        await pending[0]!.promise;
+        await pending[0]!.responsePromise;
       });
     });
   });

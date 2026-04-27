@@ -6,6 +6,7 @@ import {writeHeader} from "./writeHeader";
 import {PAGE_HEADER_SCRIPT_ELEMENT_ATTR} from "../common/constants";
 import type {ServerSettings} from "../../build/config";
 import {getElapsedRequestTime} from "./clock";
+import type {CacheableRequest, CachedResponse} from "../common/fetch/cache";
 
 const encoder = new TextEncoder();
 
@@ -55,10 +56,14 @@ export function handlePage(page: StandardizedPage, { renderTimeout }: ServerSett
 
     const abortController = new AbortController();
 
+    function abortHydration() {
+      writeablePipe.callFn(FN_ABORT_HYDRATION, []);
+    }
+
     const abortTimeout = setTimeout(() => {
       abortController.abort();
       if (haveBootstrapped) {
-        writeablePipe.callFn(FN_ABORT_HYDRATION, []);
+        abortHydration();
       }
     }, remainingTime);
 
@@ -93,11 +98,16 @@ export function handlePage(page: StandardizedPage, { renderTimeout }: ServerSett
     const pending = Fetch.getCache().server().getPending();
     if (pending.length === 0) return Promise.resolve();
     await Promise.allSettled(
-      pending.map(async ({ request, promise }) => {
-        const response = await promise;
-        writeablePipe.callFn(FN_RECEIVE_LATE_DATA_ARRIVAL, [request, response]);
+      pending.map(async ({ request, responsePromise }) => {
+        const response = await responsePromise;
+        receiveLateArrival(request, response);
         flush();
-      }));
+      })
+    );
+  }
+
+  function receiveLateArrival(request: CacheableRequest, response: CachedResponse) {
+    writeablePipe.callFn(FN_RECEIVE_LATE_DATA_ARRIVAL, [request, response]);
   }
 
   async function finish(abortSignal: AbortSignal) {
