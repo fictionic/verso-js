@@ -39,7 +39,7 @@ export const createPipe = <Schema extends PipeSchema>(pipeName: string) => ({
 
   reader() {
     if (typeof window === 'undefined') {
-      throw new Error('cannot read from VersoPipe on the server'); // TODO rename
+      throw new Error('[verso] cannot read from ServerClientPipe on the server');
     }
     const pipe = (window as any)[pipeName] as PipeReaderImpl<Schema>;
     return {

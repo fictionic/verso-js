@@ -26,7 +26,7 @@ function simulatePipe() {
   return { reader, writer, chunks, flush };
 }
 
-describe('VersoPipe', () => {
+describe('ServerClientPipe', () => {
   beforeEach(() => {
     delete (window as any)[PIPE_NAME];
   });
@@ -157,7 +157,7 @@ describe('VersoPipe', () => {
       try {
         // @ts-ignore
         delete globalThis.window;
-        expect(() => createPipe(PIPE_NAME).reader()).toThrow('cannot read from VersoPipe on the server');
+        expect(() => createPipe(PIPE_NAME).reader()).toThrow('cannot read from ServerClientPipe on the server');
       } finally {
         globalThis.window = origWindow;
       }
