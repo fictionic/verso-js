@@ -87,7 +87,7 @@ export async function handleRoute<T extends RouteHandlerType>(
     switch(type) {
       case 'page':
         headers.append('Content-Type', 'text/html; charset=utf-8');
-        streamable = await handlePage(handler, settings);
+        streamable = handlePage(handler, settings);
         break;
       case 'endpoint':
         streamable = await handleEndpoint(handler);
