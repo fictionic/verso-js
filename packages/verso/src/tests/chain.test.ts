@@ -2,7 +2,7 @@ import { test, expect, describe } from 'vitest';
 import { createHandlerChain } from '../core/common/handler/chain';
 import { defineRouteHandler, type RouteHandler } from '../core/common/handler/RouteHandler';
 import { defineMiddleware } from '../core/common/handler/Middleware';
-import { ResponderConfig } from '../core/common/handler/ResponderConfig';
+import { MiddlewareConfig } from '../core/common/handler/MiddlewareConfig';
 import { startRequest } from '../core/common/RequestLocalStorage';
 import type {RouteHandlerCtx} from '../core/common/handler/RouteHandlerCtx';
 
@@ -47,7 +47,7 @@ describe('createHandlerChain', () => {
         TEST_OPTIONAL_DEFAULTS,
         TEST_REQUIRED_NAMES,
       );
-      const config = new ResponderConfig();
+      const config = new MiddlewareConfig();
       const chain = createHandlerChain('page', def, [], config, DUMMY_FNS);
 
       expect(chain.getTitle()).toBe('');
@@ -69,7 +69,7 @@ describe('createHandlerChain', () => {
         TEST_OPTIONAL_DEFAULTS,
         TEST_REQUIRED_NAMES,
       );
-      const config = new ResponderConfig();
+      const config = new MiddlewareConfig();
       const chain = createHandlerChain('page', def, [], config, DUMMY_FNS);
 
       expect(chain.getTitle()).toBe('My Title');
@@ -89,7 +89,7 @@ describe('createHandlerChain', () => {
         TEST_OPTIONAL_DEFAULTS,
         TEST_REQUIRED_NAMES,
       );
-      const config = new ResponderConfig();
+      const config = new MiddlewareConfig();
       const chain = createHandlerChain('page', def, [], config, DUMMY_FNS);
 
       expect(chain).not.toHaveProperty('middleware');
@@ -115,7 +115,7 @@ describe('createHandlerChain', () => {
         getRouteDirective: (next) => { callOrder.push('mw-before'); const r = next(); callOrder.push('mw-after'); return r; },
       }));
 
-      const config = new ResponderConfig();
+      const config = new MiddlewareConfig();
       const chain = createHandlerChain('page', def, [mw], config, DUMMY_FNS);
 
       const result = chain.getRouteDirective();
@@ -151,7 +151,7 @@ describe('createHandlerChain', () => {
         getRouteDirective: (next) => { callOrder.push('inner-before'); const r = next(); callOrder.push('inner-after'); return r; },
       }));
 
-      const config = new ResponderConfig();
+      const config = new MiddlewareConfig();
       const chain = createHandlerChain('page', def, [outer, inner], config, DUMMY_FNS);
 
       chain.getRouteDirective();
@@ -179,7 +179,7 @@ describe('createHandlerChain', () => {
         getRouteDirective: (_next) => ({ status: 302, redirectLocation: '/login' }),
       }));
 
-      const config = new ResponderConfig();
+      const config = new MiddlewareConfig();
       const chain = createHandlerChain('page', def, [mw], config, DUMMY_FNS);
 
       const result = chain.getRouteDirective();
@@ -207,7 +207,7 @@ describe('createHandlerChain', () => {
         getRouteDirective: (next) => { callOrder.push('page-mw'); return next(); },
       }));
 
-      const config = new ResponderConfig();
+      const config = new MiddlewareConfig();
       // pageMw has scope 'page', so it should be filtered out for endpoint chain
       const chain = createHandlerChain('endpoint', def, [pageMw as any], config, DUMMY_FNS);
 
@@ -245,12 +245,12 @@ describe('createHandlerChain', () => {
         getRouteDirective: (next) => { callOrder.push('all-mw'); return next(); },
       }));
 
-      const config1 = new ResponderConfig();
+      const config1 = new MiddlewareConfig();
       createHandlerChain('page', pageDef, [allMw], config1, DUMMY_FNS).getRouteDirective();
       expect(callOrder).toEqual(['all-mw', 'page-handler']);
 
       callOrder.length = 0;
-      const config2 = new ResponderConfig();
+      const config2 = new MiddlewareConfig();
       createHandlerChain('endpoint', endpointDef, [allMw as any], config2, DUMMY_FNS).getRouteDirective();
       expect(callOrder).toEqual(['all-mw', 'endpoint-handler']);
     });
@@ -279,7 +279,7 @@ describe('createHandlerChain', () => {
         getRouteDirective: (next) => { callOrder.push('global-mw'); return next(); },
       }));
 
-      const config = new ResponderConfig();
+      const config = new MiddlewareConfig();
       const chain = createHandlerChain('page', def, [globalMw], config, DUMMY_FNS);
 
       chain.getRouteDirective();
@@ -311,7 +311,7 @@ describe('createHandlerChain', () => {
         TEST_REQUIRED_NAMES,
       );
 
-      const config = new ResponderConfig();
+      const config = new MiddlewareConfig();
       const chain = createHandlerChain('page', def, [parentMw], config, DUMMY_FNS);
 
       chain.getRouteDirective();
@@ -340,7 +340,7 @@ describe('createHandlerChain', () => {
         TEST_REQUIRED_NAMES,
       );
 
-      const config = new ResponderConfig();
+      const config = new MiddlewareConfig();
       createHandlerChain('page', def, [mw], config, DUMMY_FNS);
 
       // addConfigValues on all middleware first, then setConfigValues on middleware+handler
@@ -370,7 +370,7 @@ describe('createHandlerChain', () => {
         TEST_REQUIRED_NAMES,
       );
 
-      const config = new ResponderConfig();
+      const config = new MiddlewareConfig();
       const ctx: RouteHandlerCtx = { getConfig: config.getValue, getRequest: () => undefined as any, getRoute: () => ({ getName: () => 'test', getParams: () => ({}) }) };
       createHandlerChain('page', def, [mw], config, ctx);
 
@@ -401,7 +401,7 @@ describe('createHandlerChain', () => {
         getElements: (next) => [...next(), 'injected' as any],
       }));
 
-      const config = new ResponderConfig();
+      const config = new MiddlewareConfig();
       const chain = createHandlerChain('page', def, [mw], config, DUMMY_FNS);
 
       expect(chain.getRouteDirective()).toEqual({ status: 201 });
@@ -433,7 +433,7 @@ describe('createHandlerChain', () => {
         },
       }));
 
-      const config = new ResponderConfig();
+      const config = new MiddlewareConfig();
       const chain = createHandlerChain('page', def, [mw], config, DUMMY_FNS);
 
       const result = await chain.getRouteDirective();
@@ -453,7 +453,7 @@ describe('createHandlerChain', () => {
         TEST_REQUIRED_NAMES,
       );
 
-      const config = new ResponderConfig();
+      const config = new MiddlewareConfig();
       const chain = createHandlerChain('page', def, [], config, DUMMY_FNS);
 
       expect(chain.getRouteDirective()).toEqual({ status: 404 });

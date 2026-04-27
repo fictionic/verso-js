@@ -1,4 +1,4 @@
-import type {ResponderConfig} from "./ResponderConfig";
+import type {MiddlewareConfig} from "./MiddlewareConfig";
 import type {VersoRequest} from "../VersoRequest";
 import type {ParamData} from "path-to-regexp";
 import type {RouteMatch} from "../router";
@@ -9,12 +9,12 @@ export interface RouteInfo {
 }
 
 export interface RouteHandlerCtx {
-  getConfig: ResponderConfig['getValue'];
+  getConfig: MiddlewareConfig['getValue'];
   getRoute(): RouteInfo;
   getRequest(): VersoRequest;
 }
 
-export function createCtx(config: ResponderConfig, versoRequest: VersoRequest, route: RouteMatch): RouteHandlerCtx {
+export function createCtx(config: MiddlewareConfig, versoRequest: VersoRequest, route: RouteMatch): RouteHandlerCtx {
   const routeInfo = {
     getName: () => route.routeName,
     getParams: () => route.params,

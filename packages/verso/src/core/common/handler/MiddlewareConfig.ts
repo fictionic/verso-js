@@ -1,21 +1,14 @@
-import {getRLS} from "../RequestLocalStorage";
+export type BaseConfig = Record<string, unknown>;
 
-const RLS = getRLS<{current: ResponderConfig}>();
+export class MiddlewareConfig {
+  private config: BaseConfig;
 
-// export type BaseConfig = Record<string, unknown>;
-export type BaseConfig = object; // ^breaks when you define a config with `interface` because typescript
-
-export class ResponderConfig {
-  private config: BaseConfig = {};
   constructor() {
-    RLS().current = this;
+    this.config = {};
   }
 
   addValues(config: BaseConfig) {
-    this.config = {
-      ...this.config,
-      ...config,
-    };
+    Object.assign(this.config, config);
   }
 
   setValues(config: BaseConfig) {

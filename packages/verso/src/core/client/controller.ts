@@ -1,6 +1,6 @@
 import {createRouter, type Router} from "../common/router";
 import type {PageLoaders} from "./bootstrap";
-import {ResponderConfig} from "../common/handler/ResponderConfig";
+import {MiddlewareConfig} from "../common/handler/MiddlewareConfig";
 import {VersoRequest} from "../common/VersoRequest";
 import {createCtx} from "../common/handler/RouteHandlerCtx";
 import {createHandlerChain} from "../common/handler/chain";
@@ -274,7 +274,7 @@ export class ClientController {
     if (pageDef.type !== 'page') {
       throw new Error(`[verso] cannot navigate to handler of type ${pageDef.type}`);
     }
-    const config = new ResponderConfig();
+    const config = new MiddlewareConfig();
     const req = VersoRequest.clientInit(urlString, route.params);
     const ctx = createCtx(config, req, route);
     return {

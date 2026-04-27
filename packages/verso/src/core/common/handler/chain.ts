@@ -1,13 +1,13 @@
 import type {MiddlewareDefinition, Middleware, Scope} from "./Middleware";
 import type {RouteHandlerDefinition, RouteHandlerType, StandardizedRouteHandler} from "./RouteHandler";
-import type {ResponderConfig} from "./ResponderConfig";
+import type {MiddlewareConfig} from "./MiddlewareConfig";
 import type {RouteHandlerCtx} from "./RouteHandlerCtx";
 
 export function createHandlerChain<T extends RouteHandlerType, OptionalMethods extends {}, RequiredMethods extends {}>(
   type: T,
   def: RouteHandlerDefinition<T, OptionalMethods, RequiredMethods>,
   globalMiddleware: MiddlewareDefinition<Scope>[],
-  config: ResponderConfig,
+  config: MiddlewareConfig,
   ctx: RouteHandlerCtx,
 ): StandardizedRouteHandler<OptionalMethods, RequiredMethods> {
   const handler = def.init(ctx);

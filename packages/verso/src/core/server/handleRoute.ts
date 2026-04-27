@@ -3,7 +3,7 @@ import type {MiddlewareDefinition} from "../common/handler/Middleware";
 import {startRequest} from "../common/RequestLocalStorage";
 import {ServerCookies} from "./ServerCookies";
 import {Fetch} from "../common/fetch/Fetch";
-import {ResponderConfig} from "../common/handler/ResponderConfig";
+import {MiddlewareConfig} from "../common/handler/MiddlewareConfig";
 import {createHandlerChain} from "../common/handler/chain";
 import {handlePage} from "./handlePage";
 import {handleEndpoint} from "./handleEndpoint";
@@ -29,7 +29,7 @@ export async function handleRoute<T extends RouteHandlerType>(
     const req = VersoRequest.serverInit(nativeRequest, route.params);
     const cookies = new ServerCookies(nativeRequest);
     Fetch.serverInit(nativeRequest, settings);
-    const config = new ResponderConfig();
+    const config = new MiddlewareConfig();
     const ctx = createCtx(config, req, route);
     const handler = createHandlerChain(type, routeHandlerDef, globalMiddleware, config, ctx);
 

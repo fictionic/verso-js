@@ -1,4 +1,4 @@
-import type {BaseConfig} from "./ResponderConfig";
+import type {BaseConfig} from "./MiddlewareConfig";
 import type {MiddlewareDefinition, Scope} from "./Middleware";
 import type {RouteHandlerCtx} from "./RouteHandlerCtx";
 import type {MaybePromise} from "../util/types";
