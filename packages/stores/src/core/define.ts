@@ -18,7 +18,6 @@ import {
   type InstanceID,
   type IsoStoreDefinition,
   type IsoStoreInit,
-  type IsoStoreInstance,
   type InternalIsoStoreInstance,
   type MessageHandler,
   type OnMessage,

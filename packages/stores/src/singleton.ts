@@ -1,6 +1,6 @@
 import {getRLS} from "@verso-js/verso";
 import {useEffect, useState} from "react";
-import type {AllFunctions, CreateStoreArgs, InternalIsoStoreDefinition, IsoStoreDefinition, IsoStoreInstance, SendMessage} from "./core/types";
+import type {CreateStoreArgs, IsoStoreDefinition, IsoStoreInstance} from "./core/types";
 import {STORE_DEFINITION_INTERNALS} from "./core/constants";
 
 const RLS = getRLS<{ instances: Map<IsoStoreDefinition<any, any, any, any, any>, IsoStoreInstance<any>> }>();
@@ -13,16 +13,16 @@ function getInstances(): Map<IsoStoreDefinition<any, any, any, any, any>, IsoSto
 
 export type UseClientHooks<NativeClientHooks> = () => readonly [ready: boolean, clientHooks: NativeClientHooks];
 
-export interface SingletonIsoStoreDefinition<Opts, Message, NativeStore, NativeHooks extends AllFunctions<NativeHooks>, NativeClientHooks extends AllFunctions<NativeClientHooks>> {
-  createStore: (...args: CreateStoreArgs<Opts>) => IsoStoreInstance<NativeStore>;
-  hooks: NativeHooks;
-  useClientHooks: UseClientHooks<NativeClientHooks>;
-  message: SendMessage<Message>;
+type NativeClientHooksOf<D> = D extends IsoStoreDefinition<any, any, any, any, infer C> ? C : never;
+
+export type AsSingletonDefinition<D extends IsoStoreDefinition<any, any, any, any, any>> = {
+  createStore: D['createStore'];
+  hooks: D['hooks'];
+  useClientHooks: UseClientHooks<NativeClientHooksOf<D>>;
+  message: D['broadcast'];
 };
 
-export function asSingleton<Opts, Message, NativeStore, NativeHooks extends AllFunctions<NativeHooks>, NativeClientHooks extends AllFunctions<NativeClientHooks>>(
-  def: IsoStoreDefinition<Opts, Message, NativeStore, NativeHooks, NativeClientHooks>
-): SingletonIsoStoreDefinition<Opts, Message, NativeStore, NativeHooks, NativeClientHooks> {
+export function asSingleton<Opts, D extends IsoStoreDefinition<Opts, any, any, any, any>> (def: D): AsSingletonDefinition<D> {
   return {
     createStore: (...args: CreateStoreArgs<Opts>) => {
       const instances = getInstances();
@@ -55,7 +55,7 @@ export function asSingleton<Opts, Message, NativeStore, NativeHooks extends AllF
           setReady(true);
         });
       }, []);
-      const adapter = (def as InternalIsoStoreDefinition<Opts, Message, NativeStore, NativeHooks, NativeClientHooks>)[STORE_DEFINITION_INTERNALS].adapter;
+      const adapter = (def as any)[STORE_DEFINITION_INTERNALS].adapter;
       const useNativeStore = () => ready ? instance.nativeStore : adapter.empty;
       const clientHooks = adapter.useClientHooks(useNativeStore, ready);
       return [ready, clientHooks];

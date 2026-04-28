@@ -1,4 +1,6 @@
+import {asSingleton, type IsoStoreDefinition, type IsoStoreInstance} from "../dist";
 import {defineIsoStore, type Adapter, type IsoStoreInit} from "./adapter";
+import type {CreateStoreArgs} from "./core/types";
 
 /**
  * A minimal store adapter for the common case of fetching a single async
@@ -15,11 +17,11 @@ import {defineIsoStore, type Adapter, type IsoStoreInit} from "./adapter";
  *
  * Example:
  *
- * const MyAtom = defineAsyncAtom<number>((id) => fetchUserInfo(id));
- * const a = MyAtom.createStore(getUserIdFromRequest());
+ * const MyAtom = defineAsyncAtom((id) => fetchUserInfo(id));
+ * const a = MyAtom.create(getUserIdFromRequest());
  *
  * a.whenReady // blocks until promise resolves
- * MyAtom.hooks.useValue() // returns resolved value
+ * MyAtom.useValue() // returns resolved value
  */
 
 type Atom<T> = { value: T };
@@ -59,7 +61,29 @@ const getAdapter: <T>() => Adapter<
   };
 };
 
-export const defineAsyncAtom = <T, Opts = void>(getPromise: (opts: Opts) => Promise<T>) => {
+type AtomStoreDefinition<T, Opts> = IsoStoreDefinition<Opts, void, Atom<T>, AtomHooks<T>, AtomClientHooks<T>>;
+
+const defineAsyncAtomStore = <T, Opts = void>(getPromise: (opts: Opts) => Promise<T>): AtomStoreDefinition<T, Opts> =>  {
   const isoInit: IsoStoreInit<Opts, Atom<T>, void, Atom<T>> = (opts, { setAsync }) => setAsync('value', getPromise(opts));
   return defineIsoStore(isoInit, getAdapter<T>());
 };
+
+export interface AtomDefinition<T, Opts> {
+  createAtom: (...args: CreateStoreArgs<Opts>) => IsoStoreInstance<Atom<T>>;
+  useValue: () => T;
+}
+
+export const asAtom = <T, Opts, D extends AtomStoreDefinition<T, Opts>>(storeDefinition: Pick<D, 'createStore' | 'hooks'>): AtomDefinition<T, Opts> => {
+  return {
+    createAtom: storeDefinition.createStore,
+    useValue: storeDefinition.hooks.useAtom,
+  };
+};
+
+export const defineAsyncAtom = <T, Opts>(getPromise: (opts: Opts) => Promise<T>): AtomDefinition<T, Opts> => {
+  return asAtom(defineAsyncAtomStore(getPromise));
+}
+
+export const defineSingletonAsyncAtom = <T, Opts>(getPromise: (opts: Opts) => Promise<T>): AtomDefinition<T, Opts> => {
+  return asAtom(asSingleton(defineAsyncAtomStore(getPromise)));
+}
