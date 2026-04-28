@@ -1,5 +1,5 @@
 import React from 'react';
-import { makeRootComponent } from '@verso-js/verso';
+import {makeRootComponent} from '@verso-js/verso';
 import type {IsoStoreInstance} from './core/types';
 import {IsoStoreProvider} from './IsoStoreProvider';
 
@@ -16,6 +16,7 @@ function StoreRoot({ stores, children }: Props) {
 export default makeRootComponent<Props>(
   StoreRoot,
   ({ stores }) => ({
-    when: Promise.all(stores.map((store) => store.whenReady)).then(() => null),
+    when: Promise.all(stores.map((store) => store.whenReady)).then(() => {}),
+    // ^make useRootData return void. children should use the hooks from the stores.
   }),
 );

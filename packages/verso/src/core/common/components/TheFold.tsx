@@ -1,3 +1,3 @@
-export default function TheFold(): React.ReactNode {
+export function TheFold(): React.ReactNode {
   throw new Error('TheFold cannot go inside non-RootContainers');
 }

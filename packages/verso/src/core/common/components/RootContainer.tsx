@@ -15,7 +15,7 @@ export type RootContainerProps = RenderableHTMLAttributes & {
   children?: React.ReactNode;
 }
 
-export default function RootContainer(_: RootContainerProps): React.ReactNode {
+export function RootContainer(_: RootContainerProps): React.ReactNode {
   throw new Error('RootContainers cannot go inside non-RootContainers');
 }
 

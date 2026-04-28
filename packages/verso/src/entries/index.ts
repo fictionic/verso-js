@@ -15,9 +15,9 @@ export { getRLS } from '../core/common/RequestLocalStorage';
 export { navigateTo } from '../core/client/navigateTo';
 
 // Components
-export { Root, makeRootComponent, type RootAPI, type RootComponent, type RootElementType } from '../core/common/components/Root';
-export { default as RootContainer } from '../core/common/components/RootContainer';
-export { default as TheFold } from '../core/common/components/TheFold';
+export { Root, useRootData, makeRootComponent, type RootAPI, type RootComponent, type RootElementType } from '../core/common/components/Root';
+export { RootContainer } from '../core/common/components/RootContainer';
+export { TheFold } from '../core/common/components/TheFold';
 
 // Configuration
 export { defineConfig, type VersoConfig } from '../build/config';

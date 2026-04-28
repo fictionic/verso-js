@@ -1,12 +1,11 @@
-import React, {StrictMode, type ReactElement, type ReactNode} from 'react';
+import React, {createContext, StrictMode, useContext, type ReactElement, type ReactNode} from 'react';
 
 const ROOT_COMPONENT = Symbol('verso.RootComponent');
 
-type WhenValue = object | null | undefined;
-type When = Promise<WhenValue>;
+type WhenResult = unknown;
 
 export interface RootAPI {
-  when?: When;
+  when?: Promise<WhenResult>;
 };
 
 interface RootProps extends RootAPI {
@@ -23,9 +22,9 @@ export interface RootComponent<P> extends React.FC<P> {
 
 export type RootElementType<P = object> = React.ReactElement<P> & { type: RootComponent<P> };
 
-export function makeRootComponent<P extends object>(
+export function makeRootComponent<P>(
   Component: React.FC<P>,
-  deriveRootAPI: DeriveRootAPI<P> = (p) => p,
+  deriveRootAPI: DeriveRootAPI<P>,
 ): RootComponent<P> {
   return Object.assign(
     Component,
@@ -44,15 +43,29 @@ export function ensureRootElement(element: ReactElement): RootElementType {
 const RootPassthrough: React.FC<{ children: ReactNode }> = ({ children }) => children;
 RootPassthrough.displayName = 'Root';
 
-export const Root = makeRootComponent<RootProps>(RootPassthrough);
+export const Root = makeRootComponent<RootProps>(RootPassthrough, (p) => p);
 
-// --- scheduleRender: delay rendering until root is ready
+const NO_ROOT = Symbol('verso.NoRoot');
+const RootContext = createContext<WhenResult>(NO_ROOT);
 
-export function scheduleRender(element: RootElementType): Promise<ReactElement> {
+export async function scheduleRender(element: RootElementType): Promise<ReactElement> {
   const { deriveRootAPI } = element.type[ROOT_COMPONENT];
   const { when } = deriveRootAPI(element.props);
-  const ready = when ?? Promise.resolve();
-  return ready.then(() => {
-    return <StrictMode>{element}</StrictMode>;
-  });
+  const promise = when ?? Promise.resolve();
+  const data = await promise;
+  return (
+    <StrictMode>
+      <RootContext.Provider value={data}>
+        {element}
+      </RootContext.Provider>
+    </StrictMode>
+  );
+}
+
+export function useRootData<T>(): T {
+  const value = useContext(RootContext);
+  if (value === NO_ROOT) {
+    throw new Error('[verso] useRootData() called outside a Root!');
+  }
+  return value as T;
 }

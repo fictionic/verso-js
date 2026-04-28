@@ -1,7 +1,7 @@
 import React from "react";
-import RootContainer, {type RootContainerElementType} from "./components/RootContainer";
-import TheFold from "./components/TheFold";
+import {RootContainer, type RootContainerElementType} from "./components/RootContainer";
 import {ensureRootElement, type RootElementType} from "./components/Root";
+import {TheFold} from "./components/TheFold";
 
 export const TOKEN = {
   ROOT: 'ROOT',
@@ -48,7 +48,7 @@ function isTheFold(element: React.ReactElement): boolean {
 }
 
 function isRootContainer(element: React.ReactElement): element is RootContainerElementType {
-  return React.isValidElement(element) && element?.type === RootContainer;
+  return React.isValidElement(element) && element.type === RootContainer;
 };
 
 export function tokenizeContainer(element: RootContainerElementType): PageElementToken[] {
