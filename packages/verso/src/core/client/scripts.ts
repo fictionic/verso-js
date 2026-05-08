@@ -32,7 +32,7 @@ export class ScriptTransitioner {
     const scriptType = script.type ?? '';
     const scriptContent = 'src' in script ?
       'src|' + normalizeUrl(script.src) :
-      'text|' + script.content;
+      'text|' + script.text;
     return `type:${scriptType}|${scriptContent}`;
   }
 
@@ -42,7 +42,7 @@ export class ScriptTransitioner {
       ...(!!node.src ? {
         src: node.src,
       } : {
-        content: node.innerHTML,
+        text: node.innerHTML,
       }),
     };
     return this.keyFor(script);
@@ -52,8 +52,8 @@ export class ScriptTransitioner {
   createScriptNode(script: Script): HTMLScriptElement {
     const node = document.createElement('script');
     setNodeAttrs(node, getScriptAttrs(script));
-    if ('content' in script) {
-      node.innerHTML = script.content;
+    if ('text' in script) {
+      node.innerHTML = script.text;
     }
     return node;
   }

@@ -138,7 +138,6 @@ export class StyleTransitioner {
   createStyleNode(style: Stylesheet): StyleElement {
     if ('href' in style) {
       const node = document.createElement('link');
-      node.rel = 'stylesheet';
       setNodeAttrs(node, getStyleAttrs(style));
       return node;
     }

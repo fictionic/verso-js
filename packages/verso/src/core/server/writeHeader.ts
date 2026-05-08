@@ -1,9 +1,8 @@
-import {PAGE_HEADER_LINK_ELEMENT_ATTR, PAGE_HEADER_STYLE_ELEMENT_ATTR} from "../common/constants";
-import {getMetaTagAttrs} from "../common/handler/Page";
-import type {StandardizedPage, Stylesheet, LinkTag, MetaTag, BaseTag} from "../common/handler/Page";
+import {getBaseTagAttrs, getLinkTagAttrs, getMetaTagAttrs, getStyleAttrs} from "../common/handler/Page";
+import type {StandardizedPage, Stylesheet, LinkTag, MetaTag, BaseTag, Attrs} from "../common/handler/Page";
 
 export function writeHeader(page: StandardizedPage, write: (html: string) => void) {
-  write('<meta charset="utf-8" />'); // TODO is this needed given we set Content-Type in handleRoute?
+  write('<meta charset="utf-8">'); // doesn't affect the browser but nice to have
   write(renderBaseTag(page.getBase()));
   write(renderMetaTags(page.getMetaTags()));
   write(renderTitle(page.getTitle()));
@@ -15,16 +14,12 @@ export function writeHeader(page: StandardizedPage, write: (html: string) => voi
 
 function renderBaseTag(base: BaseTag | null): string {
   if (!base) return '';
-  let s = '<base';
-  if (base.href) s += ` href="${escapeHtml(base.href)}"`;
-  if (base.target) s += ` target="${escapeHtml(base.target)}"`;
-  return s + '>';
+  return renderOpenTag('base', getBaseTagAttrs(base));
 }
 
 function renderMetaTags(tags: MetaTag[]): string {
   return tags.map(t => {
-    const attrs = Object.entries(getMetaTagAttrs(t)).map(([k, v]) => ` ${k}="${escapeHtml(v)}"`).join('');
-    const tag = `<meta${attrs}>`;
+    const tag = renderOpenTag('meta', getMetaTagAttrs(t));
     return t.noscript ? `<noscript>${tag}</noscript>` : tag;
   }).join('\n');
 }
@@ -38,27 +33,30 @@ function renderTitle(title: string | null): string {
 
 function renderLinkTags(tags: LinkTag[]): string {
   return tags.map(t => {
-    let s = `<link ${PAGE_HEADER_LINK_ELEMENT_ATTR} rel="${escapeHtml(t.rel)}" href="${escapeHtml(t.href)}"`;
-    if (t.as) s += ` as="${escapeHtml(t.as)}"`;
-    if (t.crossorigin) s += ` crossorigin="${escapeHtml(t.crossorigin)}"`;
-    if (t.type) s += ` type="${escapeHtml(t.type)}"`;
-    return s + '>';
+    return renderOpenTag('link', getLinkTagAttrs(t));
   }).join('\n');
 }
 
 function renderStylesheets(stylesheets: Stylesheet[]): string {
   return stylesheets.map(s => {
-    const dataAttr = s.dataAttr
-      ? ` ${s.dataAttr.name}${s.dataAttr.value != null ? `="${escapeHtml(s.dataAttr.value)}"` : ''}`
-      : '';
+    const attrs = getStyleAttrs(s);
     if ('href' in s) {
-      return `<link ${PAGE_HEADER_STYLE_ELEMENT_ATTR} rel="stylesheet" href="${escapeHtml(s.href)}"${dataAttr}>`;
+      return renderOpenTag('link', attrs);
     }
-    const type = s.type ?? 'text/css';
-    const media = s.media ?? '';
-    const mediaAttr = media ? ` media="${escapeHtml(media)}"` : '';
-    return `<style ${PAGE_HEADER_STYLE_ELEMENT_ATTR} type="${escapeHtml(type)}"${mediaAttr}${dataAttr}>${escapeStyleText(s.text)}</style>`;
+    return `${renderOpenTag('style', attrs)}${escapeStyleText(s.text)}</style>`;
   }).join('\n');
+}
+
+export function renderOpenTag(name: string, attrs: Attrs): string {
+  const a = renderAttrs(attrs);
+  return `<${name}${a ? ` ${a}` : ''}>`;
+}
+
+function renderAttrs(attrs: Attrs): string {
+  return Object.entries(attrs).map(([name, value]) => {
+    if (!value) return name;
+    return `${name}="${escapeHtml(value)}"`;
+  }).join(' ');
 }
 
 function escapeHtml(v: string): string {

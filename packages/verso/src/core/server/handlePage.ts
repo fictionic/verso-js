@@ -121,22 +121,19 @@ export function handlePage(page: StandardizedPage, { renderTimeout }: ServerSett
   }
 
   writePage().catch((err) => {
-    console.error("unexpected error writing page", err);
+    console.error("[verso] unexpected error writing page", err);
     writable.close();
   });
-  return readable;
 
+  return {
+   getContentType: () => 'text/html; charset=utf-8',
+   getBody: () => readable,
+  };
 };
 
-
 function renderScript(script: Script): string {
-  const type = script.type ? ` type="${script.type}"` : '';
-  const async = script.async ? ' async' : '';
-  const defer = script.defer ? ' defer' : '';
-  if ('content' in script) {
-    return `<script ${PAGE_HEADER_SCRIPT_ELEMENT_ATTR}${type}>${script.content}</script>\n`;
-  }
-  return `<script ${PAGE_HEADER_SCRIPT_ELEMENT_ATTR}${async}${defer}${type} src="${script.src}"></script>\n`;
+  const text = 'text' in script ? script.text : '';
+  return `${renderOpenTag('script', getScriptAttrs(script))}${text}</script>\n`;
 }
 
 function buffered(writer: WritableStreamDefaultWriter) {

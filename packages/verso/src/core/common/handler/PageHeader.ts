@@ -1,15 +1,23 @@
-type StringAttributesOf<T> = { [K in keyof T as T[K] extends string ? K : never]?: string }
+import {PAGE_HEADER_LINK_ELEMENT_ATTR, PAGE_HEADER_SCRIPT_ELEMENT_ATTR, PAGE_HEADER_STYLE_ELEMENT_ATTR} from "../constants";
 
-export type Stylesheet =
-  | { href: string; dataAttr?: { name: string; value?: string } }
-  | { text: string; type?: string; media?: string; dataAttr?: { name: string; value?: string } };
+export type Attrs = Record<string, string>;
 
-export function getStyleAttrs(stylesheet: Stylesheet): StringAttributesOf<HTMLLinkElement | HTMLStyleElement> {
-  const attrs: Record<string, string> = {};
+/**
+ * Defines a stylesheet, either via <link rel="stylesheet"> or via an inline <style>.
+ */
+export type Stylesheet = (
+  | { href: string; }
+  | { text: string; media?: string; }
+) & { dataAttr?: { name: string; value?: string } };
+
+export function getStyleAttrs(stylesheet: Stylesheet): Attrs {
+  const attrs: Record<string, string> = {
+    [PAGE_HEADER_STYLE_ELEMENT_ATTR]: '',
+  };
   if ('href' in stylesheet) {
     attrs.href = stylesheet.href;
+    attrs.rel = 'stylesheet';
   } else {
-    if (stylesheet.type) attrs.type = stylesheet.type;
     if (stylesheet.media) attrs.media = stylesheet.media;
   }
   if (stylesheet.dataAttr) {
@@ -18,29 +26,38 @@ export function getStyleAttrs(stylesheet: Stylesheet): StringAttributesOf<HTMLLi
   return attrs;
 }
 
-export type Script =
-  ({ src: string } | { content: string }) &
-  { async?: boolean; defer?: boolean; type?: string };
+export type Script = &
+  { type?: string; } &
+  ({
+    src: string;
+    async?: boolean;
+    defer?: boolean;
+  } | {
+    text: string
+  });
 
-export function getScriptAttrs(script: Script): StringAttributesOf<HTMLScriptElement> {
-  return {
-    ...(
-      'type' in script ? {
-        type: script.type,
-      } : {}
-    ),
-    ...(
-      'src' in script ? {
-        src: script.src,
-      } : {}
-    ),
+export function getScriptAttrs(script: Script): Attrs {
+  const attrs: Attrs = {
+    [PAGE_HEADER_SCRIPT_ELEMENT_ATTR]: '',
   };
+  if ('type' in script && script.type) attrs.type = script.type;
+  if ('src' in script) attrs.src = script.src;
+  if ('async' in script && script.async) attrs.async = '';
+  if ('defer' in script && script.defer) attrs.defer = '';
+  return attrs;
 }
 
 export type BaseTag = {
   href?: string;
   target?: string;
 };
+
+export function getBaseTagAttrs(base: BaseTag): Attrs {
+  const attrs: Attrs = {};
+  if (base.href) attrs.href = base.href;
+  if (base.target) attrs.target = base.target;
+  return attrs;
+}
 
 export type LinkTag = {
   rel: string;
@@ -50,25 +67,37 @@ export type LinkTag = {
   type?: string;
 };
 
-export type MetaTag = (
-  | { name: string; content: string }
-  | { property: string; content: string }
-  | { httpEquiv: string; content: string }
-) & { noscript?: boolean };
+export function getLinkTagAttrs(link: LinkTag): Attrs {
+  return {
+    [PAGE_HEADER_LINK_ELEMENT_ATTR]: '',
+    ...link,
+  };
+}
+
+export type MetaTag = &
+  (
+   { name: string; } |
+   { property: string; } |
+   { httpEquiv: string; }
+  ) & {
+    content: string;
+    /**
+     * Wraps the <meta> in a <noscript>
+     */
+    noscript?: boolean;
+  };
 // excluding 'charset' because we hardcode it in writeHeader
 
-export function getMetaTagAttrs(tag: MetaTag): StringAttributesOf<HTMLMetaElement> {
-  const m = tag as { name?: string; property?: string; httpEquiv?: string; charset?: string; content?: string };
-  const attrs: Record<string, string> = {};
-  if (m.name)      attrs.name = m.name;
-  if (m.httpEquiv) attrs['http-equiv'] = m.httpEquiv;
-  if (m.charset)   attrs.charset = m.charset;
-  if (m.property)  attrs.property = m.property;
-  if (m.content)   attrs.content = m.content;
+export function getMetaTagAttrs(meta: MetaTag): Attrs {
+  const attrs: Attrs = {};
+  if ('name' in meta)      attrs.name = meta.name;
+  if ('property' in meta)  attrs.property = meta.property;
+  if ('httpEquiv' in meta) attrs['http-equiv'] = meta.httpEquiv;
+  if ('content' in meta)   attrs.content = meta.content;
   return attrs;
 }
 
-export function setNodeAttrs<T extends HTMLElement>(node: T, attrs: StringAttributesOf<T>) {
+export function setNodeAttrs(node: HTMLElement, attrs: Attrs) {
   Object.keys(attrs).forEach((attr) => {
     node.setAttribute(attr, (attrs as any)[attr]);
   });

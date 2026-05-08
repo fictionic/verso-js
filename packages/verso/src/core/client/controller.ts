@@ -193,7 +193,7 @@ export class ClientController {
     });
     page.getLinkTags().forEach((link) => {
       const node = document.createElement('link');
-      setNodeAttrs(node, link);
+      setNodeAttrs(node, getLinkTagAttrs(link));
       document.head.appendChild(node);
     });
     // update meta tags. throw away old ones and add new ones
