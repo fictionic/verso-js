@@ -24,11 +24,11 @@ declare module './RouteHandler' {
 export interface PageOptionalMethods {
   getTitle(): string | null;
   getBase(): BaseTag | null;
-  getSystemStylesheets(): MaybePromise<Stylesheet[]>;
+  getSystemStylesheets(): Stylesheet[];
   getStylesheets(): Stylesheet[];
-  getSystemScripts(): MaybePromise<Script[]>;
+  getSystemScripts(): Script[];
   getScripts(): Script[];
-  getSystemLinkTags(): MaybePromise<LinkTag[]>;
+  getSystemLinkTags(): LinkTag[];
   getLinkTags(): LinkTag[];
   getMetaTags(): MetaTag[];
   getBodyClasses(): MaybePromise<string[]>;
