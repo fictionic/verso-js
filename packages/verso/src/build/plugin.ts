@@ -315,8 +315,6 @@ export default async function verso(configPathOverride?: string): Promise<Plugin
                   return;
                 }
                 const handlerPath = path.resolve(pluginContext!.resolvedRootDir, routes[routeName].handler);
-                // Ensure the handler module graph is populated before walking it
-                await vite.ssrLoadModule(handlerPath);
                 const stylesheets = await collectCss(vite, handlerPath);
                 res.setHeader('Content-Type', 'application/json');
                 res.end(JSON.stringify({ stylesheets }));

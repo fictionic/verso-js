@@ -2,12 +2,16 @@ import type { ViteDevServer, ModuleNode } from 'vite';
 import type { Stylesheet } from '../core/common/handler/Page';
 
 /**
+ * Needed for fetching CSS on client transitions in dev mode.
+ *
  * Walk the module graph for a handler and return its transitive CSS as `<link>`-style
  * stylesheets. Each stylesheet points at Vite's raw-CSS endpoint (`?direct`), and
  * carries the Vite module id as a data attribute so the client can reconcile link
  * tags against Vite's own `<style data-vite-dev-id>` injections during transitions.
  */
 export async function collectCss(vite: ViteDevServer, handlerPath: string): Promise<Stylesheet[]> {
+  // ensure the handler module graph is populated before walking it
+  await vite.ssrLoadModule(handlerPath);
   const rootNode = await vite.moduleGraph.getModuleByUrl(handlerPath);
   if (!rootNode) return [];
 
