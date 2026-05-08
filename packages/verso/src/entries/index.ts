@@ -1,7 +1,7 @@
 // Handler definition APIs
 export { definePage, type Page, type PageInit, type PageDefinition, type Stylesheet, type LinkTag } from '../core/common/handler/Page';
 export { defineMiddleware, type Middleware, type MiddlewareDefinition, type Scope } from '../core/common/handler/Middleware';
-export { defineEndpoint, type Endpoint, type EndpointInit, type EndpointDefinition, type EndpointResponseData } from '../core/common/handler/Endpoint';
+export { defineEndpoint, type Endpoint, type EndpointInit, type EndpointDefinition } from '../core/common/handler/Endpoint';
 export type { RouteHandlerCtx } from '../core/common/handler/RouteHandlerCtx';
 export type { RouteDirective } from '../core/common/handler/RouteHandler';
 

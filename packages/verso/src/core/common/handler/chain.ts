@@ -4,16 +4,15 @@ import type {MiddlewareConfig} from "./MiddlewareConfig";
 import type {RouteHandlerCtx} from "./RouteHandlerCtx";
 
 export function createHandlerChain<T extends RouteHandlerType, OptionalMethods extends {}, RequiredMethods extends {}>(
-  type: T,
   def: RouteHandlerDefinition<T, OptionalMethods, RequiredMethods>,
   globalMiddleware: MiddlewareDefinition<Scope>[],
   config: MiddlewareConfig,
   ctx: RouteHandlerCtx,
-): StandardizedRouteHandler<OptionalMethods, RequiredMethods> {
+): StandardizedRouteHandler<T, OptionalMethods, RequiredMethods> {
   const handler = def.init(ctx);
 
   const baseMiddleware = [...globalMiddleware, ...(handler.middleware ?? [])];
-  const allMiddleware = recursivelyExpandMiddleware(baseMiddleware, ctx, type);
+  const allMiddleware = recursivelyExpandMiddleware(baseMiddleware, ctx, def.type);
   allMiddleware.forEach((m) => {
     const addValues = m.addConfigValues?.();
     if (addValues) {

@@ -15,14 +15,20 @@ import {
   type StandardizedRouteHandler,
 } from "./RouteHandler";
 
+declare module './RouteHandler' {
+  interface HandlerRegistry {
+    page: { optional: PageOptionalMethods; required: PageRequiredMethods };
+  }
+}
+
 export interface PageOptionalMethods {
   getTitle(): string | null;
   getBase(): BaseTag | null;
-  getSystemStylesheets(): Stylesheet[];
+  getSystemStylesheets(): MaybePromise<Stylesheet[]>;
   getStylesheets(): Stylesheet[];
-  getSystemScripts(): Script[];
+  getSystemScripts(): MaybePromise<Script[]>;
   getScripts(): Script[];
-  getSystemLinkTags(): LinkTag[];
+  getSystemLinkTags(): MaybePromise<LinkTag[]>;
   getLinkTags(): LinkTag[];
   getMetaTags(): MetaTag[];
   getBodyClasses(): MaybePromise<string[]>;
@@ -39,7 +45,7 @@ export type PageInit = RouteHandlerInit<'page', Page>;
 
 export type PageDefinition = RouteHandlerDefinition<'page', PageOptionalMethods, PageRequiredMethods>;
 
-export type StandardizedPage = StandardizedRouteHandler<PageOptionalMethods, PageRequiredMethods>;
+export type StandardizedPage = StandardizedRouteHandler<'page', PageOptionalMethods, PageRequiredMethods>;
 
 const PAGE_REQUIRED_METHOD_NAMES: (keyof PageRequiredMethods)[] = ['getElements'];
 
