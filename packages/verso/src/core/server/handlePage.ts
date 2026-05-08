@@ -1,16 +1,16 @@
 import {Fetch} from "../common/fetch/Fetch";
 import {FETCH_CACHE_KEY, FN_ABORT_HYDRATION, FN_HYDRATE_ROOTS_UP_TO, FN_RECEIVE_LATE_DATA_ARRIVAL, VersoPipe} from "../common/VersoPipe";
-import type {Script, StandardizedPage} from "../common/handler/Page";
+import {getScriptAttrs, type Script, type StandardizedPage} from "../common/handler/Page";
 import {writeBody} from "./writeBody";
-import {writeHeader} from "./writeHeader";
-import {PAGE_HEADER_SCRIPT_ELEMENT_ATTR} from "../common/constants";
+import {renderOpenTag, writeHeader} from "./writeHeader";
 import type {ServerSettings} from "../../build/config";
 import {getElapsedRequestTime} from "./clock";
 import type {CacheableRequest, CachedResponse} from "../common/fetch/cache";
+import type {RouteResponse} from "./RouteResponder";
 
 const encoder = new TextEncoder();
 
-export function handlePage(page: StandardizedPage, { renderTimeout }: ServerSettings): ReadableStream {
+export function handlePage(page: StandardizedPage, { renderTimeout }: ServerSettings): RouteResponse {
   const { readable, writable } = new TransformStream<Uint8Array>();
 
   const writer = writable.getWriter();
@@ -24,11 +24,10 @@ export function handlePage(page: StandardizedPage, { renderTimeout }: ServerSett
 
   async function writePage() {
     write(`<!DOCTYPE html><html lang="en"><head>`);
-    writeHeader(page, write);
+    await writeHeader(page, write);
     write(`</head>`);
-    const bodyClasses = await page.getBodyClasses();
-    write(`<body class="${bodyClasses.join(' ')}">`);
-    flush();
+    flush(); // initiate preloads asap
+    write(await renderBodyOpen());
 
     let haveBootstrapped = false;
 
@@ -41,24 +40,24 @@ export function handlePage(page: StandardizedPage, { renderTimeout }: ServerSett
       lastRootIndex = index;
     };
 
-    const onTheFold = (index: number) => {
+    const onTheFold = async (index: number) => {
       if (haveBootstrapped) {
         console.warn(`writePage: unexpected additional TheFold at index ${index}`);
         return;
       }
-      bootstrapClient(index);
+      await bootstrapClient(index);
       lateArrivalsDfd.resolve(setupLateArrivals());
       haveBootstrapped = true;
     };
-
-    const elapsedTime = getElapsedRequestTime();
-    const remainingTime = Math.max(0, renderTimeout - elapsedTime);
 
     const abortController = new AbortController();
 
     function abortHydration() {
       writeablePipe.callFn(FN_ABORT_HYDRATION, []);
     }
+
+    const elapsedTime = getElapsedRequestTime();
+    const remainingTime = Math.max(0, renderTimeout - elapsedTime);
 
     const abortTimeout = setTimeout(() => {
       abortController.abort();
@@ -73,21 +72,27 @@ export function handlePage(page: StandardizedPage, { renderTimeout }: ServerSett
 
     if (!haveBootstrapped) {
       // if TheFold wasn't declared, then it's after the last root
-      onTheFold(lastRootIndex + 1);
+      await onTheFold(lastRootIndex + 1);
     }
 
     await finish(abortSignal);
     clearTimeout(abortTimeout);
-  };
+  }
+
+  async function renderBodyOpen() {
+    const bodyClasses = await page.getBodyClasses();
+    const bodyAttrs = bodyClasses.length ? ` class="${bodyClasses.join(' ')}"` : '';
+    return `<body${bodyAttrs}>`;
+  }
 
   function hydrateRootsUpTo(index: number) {
     writeablePipe.callFn(FN_HYDRATE_ROOTS_UP_TO, [index]);
   }
 
-  function bootstrapClient(theFoldIndex: number) {
+  async function bootstrapClient(theFoldIndex: number) {
     const fetchCache = Fetch.getCache().server().dehydrate();
     writeablePipe.writeValue(FETCH_CACHE_KEY, fetchCache);
-    for (const script of [...page.getSystemScripts(), ...page.getScripts()]) {
+    for (const script of [...await page.getSystemScripts(), ...page.getScripts()]) {
       write(renderScript(script));
     }
     hydrateRootsUpTo(theFoldIndex - 1);

@@ -1,2 +1,2 @@
-import { handleRoute } from '../core/server/handleRoute';
-export default handleRoute;
+import { handleRequest } from '../core/server/handleRequest';
+export default handleRequest;

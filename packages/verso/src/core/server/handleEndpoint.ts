@@ -1,8 +1,9 @@
-import type {EndpointResponseData, StandardizedEndpoint} from "../common/handler/Endpoint";
+import type {StandardizedEndpoint} from "../common/handler/Endpoint";
+import type {RouteResponse} from "./RouteResponder";
 
-export async function handleEndpoint(
-  endpoint: StandardizedEndpoint,
-): Promise<EndpointResponseData> {
-  const data = await endpoint.getResponseData();
-  return data;
+export function handleEndpoint(endpoint: StandardizedEndpoint): RouteResponse {
+  return {
+    getContentType: () => endpoint.getContentType(),
+    getBody: () => endpoint.getResponseData(),
+  };
 }

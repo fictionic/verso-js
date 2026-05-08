@@ -5,26 +5,26 @@ import react from '@vitejs/plugin-react';
 import type { BuildEnvironmentOptions, ConfigEnv, Plugin, ViteDevServer } from 'vite';
 import { fillServerSettings, type VersoConfig } from './config';
 import type { RouteHandler } from '../core/common/handler/RouteHandler';
-import type { Script, Stylesheet } from '../core/common/handler/Page';
+import type { Script } from '../core/common/handler/Page';
 import type { BundleManifest } from './bundle';
 import { BUNDLES_DIR } from './bundle';
 import { DEV_ROUTE_CSS_PATH } from '../core/common/constants';
-import { createRouter } from '../core/common/router';
 import { createViteBundleLoader } from './ViteBundleLoader';
 import { toURL, toWebRequest, sendWebResponse } from './nodeHttp';
 import { getEntrypointGenerator, type EntrypointGenerator } from './entrypoint';
 import { createJiti, type Jiti } from 'jiti';
-import { html404, html500 } from '../core/server/errorPages';
+import { html500 } from '../core/server/errorPages';
 import {collectCss} from './collectCss';
-import type {HandleRoute} from '../core/server/handleRoute';
+import type {HandleRequest} from '../core/server/handleRequest';
 import type { MiddlewareDefinition } from '../core/common/handler/Middleware';
+import {createNavigator} from '../core/common/navigator';
 
 const VERSO_CONFIG_FILE_NAME = 'verso.config.ts';
 
 const VERSO_DIST_ROOT = path.dirname(fileURLToPath(import.meta.url)); // we are running from dist/plugin.js
 
 // some modules we have to import dynamically through the vite module graph
-const HANDLE_ROUTE_PATH = path.resolve(VERSO_DIST_ROOT, 'server.js');
+const SERVER_PATH = path.resolve(VERSO_DIST_ROOT, 'server.js');
 
 const CLIENT_ENTRY_VIRTUAL_ID = 'virtual:verso/entry';
 const CLIENT_ENTRY_RESOLVED_ID = '\0' + CLIENT_ENTRY_VIRTUAL_ID;
@@ -97,8 +97,12 @@ export default async function verso(configPathOverride?: string): Promise<Plugin
         // - `IS_SERVER` (bare) is the public contract for user code (declared
         //   in globals.d.ts). Replace it for DCE on server-only branches.
         // - `globalThis.IS_SERVER` / `globalThis.IS_DEV` is what verso's own
-        //   source uses internally, so the dist files can run in Node without
-        //   a ReferenceError. Replace those too so Vite can DCE our runtime.
+        //   source uses internally. This is defensive: a bare `IS_SERVER` at
+        //   module scope would ReferenceError if the file were ever imported
+        //   before Vite's defines are active (e.g. transitively from this
+        //   plugin). Today nothing in the plugin's import chain hits those
+        //   paths, but `globalThis.` keeps it safe if that changes.
+        //   Replace both forms so Vite can DCE our runtime.
         if (env.command === 'serve') {
           return {
             ...shared,
@@ -190,7 +194,7 @@ export default async function verso(configPathOverride?: string): Promise<Plugin
       async load(id) {
         const { entrypointGenerator } = pluginContext!;
         if (id === CLIENT_ENTRY_RESOLVED_ID) {
-          return entrypointGenerator.generateHandlerClientEntrypoint();
+          return entrypointGenerator.generateClientEntrypoint();
         }
 
         if (id === SERVER_ENTRY_RESOLVED_ID) {
@@ -267,19 +271,18 @@ export default async function verso(configPathOverride?: string): Promise<Plugin
         const { port } = serverSettings;
 
         const { routes } = versoConfig;
-        const router = createRouter(routes);
 
         const entryUrl = `/@id/__x00__${CLIENT_ENTRY_VIRTUAL_ID}`;
 
-        const handleRoute = await importWithVite<HandleRoute>(vite, HANDLE_ROUTE_PATH);
-        let currentRouteStylesheets: Record<string, Stylesheet[]> = {};
+        const handleRequest = await importWithVite<HandleRequest>(vite, SERVER_PATH);
 
         const routeScripts: Record<string, string[]> = {};
         for (const routeName of Object.keys(routes)) {
           routeScripts[routeName] = [entryUrl];
         }
         const viteDevScripts: Script[] = [
-          { content: react.preambleCode.replace('__BASE__', '/'), type: 'module' }, // vite react hmr preamble (inline)
+          { text: react.preambleCode.replace('__BASE__', '/'), type: 'module' }, // vite react hmr preamble (inline)
+          // TODO why do we need to replace __BASE__ with '/'? what is '/'?
           { src: '/@vite/client', type: 'module' }, // vite dev client
         ];
         const bundleLoader = createViteBundleLoader({
@@ -297,7 +300,16 @@ export default async function verso(configPathOverride?: string): Promise<Plugin
         const siteMiddleware = await Promise.all(
           siteMiddlewarePaths.map((modulePath) => importWithVite<MiddlewareDefinition>(vite, modulePath))
         );
-        const allMiddleware: Array<MiddlewareDefinition> = [...systemMiddleware, ...siteMiddleware];
+        const globalMiddleware: Array<MiddlewareDefinition> = [...systemMiddleware, ...siteMiddleware];
+
+        const getRouteHandler = async (handlerPath: string) => {
+          const absoluteHandlerPath = path.resolve(pluginContext!.resolvedRootDir, handlerPath);
+          return await importWithVite<RouteHandler<any, any, any>>(
+            vite,
+            absoluteHandlerPath,
+          );
+        };
+        const navigator = createNavigator(routes, getRouteHandler, globalMiddleware);
 
         return () => {
           vite.middlewares.use(async (req, res) => {
@@ -321,33 +333,10 @@ export default async function verso(configPathOverride?: string): Promise<Plugin
                 return;
               }
 
-              const route = router.matchRoute(url.pathname, req.method ?? 'GET');
-
-              if (!route) {
-                res.statusCode = 404;
-                res.setHeader('Content-Type', 'text/html; charset=utf-8');
-                res.end(html404);
-                return;
-              }
-
-              const handlerPath = path.resolve(pluginContext!.resolvedRootDir, route.handler);
-              const handler = await importWithVite<RouteHandler<any, any, any>>(
-                vite,
-                handlerPath,
-              );
-
-              // Collect CSS from Vite's module graph for this handler
-              currentRouteStylesheets = {
-                [route.routeName]: await collectCss(vite, handlerPath),
-              };
-
               const request = toWebRequest(req, url);
-              const response = await handleRoute(
-                handler.type,
-                route,
-                handler,
-                allMiddleware,
+              const response = await handleRequest(
                 request,
+                navigator,
                 serverSettings,
               );
               await sendWebResponse(res, response);

@@ -4,17 +4,7 @@ export class VersoRequest {
   private url: URL;
   private routeParams: ParamData;
 
-  static serverInit(req: Request, params: ParamData) {
-    const url = new URL(req.url);
-    return new VersoRequest(url, params);
-  }
-
-  static clientInit(relativeUrl: string, params: ParamData) {
-    const url = new URL(window.location.origin + relativeUrl);
-    return new VersoRequest(url, params);
-  }
-
-  private constructor(url: URL, params: ParamData) {
+  constructor(url: URL, params: ParamData) {
     this.url = url;
     this.routeParams = params;
   }

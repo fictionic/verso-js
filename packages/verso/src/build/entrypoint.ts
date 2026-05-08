@@ -5,10 +5,10 @@ import {fillServerSettings, type VersoConfig} from './config';
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 
 const BOOTSTRAP_PATH = path.resolve(__dirname, 'bootstrap.js');
-const SERVER_PATH = path.resolve(__dirname, 'build.js');
+const BUILD_PATH = path.resolve(__dirname, 'build.js');
 
 export interface EntrypointGenerator {
-  generateHandlerClientEntrypoint(): string;
+  generateClientEntrypoint(): string;
   generateServerEntrypoint(): string;
 }
 
@@ -24,12 +24,14 @@ export function getEntrypointGenerator(
     .map((modulePath) => path.resolve(handlerBasePath, modulePath));
 
   return {
-    generateHandlerClientEntrypoint(): string {
+    generateClientEntrypoint(): string {
       const pageImporterEntries = Object.entries(routes)
-        .map(([routeName, routeConfig]) => {
+        .map(([_, routeConfig]) => {
           // clientside, we generate lazy-loaders so each page is only imported when routed to
-          const absolutePagePath = path.resolve(handlerBasePath, routeConfig.handler);
-          return `${quote(routeName)}: () => import(${quote(absolutePagePath)})`;
+          // TODO: ensure that the requested routes's loader is module-preloaded
+          const handlerPath = routeConfig.handler;
+          const absolutePagePath = path.resolve(handlerBasePath, handlerPath);
+          return `${quote(handlerPath)}: () => import(${quote(absolutePagePath)})`;
         });
 
       const {
@@ -61,10 +63,11 @@ bootstrap(routes, pageLoaders, middleware, manifest);
 
     generateServerEntrypoint(): string {
       const routeHandlerArray = Object.entries(routes)
-        .map(([routeName, routeConfig]) => {
+        .map(([_, routeConfig]) => {
+          const handlerPath = routeConfig.handler;
           return {
-            routeName,
-            modulePath: path.resolve(handlerBasePath, routeConfig.handler),
+            handlerPath,
+            modulePath: path.resolve(handlerBasePath, handlerPath),
           };
         });
       const routeHandlerModulePaths = routeHandlerArray.map(({ modulePath }) => modulePath);
@@ -73,7 +76,7 @@ bootstrap(routes, pageLoaders, middleware, manifest);
         importNames: routeHandlerImportNames,
       } = generateStaticImports(routeHandlerModulePaths, 'handler');
       const routeHandlerImportEntries = routeHandlerArray
-        .map(({ routeName }, i) => `${quote(routeName)}: ${routeHandlerImportNames[i]}`);
+        .map(({ handlerPath }, i) => `${quote(handlerPath)}: ${routeHandlerImportNames[i]}`);
 
       const {
         importStatements: middlewareImportStatements,
@@ -81,7 +84,7 @@ bootstrap(routes, pageLoaders, middleware, manifest);
       }  = generateStaticImports(middlewarePaths, 'middleware');
 
       return `
-import { createVersoServer } from ${quote(SERVER_PATH)};
+import { createVersoServer } from ${quote(BUILD_PATH)};
 
 const routes = ${JSON.stringify(routes)};
 
@@ -95,7 +98,7 @@ const middleware = [${middlewareImportNames.join(',\n')}];
 
 const serverSettings = ${JSON.stringify(serverSettings)};
 
-export async function getServer(bundleResult) {
+export function getServer(bundleResult) {
   return createVersoServer(
     routes,
     routeHandlers,

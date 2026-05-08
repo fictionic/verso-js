@@ -22,7 +22,7 @@ export async function writeBody(
   page: StandardizedPage,
   write: (html: string) => void,
   onRoot: (index: number) => void,
-  onTheFold: (index: number) => void,
+  onTheFold: (index: number) => Promise<void>,
   abortSignal: AbortSignal,
 ) {
   const elements = page.getElements();
@@ -78,7 +78,7 @@ export async function writeBody(
 
   writeRenderedTokens(); // render any synchronous control elements right away
 
-  function writeRenderedTokens() {
+  async function writeRenderedTokens() {
     let buffer = ''
     let foundRoot = false;
     while(queue.hasNext()) {
@@ -95,7 +95,7 @@ export async function writeBody(
         } else if (renderedToken.status === TOKEN_STATUS.RENDERED) {
           // got one!
           if (renderedToken.token.type === TOKEN.THE_FOLD) {
-            onTheFold(i); // bootstrap the client
+            await onTheFold(i); // bootstrap the client
             renderedToken.status = TOKEN_STATUS.WRITTEN;
           }
           if (renderedToken.html) {

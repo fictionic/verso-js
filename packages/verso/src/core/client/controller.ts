@@ -1,11 +1,4 @@
-import {createRouter, type Router} from "../common/router";
-import type {PageLoaders} from "./bootstrap";
-import {MiddlewareConfig} from "../common/handler/MiddlewareConfig";
-import {VersoRequest} from "../common/VersoRequest";
-import {createCtx} from "../common/handler/RouteHandlerCtx";
-import {createHandlerChain} from "../common/handler/chain";
-import {getMetaTagAttrs, setNodeAttrs, type MetaTag, type StandardizedPage} from "../common/handler/Page";
-import {type MiddlewareDefinition} from "../common/handler/Middleware";
+import {getLinkTagAttrs, getMetaTagAttrs, setNodeAttrs, type MetaTag, type StandardizedPage} from "../common/handler/Page";
 import {createRoot, hydrateRoot, type Root} from "react-dom/client";
 import {TOKEN, tokenizeElements} from "../common/elementTokenizer";
 import {scheduleRender} from "../common/components/Root";
@@ -21,7 +14,7 @@ import type {BundleManifest} from "../../build/bundle";
 import {HistoryManager, type NavigationDirection} from "./history";
 import type {ReactElement} from "react";
 import {flushSync} from "react-dom";
-import type {RoutesMap} from "../../build/config";
+import type {Navigator} from "../common/navigator";
 
 let self: ClientController | null = null;
 export function getClientController(): ClientController {
@@ -37,19 +30,17 @@ export interface NavigateOptions {
   // TODO: reuseDom
 }
 
+type ClientNavigationResult = { page: StandardizedPage, routeName: string };
+
 export class ClientController {
-  private router: Router;
-  private pageLoaders: PageLoaders;
-  private middleware: MiddlewareDefinition[];
+  private navigator: Navigator;
   private reactRoots: Root[];
   private styleTransitioner: StyleTransitioner;
   private scriptTransitioner: ScriptTransitioner;
   private historyManager: HistoryManager;
 
-  constructor(routes: RoutesMap, pageLoaders: PageLoaders, middleware: MiddlewareDefinition[], manifest: BundleManifest | null) {
-    this.router = createRouter(routes);
-    this.pageLoaders = pageLoaders;
-    this.middleware = middleware;
+  constructor(navigator: Navigator, manifest: BundleManifest | null) {
+    this.navigator = navigator;
     this.reactRoots = [];
     this.styleTransitioner = new StyleTransitioner(manifest);
     this.scriptTransitioner = new ScriptTransitioner();
@@ -58,27 +49,26 @@ export class ClientController {
     global.__versoController = this; // for playwright tests
   }
 
-  async hydrate(method = 'GET') {
+  async hydrate() {
     startClientRequest();
     this.styleTransitioner.readServerStyles();
     this.scriptTransitioner.readServerScripts();
-    // TODO: pipe down server http method, in case pages are wired up to POST or something
     const readablePipe = VersoPipe.reader();
     const fetchCache = (readablePipe.readValue(FETCH_CACHE_KEY) ?? {});
     Fetch.clientInit();
     Fetch.getCache().client().rehydrate(fetchCache);
 
+    const req = new Request(window.location.href, {
+      method: 'GET', // TODO: pipe down server http method, in case pages are wired up to POST or something
+    });
     let page: StandardizedPage;
     try {
-      ({ page } = await this.getRoutedPageChain(new URL(window.location.href), method));
-    } catch (e) {
-      console.error('[verso] hydration failed: no route matched current URL', e);
+      ({ page } = await this.handleRequest(req));
+    } catch (err) {
+      console.error('[verso] hydration failed', err);
       global.CLIENT_READY_DFD!.resolve();
       return;
     }
-
-    await page.getRouteDirective(); // just for data fetching, for now
-    // TODO: client-side redirects?????
 
     this.historyManager.stampHistoryFrame();
 
@@ -156,16 +146,16 @@ export class ClientController {
     // TODO: clear out VersoPipe script, for tidiness
     Fetch.clientInit(); // just initiate an empty cache, since Fetch assumes it'll exist
 
-    let routed: { page: StandardizedPage, routeName: string };
+    const req = new Request(url, { method: 'GET' });
+    let response: ClientNavigationResult;
     try {
-      routed = await this.getRoutedPageChain(new URL(url, window.location.origin), 'GET' /* all client requests are GET */);
-    } catch (e) {
-      console.error('[verso] navigation failed, staying on current page', e);
+      response = await this.handleRequest(req);
+    } catch (err) {
+      console.error('[verso] navigation failed, staying on current page', err);
       return;
     }
-    const { page, routeName } = routed;
 
-    await page.getRouteDirective(); // TODO: redirects...?
+    const { page, routeName } = response;
 
     if (direction === 'PUSH') {
       // we're committing to the new location now
@@ -260,27 +250,24 @@ export class ClientController {
     cleanupPreviousStyles();
   }
 
-  private async getRoutedPageChain(url: URL, method: string): Promise<{ page: StandardizedPage, routeName: string }> {
-    const urlString = url.pathname + url.search;
-    const route = this.router.matchRoute(urlString, method);
-    if (!route) {
-      throw new Error(`[verso] no route for ${url}`);
+  async handleRequest(req: Request): Promise<ClientNavigationResult> {
+    const navigation = await this.navigator.navigate(req);
+    if (navigation.kind !== 'directive') throw new Error('navigation failed; aborting');
+    const { routeName, location, handler } = navigation;
+    if (location) {
+      // not sure why this would happen.
+      // react-server does a client transition in this case, but I think it makes more sense
+      // to just hand it over to the browser. no guarantee the redirect location is even served
+      // by us
+      window.location.href = location;
     }
-    const loader = this.pageLoaders[route.routeName]; // TODO need to use same logic as entrypoint.ts to construct the "safe" route name
-    if (!loader) {
-      throw new Error(`[verso] no page loader for route ${route.routeName}`);
+    if (!handler) {
+      throw new Error('navigator returned success but with no page handler. did you forget to set hasDocument?');
     }
-    const pageDef = (await loader()).default;
-    if (pageDef.type !== 'page') {
-      throw new Error(`[verso] cannot navigate to handler of type ${pageDef.type}`);
+    if (handler.type !== 'page') {
+      throw new Error(`client-side navigation only supports page handlers, got ${handler.type}`);
     }
-    const config = new MiddlewareConfig();
-    const req = VersoRequest.clientInit(urlString, route.params);
-    const ctx = createCtx(config, req, route);
-    return {
-      page: createHandlerChain('page', pageDef, this.middleware ?? [], config, ctx),
-      routeName: route.routeName,
-    };
+    return { page: handler, routeName };
   }
 }
 

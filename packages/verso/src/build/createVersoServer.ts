@@ -1,19 +1,18 @@
 import type {BundleResult} from "../build/bundle";
 import type {Stylesheet} from "../core/common/handler/Page";
 import type {MiddlewareDefinition} from "../core/common/handler/Middleware";
-import {createRouter} from "../core/common/router";
-import {handleRoute} from "../core/server/handleRoute";
-import {html404, html500} from "../core/server/errorPages";
+import {handleRequest} from "../core/server/handleRequest";
 import {createViteBundleLoader} from "./ViteBundleLoader";
 import type {RoutesMap, ServerSettings} from './config';
 import type {RouteHandlerDefinition} from "../core/common/handler/RouteHandler";
+import {createNavigator, type GetRouteHandler} from "../core/common/navigator";
 
 interface VersoServer {
   serve: (req: Request) => Promise<Response>;
 }
 
-export type RouteHandlers = {
-  [routeName: string]: RouteHandlerDefinition<any, any, any>;
+type RouteHandlers = {
+  [handlerPath: string]: RouteHandlerDefinition<any, any, any>;
 };
 
 export async function createVersoServer(
@@ -32,8 +31,6 @@ export async function createVersoServer(
       contentType: isCss ? 'text/css' : 'application/javascript',
     });
   }
-
-  const router = createRouter(routes);
 
   const { manifest } = bundleResult;
 
@@ -59,6 +56,9 @@ export async function createVersoServer(
   });
 
   const systemMiddleware = [bundleLoader];
+  const globalMiddleware = [...systemMiddleware, ...middleware];
+  const getRouteHandler: GetRouteHandler = (handlerPath: string) => routeHandlers[handlerPath] ?? null;
+  const navigator = createNavigator(routes, getRouteHandler, globalMiddleware);
 
   return {
     serve: (req: Request) => {
@@ -72,24 +72,7 @@ export async function createVersoServer(
         }));
       }
 
-      // SSR route matching
-      const route = router.matchRoute(url.pathname, req.method);
-      if (!route) {
-        return Promise.resolve(new Response(html404, {
-          status: 404,
-          headers: { 'Content-Type': 'text/html; charset=utf-8' },
-        }));
-      }
-      const handler = routeHandlers[route.routeName];
-      if (!handler) {
-        console.error("no handler for route!");
-        return Promise.resolve(new Response(html500, {
-          status: 500,
-          headers: { 'Content-Type': 'text/html; charset=utf-8' },
-        }));
-      }
-      const allMiddleware = [...systemMiddleware, ...middleware];
-      return handleRoute(handler.type, route, handler, allMiddleware, req, serverSettings);
+      return handleRequest(req, navigator, serverSettings);
     }
   };
 }
