@@ -12,9 +12,9 @@
       "types": "./dist/index.d.ts",
       "default": "./dist/index.js"
     },
-    "./test-helpers": {
-      "types": "./dist/test-helpers.d.ts",
-      "default": "./dist/test-helpers.js"
+    "./testing": {
+      "types": "./dist/testing.d.ts",
+      "default": "./dist/testing.js"
     },
     "./plugin": {
       "types": "./dist/plugin.d.ts",
