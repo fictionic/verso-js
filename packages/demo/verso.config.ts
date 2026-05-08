@@ -2,7 +2,7 @@ import { defineConfig } from '@verso-js/verso';
 
 export default defineConfig({
   server: {
-    urlPrefix: 'http://localhost:3000',
+    fetchOrigin: 'loopback',
   },
   middleware: ['./src/PageHeader'],
   routes: {
