@@ -15,7 +15,7 @@ import { toURL, toWebRequest, sendWebResponse } from './nodeHttp';
 import { getEntrypointGenerator, type EntrypointGenerator } from './entrypoint';
 import { createJiti, type Jiti } from 'jiti';
 import { html404, html500 } from '../core/server/errorPages';
-import type {CollectCss} from './collectCss';
+import {collectCss} from './collectCss';
 import type {HandleRoute} from '../core/server/handleRoute';
 import type { MiddlewareDefinition } from '../core/common/handler/Middleware';
 
@@ -25,7 +25,6 @@ const VERSO_DIST_ROOT = path.dirname(fileURLToPath(import.meta.url)); // we are 
 
 // some modules we have to import dynamically through the vite module graph
 const HANDLE_ROUTE_PATH = path.resolve(VERSO_DIST_ROOT, 'server.js');
-const COLLECT_CSS_PATH = path.resolve(VERSO_DIST_ROOT, 'collectCss.js')
 
 const CLIENT_ENTRY_VIRTUAL_ID = 'virtual:verso/entry';
 const CLIENT_ENTRY_RESOLVED_ID = '\0' + CLIENT_ENTRY_VIRTUAL_ID;
@@ -272,7 +271,6 @@ export default async function verso(configPathOverride?: string): Promise<Plugin
 
         const entryUrl = `/@id/__x00__${CLIENT_ENTRY_VIRTUAL_ID}`;
 
-        const collectCss = await importWithVite<CollectCss>(vite, COLLECT_CSS_PATH);
         const handleRoute = await importWithVite<HandleRoute>(vite, HANDLE_ROUTE_PATH);
         let currentRouteStylesheets: Record<string, Stylesheet[]> = {};
 

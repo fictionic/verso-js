@@ -21,7 +21,6 @@ export default defineConfig([
       build: 'src/entries/build.ts',
       server: 'src/entries/server.ts',
       bootstrap: 'src/entries/bootstrap.ts',
-      collectCss: 'src/entries/collectCss.ts',
       plugin: 'src/entries/plugin.ts',
       'test-helpers': 'src/entries/test-helpers.ts',
     },
