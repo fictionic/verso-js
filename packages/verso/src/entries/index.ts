@@ -15,9 +15,14 @@ export { getRLS } from '../core/common/RequestLocalStorage';
 export { navigateTo } from '../core/client/navigateTo';
 
 // Components
-export { Root, useRootData, makeRootComponent, type RootAPI, type RootComponent, type RootElementType } from '../core/common/components/Root';
+export { Root, makeRootComponent, type RootAPI, type RootComponent, type RootElementType } from '../core/common/components/Root';
 export { RootContainer } from '../core/common/components/RootContainer';
 export { TheFold } from '../core/common/components/TheFold';
+export { IsomorphicPortal } from '../userland/components';
+
+// Hooks
+export { useRootData } from '../core/common/components/Root';
+export { useId } from '../userland/hooks/useId';
 
 // Configuration
 export { defineConfig, type VersoConfig } from '../build/config';
