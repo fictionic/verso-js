@@ -18,7 +18,7 @@ const IDENTITY = <T>(a: T) => a;
 // and stable references for the hook's return value.
 export const useStoryStore: UseStoryStore = (store, selector) => {
   const snapshot = useSyncExternalStore(
-    (cb) => store.subscribe(selector, cb),
+    useCallback((cb) => store.subscribe(selector, cb), [store, selector]),
     useCallback(() => store.select(IDENTITY), [store]),
     useCallback(() => store.selectInitial(IDENTITY), [store]),
   );
