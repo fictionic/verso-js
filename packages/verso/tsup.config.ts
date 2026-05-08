@@ -22,7 +22,7 @@ export default defineConfig([
       server: 'src/entries/server.ts',
       bootstrap: 'src/entries/bootstrap.ts',
       plugin: 'src/entries/plugin.ts',
-      'test-helpers': 'src/entries/test-helpers.ts',
+      testing: 'src/entries/testing.ts',
     },
     outDir: 'dist',
     format: ['esm'],
