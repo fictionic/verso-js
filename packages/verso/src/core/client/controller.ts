@@ -181,7 +181,11 @@ export class ClientController {
     document.querySelectorAll(`[${PAGE_HEADER_LINK_ELEMENT_ATTR}]`).forEach(node => {
       node.parentNode?.removeChild(node);
     });
-    page.getLinkTags().forEach((link) => {
+    const linkTags = [
+      ...await page.getSystemLinkTags(),
+      ...page.getLinkTags(),
+    ];
+    linkTags.forEach((link) => {
       const node = document.createElement('link');
       setNodeAttrs(node, getLinkTagAttrs(link));
       document.head.appendChild(node);
@@ -190,9 +194,17 @@ export class ClientController {
     document.head.querySelectorAll('meta').forEach(node => node.parentNode?.removeChild(node));
     page.getMetaTags().forEach((tag) => renderMetaTag(tag));
     // update styles. have to take care to avoid FOUC
-    const cleanupPreviousStyles = await this.styleTransitioner.transitionStyles(routeName, page.getStylesheets());
+    const stylesheets = [
+      ...await page.getSystemStylesheets(),
+      ...page.getStylesheets(),
+    ];
+    const cleanupPreviousStyles = await this.styleTransitioner.transitionStyles(routeName, stylesheets);
     // update scripts. track each one and only add new ones
-    this.scriptTransitioner.transitionScripts(page.getScripts());
+    const scripts = [
+      ...await page.getSystemScripts(),
+      ...page.getScripts()
+    ];
+    this.scriptTransitioner.transitionScripts(scripts);
 
     // =body=
     const newBodyClasses = await page.getBodyClasses();
