@@ -282,11 +282,15 @@ export default async function verso(configPathOverride?: string): Promise<Plugin
           { content: react.preambleCode.replace('__BASE__', '/'), type: 'module' }, // vite react hmr preamble (inline)
           { src: '/@vite/client', type: 'module' }, // vite dev client
         ];
-        const bundleLoader = createViteBundleLoader(() => ({
-          routeScripts,
-          routeStylesheets: currentRouteStylesheets,
+        const bundleLoader = createViteBundleLoader({
+          getRouteStylesheets: async (routeName) => {
+            const handlerPath = path.resolve(pluginContext!.resolvedRootDir, routes[routeName]!.handler);
+            return await collectCss(vite, handlerPath);
+          },
+          getRouteModulePreloadUrls: () => [],
+          getRouteScriptUrls: (routeName) => routeScripts[routeName] ?? [],
           globalScripts: viteDevScripts,
-        }));
+        });
         const systemMiddleware = [bundleLoader];
 
         const siteMiddlewarePaths = versoConfig.middleware ?? [];
