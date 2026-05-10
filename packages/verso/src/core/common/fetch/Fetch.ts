@@ -186,6 +186,7 @@ function resolveRelativeUrl(interceptedUrl: string): { resolvedUrl: string, useL
 }
 
 function resolveAbortSignal(interceptedInit: VersoFetchInit = {}): VersoFetchInit {
+  if (!globalThis.IS_SERVER) return {};
   const callerSignal = interceptedInit.signal;
   const versoSignal = getAbortSignal();
   return {
