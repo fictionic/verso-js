@@ -1,4 +1,5 @@
-import type {ServerSettings} from '../../../build/config';
+import type {FetchOrigin, ServerSettings} from '../../../build/config';
+import {getAbortSignal} from '../../server/abort';
 import {ServerCookies} from '../../server/ServerCookies';
 import { getRLS } from '../RequestLocalStorage';
 import { FetchCache, reifyCachedResponse, type CacheableRequest } from './cache';
@@ -18,8 +19,9 @@ function fillSettings(primary: FetchRequestSettings | undefined, overrides: Fetc
 
 const RLS = getRLS<{
   cache: FetchCache;
-  relativeUrlPrefix?: string;
   requestOrigin?: string;
+  originSetting?: FetchOrigin;
+  handleLoopbackRequest?: HandleLoopbackRequest;
   interceptor?: FetchRequestInterceptor;
 }>();
 
@@ -35,15 +37,17 @@ export function setFetchInterceptor(interceptor: FetchRequestInterceptor) {
   RLS().interceptor = interceptor;
 }
 
-function serverInit(nativeRequest: Request, serverSettings: ServerSettings) {
-  RLS().requestOrigin = new URL(nativeRequest.url).origin;
-  const relativeUrlPrefix = serverSettings.fetchOrigin === 'request'
-    // use the Host of the page request; route through the public internet (isomorphic)
-    ? RLS().requestOrigin
-    // 'loopback': talk to this selfsame verso server
-    : `http://localhost:${serverSettings.port}`;
-  RLS().relativeUrlPrefix = relativeUrlPrefix;
+export type HandleLoopbackRequest = (req: Request) => Promise<Response>;
+
+function serverInit(
+  nativeRequest: Request,
+  serverSettings: ServerSettings,
+  loopback: HandleLoopbackRequest,
+) {
   RLS().cache = new FetchCache();
+  RLS().requestOrigin = new URL(nativeRequest.url).origin;
+  RLS().originSetting = serverSettings.fetchOrigin;
+  RLS().handleLoopbackRequest = loopback;
 }
 
 function clientInit() {
@@ -62,9 +66,11 @@ function getCache() {
 async function fetch(rawUrl: string, rawInit: VersoFetchInit = {}, overrideSettings?: FetchRequestSettings): Promise<Response> {
   const {
     url: interceptedUrl,
-    init: interceptedInit,
+    init: _interceptedInit,
     settings: interceptedSettings,
   } = interceptRequest(rawUrl, rawInit);
+
+  const interceptedInit: VersoFetchInit = _interceptedInit ?? {};
 
   const {
     forceToCache,
@@ -75,20 +81,32 @@ async function fetch(rawUrl: string, rawInit: VersoFetchInit = {}, overrideSetti
 
   // TODO: strip out stuff from the request that isn't isomorphic or that we don't need? (see RSA)
 
-  const resolvedUrl = resolveRelativeUrl(interceptedUrl);
-  const resolvedInit = resolveForwardedCookies(interceptedUrl, interceptedInit, forceForwardRequestCookies);
+  const { resolvedUrl, useLoopback } = resolveRelativeUrl(interceptedUrl);
+
+  const resolvedInit = {
+    ...interceptedInit,
+    ...resolveForwardedCookies(interceptedUrl, interceptedInit, forceForwardRequestCookies),
+    ...resolveAbortSignal(interceptedInit),
+  };
 
   const resolvedRequest = new Request(resolvedUrl, resolvedInit);
-  const doNativeFetch = () => nativeFetch(resolvedRequest);
+
+  const sendRequest = () => {
+    if (useLoopback) {
+      return RLS().handleLoopbackRequest!(resolvedRequest);
+    } else {
+      return nativeFetch(resolvedRequest);
+    }
+  };
 
   const useCache = resolvedRequest.method === 'GET' || forceToCache;
 
   if (!useCache) {
-    return doNativeFetch();
+    return sendRequest();
   }
 
   const req: CacheableRequest = {
-    url: rawUrl,
+    url: rawUrl, // key on raw url
     method: resolvedRequest.method,
     body: interceptedInit?.body ?? null,
   };
@@ -99,7 +117,7 @@ async function fetch(rawUrl: string, rawInit: VersoFetchInit = {}, overrideSetti
     if (first) {
       try {
         // make the request
-        const res = await doNativeFetch();
+        const res = await sendRequest();
         if (forwardResponseSetCookieHeaders) {
           // grab set-cookie headers and attach them to the page response
           const headers = res.headers.getSetCookie();
@@ -122,6 +140,7 @@ async function fetch(rawUrl: string, rawInit: VersoFetchInit = {}, overrideSetti
       };
     }
     // give the caller back the response from the cache. they don't get the real response.
+    // (technically evicted requests do send back the original response)
     return reifyCachedResponse(responsePromise);
   } else {
     // IS_CLIENT
@@ -135,7 +154,7 @@ async function fetch(rawUrl: string, rawInit: VersoFetchInit = {}, overrideSetti
     } else {
       // either we're post-hydration, or the client made a non-isomorphic request.
       // either way, all we can do is pass through
-      return doNativeFetch();
+      return sendRequest();
     }
   }
 }
@@ -149,31 +168,40 @@ const defaultInterceptor: FetchRequestInterceptor = (url, init) => {
   return { url, init };
 }
 
-function resolveRelativeUrl(url: string): string {
-  // can't use relative urls server-side
-  if (!globalThis.IS_SERVER) return url;
-  if (!isRelativeUrl(url)) return url;
-  return getResolvedUrl(url);
-}
-
-function resolveForwardedCookies(url: string, init: RequestInit = {}, forceForwardRequestCookies?: boolean): RequestInit {
-  if (!globalThis.IS_SERVER) return init;
-  if (!shouldForwardCookies(url, init, forceForwardRequestCookies)) return init;
+// we're calling native fetch() with a Request object, so we have to resolve relative urls
+// into absolute urls on server and on client.
+function resolveRelativeUrl(interceptedUrl: string): { resolvedUrl: string, useLoopback?: boolean } {
+  // requestOrigin is the origin specified by the Verso request's Host header
+  const origin = globalThis.IS_SERVER ? RLS().requestOrigin : location.origin;
+  // throw if url string is not a valid url (absolute or relative).
+  // (note that we are not caching these errors, because they occur before we can assemble the Request)
+  // (the behavior should still be isomorphic, however)
+  const resolvedUrl = new URL(interceptedUrl, origin).href;
+  // determine if we should use loopback: server-side, relative url, only if setting is set
+  const useLoopback = globalThis.IS_SERVER && isRelativeUrl(interceptedUrl) && RLS().originSetting === 'loopback';
   return {
-    ...init,
-    headers: getForwardedCookieHeaders(init),
+    resolvedUrl,
+    useLoopback,
   };
 }
 
-function getResolvedUrl(url: string): string {
-  const origin = RLS().relativeUrlPrefix;
-  if (!origin) {
-    throw new Error('[verso] no origin for server-side fetch; cannot resolve relative url!');
-  }
-  return origin + url;
+function resolveAbortSignal(interceptedInit: VersoFetchInit = {}): VersoFetchInit {
+  const callerSignal = interceptedInit.signal;
+  const versoSignal = getAbortSignal();
+  return {
+    signal: callerSignal ? AbortSignal.any([callerSignal, versoSignal]) : versoSignal,
+  };
 }
 
-function shouldForwardCookies(url: string, init: RequestInit | null, forceForwardRequestCookies?: boolean): boolean {
+function resolveForwardedCookies(interceptedUrl: string, interceptedInit: VersoFetchInit, forceForwardRequestCookies?: boolean): VersoFetchInit {
+  if (!globalThis.IS_SERVER) return {};
+  if (!shouldForwardCookies(interceptedUrl, interceptedInit, forceForwardRequestCookies)) return {};
+  return {
+    headers: getForwardedCookieHeaders(interceptedInit),
+  };
+}
+
+function shouldForwardCookies(url: string, init: VersoFetchInit, forceForwardRequestCookies?: boolean): boolean {
   if (init?.credentials === 'omit') return false; // leaning towards security in this edge case
   return (
     init?.credentials === 'include' ||
@@ -182,8 +210,8 @@ function shouldForwardCookies(url: string, init: RequestInit | null, forceForwar
   );
 }
 
-function getForwardedCookieHeaders(init: RequestInit | null): Headers {
-  const headers = new Headers(init?.headers);
+function getForwardedCookieHeaders(init: VersoFetchInit): Headers {
+  const headers = new Headers(init.headers);
   headers.set('Cookie', ServerCookies.get()!.getRequestCookieHeader());
   return headers;
 }

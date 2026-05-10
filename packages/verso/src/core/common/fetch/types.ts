@@ -12,6 +12,8 @@ export type FetchRequestSettings = {
   /**
    * By default, only GET requests are run through the cache. With this set,
    * all HTTP methods get their responses cached. Useful for things like GraphQL.
+   * Note that multiple calls to the same URL, with this setting enabled, will be
+   * de-duped.
    */
   forceToCache?: boolean;
   /**

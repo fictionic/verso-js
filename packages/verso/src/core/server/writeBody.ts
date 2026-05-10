@@ -4,6 +4,7 @@ import {TOKEN, tokenizeElements, type PageElementToken} from '../common/elementT
 import {renderContainerOpen, renderContainerClose} from '../common/components/RootContainer';
 import {PAGE_ELEMENT_TOKEN_ID_ATTR, PAGE_ROOT_ELEMENT_ATTR} from '../common/constants';
 import type {StandardizedPage} from '../common/handler/Page';
+import {getAbortPromise} from './abort';
 
 const TOKEN_STATUS = {
   PENDING: 'PENDING',
@@ -23,7 +24,6 @@ export async function writeBody(
   write: (html: string) => void,
   onRoot: (index: number) => void,
   onTheFold: (index: number) => Promise<void>,
-  abortSignal: AbortSignal,
 ) {
   const elements = page.getElements();
   const tokens = tokenizeElements(elements);
@@ -52,6 +52,7 @@ export async function writeBody(
         break;
       case TOKEN.ROOT:
         rootPromises.push(scheduleRender(token.element).then((resolved) => {
+          if (rendered.status === TOKEN_STATUS.TIMEOUT) return;
           let rootInnerHTML;
           try {
             rootInnerHTML = renderToString(resolved);
@@ -122,19 +123,14 @@ export async function writeBody(
     }
   };
 
-  const abortDfd = Promise.withResolvers<void>();
-
-  abortSignal.addEventListener('abort', () => {
-    // if we take too long, we mark all pending roots as failed,
-    // write them out, and return control to the caller
-    queue.abort();
-    writeRenderedTokens();
-    abortDfd.resolve();
-  });
-
   await Promise.race([
     Promise.all(rootPromises),
-    abortDfd.promise,
+    getAbortPromise().catch(() => {
+      // if we take too long, we mark all pending roots as failed,
+      // write them out, and return control to the caller
+      queue.abort();
+      return writeRenderedTokens();
+    }),
   ]);
 }
 

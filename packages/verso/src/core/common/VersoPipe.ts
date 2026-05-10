@@ -1,5 +1,5 @@
 import { createPipe, type PipeSchema } from "./util/ServerClientPipe";
-import type { CacheableRequest, CachedResponse, DehydratedCache } from "./fetch/cache";
+import type { CacheableRequest, CacheEntryData, DehydratedCache } from "./fetch/cache";
 
 export const VERSO_PIPE_NAME = '__versoPipe';
 
@@ -15,7 +15,7 @@ export interface VersoPipeSchema extends PipeSchema {
   };
   fns: {
     [FN_HYDRATE_ROOTS_UP_TO]: [number];
-    [FN_RECEIVE_LATE_DATA_ARRIVAL]: [CacheableRequest, CachedResponse];
+    [FN_RECEIVE_LATE_DATA_ARRIVAL]: [CacheableRequest, CacheEntryData];
     [FN_ABORT_HYDRATION]: [];
   };
 }

@@ -2,7 +2,7 @@ export type DehydratedCache = Record<string, Array<DehydratedCacheEntry>>;
 
 export type PendingEntry = {
   request: CacheableRequest;
-  responsePromise: Promise<CachedResponse>;
+  dataPromise: Promise<CacheEntryData>;
 };
 
 export type CacheableRequest = {
@@ -11,12 +11,22 @@ export type CacheableRequest = {
   body: string | null;
 };
 
-export type CachedResponse = {
+export type CacheEntryData = {
+  response: CachedResponse | null;
+  error: SerializedError | null;
+  requesters: number;
+};
+
+type CachedResponse = {
   text: string;
   isBinary?: boolean;
   status: number;
   // we don't include response headers in the cache because (1) they're big,
   // (2) it would be a security vulnerability, and (3) probably no one needs them.
+};
+
+type SerializedError = {
+  message: string;
 };
 
 type DehydratedCacheEntry = {
@@ -28,12 +38,6 @@ type CacheKeyAuxData = {
   method: string;
   query: string;
   body: string | null;
-};
-
-type CacheEntryData = {
-  response: CachedResponse | null;
-  error: { message: string } | null;
-  requesters: number;
 };
 
 type CacheEntry = {
@@ -58,7 +62,7 @@ export class FetchCache {
   }
 
   private createEntry(req: CacheableRequest): CacheEntry {
-    const { hostAndPath, searchParams } = parseUrlString(req.url);
+    const { urlKey, searchParams } = parseUrlString(req.url);
     const entry: CacheEntry = {
       data: {
         response: null,
@@ -72,7 +76,7 @@ export class FetchCache {
       },
       dfd: Promise.withResolvers(),
     };
-    const key = hostAndPath;
+    const key = urlKey;
     let bucket = this.buckets.get(key);
     if (!bucket) {
       bucket = [];
@@ -83,8 +87,8 @@ export class FetchCache {
   }
 
   private findEntry(req: CacheableRequest): CacheEntry | null {
-    const { hostAndPath, searchParams } = parseUrlString(req.url);
-    const bucket = this.buckets.get(hostAndPath);
+    const { urlKey, searchParams } = parseUrlString(req.url);
+    const bucket = this.buckets.get(urlKey);
     if (!bucket) return null;
     const normalizedParams = normalizeQueryParams(searchParams);
     return bucket.find((entry) => {
@@ -152,27 +156,26 @@ export class FetchCache {
       receiveError(req: CacheableRequest, error: Error) {
         const entry = ensureEntry(cache.findEntry(req));
         entry.dfd.reject(error);
-        // Error objects aren't serializable
-        entry.data.error = { message: error.message };
+        entry.data.error = dehydrateError(error);
       },
 
       dehydrate(): DehydratedCache {
         const dehydrated: DehydratedCache = {};
-        cache.buckets.forEach((entries, hostAndPath) => {
+        cache.buckets.forEach((entries, urlKey) => {
           const dehydratedEntries = entries
             .filter((entry) => !entry.evicted)
             .map((entry) => ({
               aux: entry.aux,
               data: entry.data,
             }));
-          if (dehydratedEntries.length) dehydrated[hostAndPath] = dehydratedEntries;
+          if (dehydratedEntries.length) dehydrated[urlKey] = dehydratedEntries;
         });
         return dehydrated;
       },
 
       getPending(): Array<PendingEntry> {
         const pending: Array<PendingEntry> = [];
-        cache.buckets.forEach((entries, hostAndPath) => {
+        cache.buckets.forEach((entries, urlKey) => {
           entries.forEach((entry) => {
             if (entry.evicted) return;
             const { response, error } = entry.data;
@@ -181,11 +184,15 @@ export class FetchCache {
             const queryString = queryParams ? `?${queryParams}` : '';
             pending.push({
               request: {
-                url: hostAndPath + queryString,
+                url: urlKey + queryString,
                 method: entry.aux.method,
                 body: entry.aux.body,
               },
-              responsePromise: entry.dfd.promise,
+              dataPromise: entry.dfd.promise
+                .then(
+                  () => entry.data,
+                  () => entry.data
+                ),
             });
           });
         });
@@ -198,14 +205,14 @@ export class FetchCache {
     const cache = this;
     return {
       rehydrate(dehydrated: DehydratedCache) {
-        Object.entries(dehydrated).forEach(([hostAndPath, dehydratedEntries]) => {
+        Object.entries(dehydrated).forEach(([urlKey, dehydratedEntries]) => {
           const rehydratedEntries: CacheEntry[] = dehydratedEntries.map((dehydratedEntry) => {
             const dfd = Promise.withResolvers<CachedResponse>();
             const { response, error } = dehydratedEntry.data;
             if (response) {
               dfd.resolve(response);
             } else if (error) {
-              dfd.reject(new Error(error.message));
+              dfd.reject(rehydrateError(error));
             }
             return {
               aux: dehydratedEntry.aux,
@@ -213,7 +220,7 @@ export class FetchCache {
               dfd,
             };
           });
-          cache.buckets.set(hostAndPath, rehydratedEntries);
+          cache.buckets.set(urlKey, rehydratedEntries);
         });
       },
 
@@ -221,10 +228,14 @@ export class FetchCache {
         return cache.findEntry(req)?.dfd.promise ?? null;
       },
 
-      receiveCachedResponse(req: CacheableRequest, response: CachedResponse) {
+      receiveLateArrivalData(req: CacheableRequest, data: CacheEntryData) {
         const entry = ensureEntry(cache.findEntry(req));
-        entry.data.response = response;
-        entry.dfd.resolve(response);
+        entry.data = data;
+        if (data.response) {
+          entry.dfd.resolve(data.response);
+        } else {
+          entry.dfd.reject(rehydrateError(data.error!));
+        }
       },
 
       consumeResponse(req: CacheableRequest) {
@@ -244,15 +255,26 @@ function ensureEntry(entry: CacheEntry | null): CacheEntry {
   return entry;
 }
 
+function dehydrateError(error: Error): SerializedError {
+  // Error objects aren't serializable
+  return {
+    message: error.message,
+  };
+}
+
+function rehydrateError(error: SerializedError): Error {
+  return new Error(error.message);
+}
+
 type ParsedURL = {
-  hostAndPath: string;
+  urlKey: string;
   searchParams: URLSearchParams;
 };
 function parseUrlString(url: string): ParsedURL {
-  const [hostAndPath, queryString] = url.split('?', 2);
+  const [urlKey, queryString] = url.split('?', 2);
   const searchParams = new URLSearchParams(queryString);
   return {
-    hostAndPath: hostAndPath!,
+    urlKey: urlKey!,
     searchParams,
   };
 }

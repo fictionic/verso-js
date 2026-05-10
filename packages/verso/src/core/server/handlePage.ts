@@ -3,18 +3,15 @@ import {FETCH_CACHE_KEY, FN_ABORT_HYDRATION, FN_HYDRATE_ROOTS_UP_TO, FN_RECEIVE_
 import {getScriptAttrs, type Script, type StandardizedPage} from "../common/handler/Page";
 import {writeBody} from "./writeBody";
 import {renderOpenTag, writeHeader} from "./writeHeader";
-import type {ServerSettings} from "../../build/config";
-import {getElapsedRequestTime} from "./clock";
-import type {CacheableRequest, CachedResponse} from "../common/fetch/cache";
-import type {RouteResponse} from "./RouteResponder";
+import type {CacheableRequest, CacheEntryData} from "../common/fetch/cache";
+import type {HandlerResponse} from "./response";
+import {cancelAbortTimeout, didAbort} from "./abort";
 
-const encoder = new TextEncoder();
-
-export function handlePage(page: StandardizedPage, { renderTimeout }: ServerSettings): RouteResponse {
+export function handlePage(page: StandardizedPage): HandlerResponse {
   const { readable, writable } = new TransformStream<Uint8Array>();
 
   const writer = writable.getWriter();
-  const { write, flush } = buffered(writer);
+  const { write, flush, close } = buffered(writer);
 
   // for transporting data to the client over the http response
   const writeablePipe = VersoPipe.writer(write);
@@ -50,33 +47,21 @@ export function handlePage(page: StandardizedPage, { renderTimeout }: ServerSett
       haveBootstrapped = true;
     };
 
-    const abortController = new AbortController();
-
-    function abortHydration() {
-      writeablePipe.callFn(FN_ABORT_HYDRATION, []);
-    }
-
-    const elapsedTime = getElapsedRequestTime();
-    const remainingTime = Math.max(0, renderTimeout - elapsedTime);
-
-    const abortTimeout = setTimeout(() => {
-      abortController.abort();
-      if (haveBootstrapped) {
-        abortHydration();
-      }
-    }, remainingTime);
-
-    const abortSignal = abortController.signal;
-
-    await writeBody(page, write, onRoot, onTheFold, abortSignal);
+    await writeBody(page, write, onRoot, onTheFold);
 
     if (!haveBootstrapped) {
       // if TheFold wasn't declared, then it's after the last root
       await onTheFold(lastRootIndex + 1);
     }
 
-    await finish(abortSignal);
-    clearTimeout(abortTimeout);
+    if (didAbort()) {
+      abortHydration();
+      flush();
+    }
+
+    await wrapUpLateArrivals();
+    write('</body></html>');
+    close();
   }
 
   async function renderBodyOpen() {
@@ -103,31 +88,34 @@ export function handlePage(page: StandardizedPage, { renderTimeout }: ServerSett
     const pending = Fetch.getCache().server().getPending();
     if (pending.length === 0) return Promise.resolve();
     await Promise.allSettled(
-      pending.map(async ({ request, responsePromise }) => {
-        const response = await responsePromise;
-        receiveLateArrival(request, response);
+      pending.map(async ({ request, dataPromise }) => {
+        const data = await dataPromise;
+        receiveLateArrival(request, data);
         flush();
       })
     );
   }
 
-  function receiveLateArrival(request: CacheableRequest, response: CachedResponse) {
-    writeablePipe.callFn(FN_RECEIVE_LATE_DATA_ARRIVAL, [request, response]);
+  function receiveLateArrival(request: CacheableRequest, data: CacheEntryData) {
+    writeablePipe.callFn(FN_RECEIVE_LATE_DATA_ARRIVAL, [request, data]);
   }
 
-  async function finish(abortSignal: AbortSignal) {
-    await Promise.race([
-      lateArrivalsDfd.promise,
-      new Promise((resolve) => abortSignal.addEventListener('abort', resolve)),
-    ]);
-    write('</body></html>');
-    flush();
-    writer.close();
+  function wrapUpLateArrivals() {
+    // we don't have to race against the abort promise here because
+    // our fetch() calls are automatically wired up to the abort signal
+    return lateArrivalsDfd.promise;
   }
+
+  function abortHydration() {
+    writeablePipe.callFn(FN_ABORT_HYDRATION, []);
+  }
+
 
   writePage().catch((err) => {
     console.error("[verso] unexpected error writing page", err);
-    writable.close();
+  }).then(() => {
+    close();
+    cancelAbortTimeout();
   });
 
   return {
@@ -141,16 +129,27 @@ function renderScript(script: Script): string {
   return `${renderOpenTag('script', getScriptAttrs(script))}${text}</script>\n`;
 }
 
+const encoder = new TextEncoder();
+
 function buffered(writer: WritableStreamDefaultWriter) {
   let writeBuffer = '';
+  let closed = false; // guard against write-after-close
   function write(chunk: string) {
+    if (closed) return;
     writeBuffer += chunk;
   }
   function flush() {
+    if (closed) return;
     if (writeBuffer.length === 0) return;
     writer.write(encoder.encode(writeBuffer));
     writeBuffer = '';
   }
-  return { write, flush };
+  function close() {
+    if (closed) return;
+    flush()
+    closed = true;
+    writer.close();
+  }
+  return { write, flush, close };
 }
 

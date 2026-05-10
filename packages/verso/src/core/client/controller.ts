@@ -136,7 +136,7 @@ export class ClientController {
     }
 
     readablePipe.onCallFn(FN_HYDRATE_ROOTS_UP_TO, hydrateRootsUpTo);
-    readablePipe.onCallFn(FN_RECEIVE_LATE_DATA_ARRIVAL, Fetch.getCache().client().receiveCachedResponse);
+    readablePipe.onCallFn(FN_RECEIVE_LATE_DATA_ARRIVAL, Fetch.getCache().client().receiveLateArrivalData);
     readablePipe.onCallFn(FN_ABORT_HYDRATION, abortHydration);
   }
 
