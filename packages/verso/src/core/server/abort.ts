@@ -2,20 +2,26 @@ import {getRLS} from "../common/RequestLocalStorage";
 
 const RLS = getRLS<{
   controller: AbortController,
-  dfd: PromiseWithResolvers<never>,
+  promise: Promise<never>,
   timeoutId: NodeJS.Timeout | undefined;
 }>();
 
 export function initAbortController(parent?: AbortSignal) {
   const controller = parent ? chainedController(parent) : new AbortController();
-  const dfd = Promise.withResolvers<never>();
-  if (controller.signal.aborted) {
-    dfd.reject(controller.signal.reason);
-  } else {
-    controller.signal.addEventListener('abort', () => dfd.reject(controller.signal.reason), { once: true });
-  }
+  const promise = new Promise<never>((_, reject) => {
+    const doReject = () => reject(controller.signal.reason);
+    if (controller.signal.aborted) {
+      doReject();
+    } else {
+      controller.signal.addEventListener(
+        'abort',
+        doReject,
+        { once: true },
+      );
+    }
+  });
   RLS().controller = controller;
-  RLS().dfd = dfd;
+  RLS().promise = promise;
 
 }
 
@@ -24,7 +30,7 @@ export function getAbortSignal(): AbortSignal {
 }
 
 export function getAbortPromise(): Promise<never> {
-  return RLS().dfd.promise;
+  return RLS().promise;
 }
 
 export function didAbort(): boolean {
