@@ -1,12 +1,12 @@
 import type http from 'node:http';
 
-export function toURL(nodeReq: http.IncomingMessage, fallbackPort: number): URL {
+export function toURL(nodeReq: http.IncomingMessage): URL {
   const proto = nodeReq.headers['x-forwarded-proto'] ?? 'http';
-  const host = nodeReq.headers.host ?? `localhost:${fallbackPort}`;
+  const host = nodeReq.headers.host ?? `localhost:0`;
   return new URL(nodeReq.url ?? '/', `${proto}://${host}`);
 }
 
-export function toWebRequest(nodeReq: http.IncomingMessage, url: URL): Request {
+export function toWebRequest(nodeReq: http.IncomingMessage, nodeRes: http.ServerResponse, url: URL): Request {
   const headers = new Headers();
   for (const [key, value] of Object.entries(nodeReq.headers)) {
     if (value) {
@@ -16,10 +16,17 @@ export function toWebRequest(nodeReq: http.IncomingMessage, url: URL): Request {
       }
     }
   }
+  const controller = new AbortController();
+  nodeRes.once('close', () => {
+    if (!nodeRes.writableFinished) {
+      controller.abort('client disconnect');
+    }
+  });
   return new Request(url, {
     method: nodeReq.method,
     headers,
     body: nodeReq.method !== 'GET' && nodeReq.method !== 'HEAD' ? nodeReq as any : undefined,
+    signal: controller.signal,
     // @ts-expect-error duplex is needed for streaming request bodies
     duplex: 'half',
   });

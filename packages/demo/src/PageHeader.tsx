@@ -1,6 +1,6 @@
 import { Root, defineMiddleware } from '@verso-js/verso';
 
-interface HeaderConfig {
+type HeaderConfig = {
   showHeader: boolean;
 };
 

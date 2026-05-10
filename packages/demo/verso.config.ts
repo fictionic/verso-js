@@ -1,4 +1,4 @@
-import { defineConfig } from '@verso-js/verso';
+import { defineConfig } from '@verso-js/verso/config';
 
 export default defineConfig({
   server: {

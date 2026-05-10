@@ -6,13 +6,14 @@ import {createViteBundleLoader} from "./ViteBundleLoader";
 import type {RoutesMap, ServerSettings} from './config';
 import type {RouteHandlerDefinition} from "../core/common/handler/RouteHandler";
 import {createNavigator, type GetRouteHandler} from "../core/common/navigator";
+import {MANIFEST_PATH} from "./constants";
 
-interface VersoServer {
+export interface VersoServer {
   serve: (req: Request) => Promise<Response>;
 }
 
 type RouteHandlers = {
-  [handlerPath: string]: RouteHandlerDefinition<any, any, any>;
+  [routeName: string]: RouteHandlerDefinition<any, any, any>;
 };
 
 export async function createVersoServer(
@@ -46,7 +47,7 @@ export async function createVersoServer(
 
   // global preload for the manifest itself, for client transition css
   // (so the dynamic import() from bootstrap() will be instant)
-  const manifestUrl = '/bundles/manifest.js';
+  const manifestUrl = MANIFEST_PATH;
 
   const bundleLoader = createViteBundleLoader({
     getRouteScriptUrls: (routeName) => routeScripts[routeName] ?? [],
@@ -57,7 +58,7 @@ export async function createVersoServer(
 
   const systemMiddleware = [bundleLoader];
   const globalMiddleware = [...systemMiddleware, ...middleware];
-  const getRouteHandler: GetRouteHandler = (handlerPath: string) => routeHandlers[handlerPath] ?? null;
+  const getRouteHandler: GetRouteHandler = (routeName: string) => routeHandlers[routeName] ?? null;
   const navigator = createNavigator(routes, getRouteHandler, globalMiddleware);
 
   return {
@@ -76,3 +77,5 @@ export async function createVersoServer(
     }
   };
 }
+
+export type CreateVersoServer = typeof createVersoServer;

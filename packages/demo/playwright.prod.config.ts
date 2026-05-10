@@ -5,7 +5,7 @@ export default defineConfig({
   ...base,
   testMatch: 'smoke.spec.ts',
   webServer: {
-    command: 'verso build && verso start',
+    command: 'vite build && verso start',
     url: 'http://localhost:3000',
     reuseExistingServer: !process.env.CI,
   },

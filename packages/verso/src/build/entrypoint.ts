@@ -1,6 +1,8 @@
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
-import {fillServerSettings, type VersoConfig} from './config';
+import {fillServerSettings, type ServerSettings, type VersoConfig} from './config';
+import type {CreateVersoServer} from './createVersoServer';
+import type {BundleResult} from './bundle';
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 
@@ -26,12 +28,12 @@ export function getEntrypointGenerator(
   return {
     generateClientEntrypoint(): string {
       const pageImporterEntries = Object.entries(routes)
-        .map(([_, routeConfig]) => {
+        .map(([routeName, routeConfig]) => {
           // clientside, we generate lazy-loaders so each page is only imported when routed to
           // TODO: ensure that the requested routes's loader is module-preloaded
           const handlerPath = routeConfig.handler;
           const absolutePagePath = path.resolve(handlerBasePath, handlerPath);
-          return `${quote(handlerPath)}: () => import(${quote(absolutePagePath)})`;
+          return `${quote(routeName)}: async () => (await import(${quote(absolutePagePath)})).default`;
         });
 
       const {
@@ -63,10 +65,10 @@ bootstrap(routes, pageLoaders, middleware, manifest);
 
     generateServerEntrypoint(): string {
       const routeHandlerArray = Object.entries(routes)
-        .map(([_, routeConfig]) => {
+        .map(([routeName, routeConfig]) => {
           const handlerPath = routeConfig.handler;
           return {
-            handlerPath,
+            routeName,
             modulePath: path.resolve(handlerBasePath, handlerPath),
           };
         });
@@ -76,7 +78,7 @@ bootstrap(routes, pageLoaders, middleware, manifest);
         importNames: routeHandlerImportNames,
       } = generateStaticImports(routeHandlerModulePaths, 'handler');
       const routeHandlerImportEntries = routeHandlerArray
-        .map(({ handlerPath }, i) => `${quote(handlerPath)}: ${routeHandlerImportNames[i]}`);
+        .map(({ routeName }, i) => `${quote(routeName)}: ${routeHandlerImportNames[i]}`);
 
       const {
         importStatements: middlewareImportStatements,
@@ -114,6 +116,11 @@ export function getSettings() {
 `.trim();
     }
   };
+};
+
+export type ServerEntry = {
+  getServer(b: BundleResult): ReturnType<CreateVersoServer>;
+  getSettings(): ServerSettings;
 };
 
 function quote(s: string) {

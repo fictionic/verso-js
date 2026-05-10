@@ -1,25 +1,14 @@
 const command = process.argv[2];
 
 switch (command) {
-  case 'build': {
-    const { runBuild } = await import('./commands/build');
-    await runBuild();
-    break;
-  }
   case 'start': {
     const { runStart } = await import('./commands/start');
     const outDir = process.argv[3];
     await runStart(outDir);
     break;
   }
-  case 'dev': {
-    const { runDev } = await import('./commands/dev');
-    const port = parseInt(process.argv[3] ?? '3000', 10);
-    await runDev(port);
-    break;
-  }
   default:
     console.error(`Unknown command: ${command}`);
-    console.error('Usage: verso <build|start|dev>');
+    console.error('Usage: verso start [outDir]');
     process.exit(1);
 }

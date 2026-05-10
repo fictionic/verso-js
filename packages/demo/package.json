@@ -3,8 +3,8 @@
   "private": true,
   "type": "module",
   "scripts": {
-    "dev": "verso dev",
-    "build": "verso build",
+    "dev": "vite",
+    "build": "vite build",
     "start": "verso start",
     "test:e2e": "bunx playwright test -c playwright.dev.config.ts",
     "test:e2e:smoke": "bunx playwright test -c playwright.dev.config.ts smoke.spec.ts && bunx playwright test -c playwright.prod.config.ts",

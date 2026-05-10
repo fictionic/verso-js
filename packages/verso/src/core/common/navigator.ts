@@ -25,7 +25,7 @@ export interface Navigator {
   navigate: (req: Request) => Promise<NavigationResult>;
 }
 
-export type GetRouteHandler = (handlerPath: string) => MaybePromise<RouteHandlerDefinition<RouteHandlerType, any, any> | null>;
+export type GetRouteHandler = (routeName: string) => MaybePromise<RouteHandlerDefinition<RouteHandlerType, any, any> | null>;
 
 export function createNavigator(routes: RoutesMap, getRouteHandler: GetRouteHandler, globalMiddleware: MiddlewareDefinition[]): Navigator {
   const router = createRouter(routes);
@@ -36,9 +36,10 @@ export function createNavigator(routes: RoutesMap, getRouteHandler: GetRouteHand
       if (!route) {
         return { kind: 'not-found' };
       }
-      const handler = await getRouteHandler(route.handler);
+      const { routeName } = route;
+      const handler = await getRouteHandler(routeName);
       if (!handler) {
-        console.error(`[verso] no handler for route ${route.routeName}`);
+        console.error(`[verso] no handler for route ${routeName}`);
         return { kind: 'error' };
       }
       const versoRequest = new VersoRequest(url, route.params);

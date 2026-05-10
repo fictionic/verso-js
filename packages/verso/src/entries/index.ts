@@ -24,5 +24,5 @@ export { IsomorphicPortal } from '../userland/components';
 export { useRootData } from '../core/common/components/Root';
 export { useId } from '../userland/hooks/useId';
 
-// Configuration
-export { defineConfig, type VersoConfig } from '../build/config';
+// Misc
+export { type MaybePromise } from '../core/common/util/types';

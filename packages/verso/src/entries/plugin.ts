@@ -1,1 +1,1 @@
-export { default } from '../build/plugin';
+export { default as verso } from '../build/plugin';
