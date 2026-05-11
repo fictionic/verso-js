@@ -49,11 +49,11 @@ export type ServerSettings = {
 export function fillServerSettings(s?: Partial<ServerSettings>): ServerSettings {
   const fetchOrigin = s?.fetchOrigin ?? 'request-host' as const;
   const routerTimeout = s?.routerTimeout ?? 20_000;
-  const renderTimeout = s?.responseTimeout ?? 20_000;
+  const responseTimeout = s?.responseTimeout ?? 20_000;
   return {
     fetchOrigin,
     routerTimeout,
-    responseTimeout: renderTimeout,
+    responseTimeout,
   }
 };
 

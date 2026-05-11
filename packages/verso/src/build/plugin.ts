@@ -10,7 +10,7 @@ import type { BundleManifest } from './bundle';
 import { BUNDLES_DIR, MANIFEST_PATH, SERVER_BUNDLES_DIR, SERVER_ENTRY_PATH } from './constants';
 import { DEV_ROUTE_CSS_PATH } from '../core/common/constants';
 import { createViteBundleLoader } from './ViteBundleLoader';
-import { toURL, toWebRequest, sendWebResponse } from './nodeHttp';
+import { toURL, toWebRequest, sendWebResponse } from './node-utils';
 import { getEntrypointGenerator, type EntrypointGenerator } from './entrypoint';
 import { createJiti, type Jiti } from 'jiti';
 import { html500 } from '../core/server/errorPages';

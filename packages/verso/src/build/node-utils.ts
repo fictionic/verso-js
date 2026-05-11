@@ -1,4 +1,6 @@
 import type http from 'node:http';
+import { Readable } from 'node:stream';
+import { pipeline } from 'node:stream/promises';
 
 export function toURL(nodeReq: http.IncomingMessage): URL {
   const proto = nodeReq.headers['x-forwarded-proto'] ?? 'http';
@@ -37,20 +39,9 @@ export async function sendWebResponse(nodeRes: http.ServerResponse, response: Re
   response.headers.forEach((value, key) => {
     nodeRes.setHeader(key, value);
   });
-
   if (!response.body) {
     nodeRes.end();
     return;
   }
-
-  const reader = response.body.getReader();
-  try {
-    while (true) {
-      const { done, value } = await reader.read();
-      if (done) break;
-      nodeRes.write(value);
-    }
-  } finally {
-    nodeRes.end();
-  }
+  await pipeline(Readable.fromWeb(response.body as any), nodeRes);
 }

@@ -1,10 +1,13 @@
+import {getAdapter} from './start/adapter-node';
+
 const command = process.argv[2];
 
 switch (command) {
   case 'start': {
-    const { runStart } = await import('./commands/start');
+    const { runStart } = await import('./start/verso-start');
     const outDir = process.argv[3];
-    await runStart(outDir);
+    const adapter = getAdapter(outDir);
+    await runStart(adapter);
     break;
   }
   default:
