@@ -6,9 +6,7 @@ export type DefinitionID = symbol & { _definitionId: true };
 export type ProviderID   = symbol & { _providerId: true };
 export type InstanceID   = symbol & { _instanceId: true };
 
-// ---------------------------------------------------------------------------
-// Public store API
-// ---------------------------------------------------------------------------
+// --- public ---
 
 export type MessageHandler<Message> = (message: Message) => void;
 
@@ -24,18 +22,23 @@ export type StoreProvider<NativeStore> = React.FC<{
 
 export type SendMessage<Message> = (message: Message) => void;
 
-export type UseCreateClientStore<Opts, NativeClientHooks> = (opts: Opts) => readonly [ready: boolean, clientHooks: NativeClientHooks];
+export type UseCreateClientStore<Opts, NativeClientHooks> =
+  (opts: Opts) => readonly [ready: boolean, clientHooks: NativeClientHooks];
 
-export interface IsoStoreDefinition<Opts, Message, NativeStore, NativeHooks extends AllFunctions<NativeHooks>, NativeClientHooks extends AllFunctions<NativeClientHooks>> {
+export interface IsoStoreDefinition<
+  Opts,
+  Message,
+  NativeStore,
+  NativeHooks extends AllFunctions<NativeHooks>,
+  NativeClientHooks extends AllFunctions<NativeClientHooks>,
+> {
   createStore: (opts: Opts) => IsoStoreInstance<NativeStore>;
   hooks: NativeHooks;
   useCreateClientStore: UseCreateClientStore<Opts, NativeClientHooks>;
   broadcast: SendMessage<Message>;
 }
 
-// ---------------------------------------------------------------------------
-// Internal types (not exported from package index)
-// ---------------------------------------------------------------------------
+// --- internal ---
 
 export interface InternalIsoStoreInstance<NativeStore> extends IsoStoreInstance<NativeStore> {
   [STORE_INSTANCE_INTERNALS]: {
@@ -46,7 +49,19 @@ export interface InternalIsoStoreInstance<NativeStore> extends IsoStoreInstance<
   };
 }
 
-export interface InternalIsoStoreDefinition<Opts, Message, NativeStore, NativeHooks extends AllFunctions<NativeHooks>, NativeClientHooks extends AllFunctions<NativeClientHooks>> extends IsoStoreDefinition<Opts, Message, NativeStore, NativeHooks, NativeClientHooks> {
+export interface InternalIsoStoreDefinition<
+  Opts,
+  Message,
+  NativeStore,
+  NativeHooks extends AllFunctions<NativeHooks>,
+  NativeClientHooks extends AllFunctions<NativeClientHooks>,
+> extends IsoStoreDefinition<
+  Opts,
+  Message,
+  NativeStore,
+  NativeHooks,
+  NativeClientHooks
+> {
   createStore: (opts: Opts) => InternalIsoStoreInstance<NativeStore>;
   [STORE_DEFINITION_INTERNALS]: {
     instancesByProvider: Map<ProviderID, InternalIsoStoreInstance<NativeStore>>;
@@ -70,7 +85,7 @@ export type SetNonBlockingAsync<State> = <K extends keyof State, V extends State
 
 export type OnMessage<Message> = (handler: MessageHandler<Message>) => void;
 
-// Functions passed to the outer factory when defining a store.
+// functions passed to the outer factory when defining a store
 export interface IsoInitFns<State, Message> {
   waitFor: WaitFor;
   setAsync: SetAsync<State>;
@@ -78,14 +93,20 @@ export interface IsoInitFns<State, Message> {
   onMessage: OnMessage<Message>;
 }
 
-// The outer layer of the two-layer factory pattern: receives opts and fns,
-// returns the framework's native inner creator (e.g. Zustand's StateCreator).
+// the outer layer of the two-layer factory pattern: receives opts and fns,
+// returns the framework's native inner creator (e.g. Zustand's StateCreator)
 export type IsoStoreInit<Opts, State, Message, NativeStoreInit> =
   (opts: Opts, fns: IsoInitFns<State, Message>) => NativeStoreInit;
 
 export type AllFunctions<T> = { [K in keyof T]: (...args: any[]) => any };
 
-export interface Adapter<State, NativeStore, NativeStoreInit, NativeHooks extends AllFunctions<NativeHooks>, NativeClientHooks extends AllFunctions<NativeClientHooks>> {
+export interface Adapter<
+  State,
+  NativeStore,
+  NativeStoreInit,
+  NativeHooks extends AllFunctions<NativeHooks>,
+  NativeClientHooks extends AllFunctions<NativeClientHooks>,
+> {
   createNativeStore: (nativeStoreInit: NativeStoreInit) => NativeStore;
   getSetState: (nativeStore: NativeStore) => (state: Partial<State>) => void;
   useHooks: (useNativeStore: () => NativeStore) => NativeHooks;
