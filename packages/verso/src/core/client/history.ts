@@ -22,7 +22,7 @@ export class HistoryManager {
   stampHistoryFrame(options: NavigateOptions) {
     // we'll merge into the existing frame if we can.
     // otherwise we'll have to clobber it. "sorry folks" -gigabo
-    const old = history.state;
+    const old: unknown = history.state;
     const base: object = (!old || typeof old !== 'object') ? {} : old;
     const frame = this.createVersoFrame(options);
     const merged = {
@@ -39,7 +39,7 @@ export class HistoryManager {
   }
 
   getNavigateOptions(): NavigateOptions | null {
-    const frame = window.history.state;
+    const frame: unknown = window.history.state;
     if (!this.isVersoFrame(frame)) {
       return null;
     }
@@ -47,7 +47,7 @@ export class HistoryManager {
   }
 
   private async onPopState(event: PopStateEvent) {
-    const { state } = event;
+    const state: unknown = event.state;
     if (!this.isVersoFrame(state)) {
       return;
     }
@@ -55,8 +55,8 @@ export class HistoryManager {
     await this.onPopToVersoState(location.pathname + location.search, options);
   }
 
-  private isVersoFrame(frame: any): frame is VersoHistoryFrame {
-    return frame && typeof frame === 'object' && VERSO_HISTORY_FRAME_KEY in frame;
+  private isVersoFrame(frame: unknown): frame is VersoHistoryFrame {
+    return typeof frame === 'object' && frame !== null && VERSO_HISTORY_FRAME_KEY in frame;
   }
 
   private createVersoFrame(options: NavigateOptions): VersoHistoryFrame {

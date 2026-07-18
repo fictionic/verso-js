@@ -292,8 +292,8 @@ function readCachedResponse(cachedResponse: CachedResponse): Response {
   });
 }
 
-function extractEvictedResponse(thrown: any): Response {
-  if (EVICTED in thrown) {
+function extractEvictedResponse(thrown: unknown): Response {
+  if (typeof thrown === 'object' && thrown !== null && EVICTED in thrown) {
     // response bodies can only be consumed once. have to clone
     // in case there are multiple requesters
     return (thrown as ThrownEviction).response.clone();

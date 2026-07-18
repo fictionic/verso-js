@@ -566,9 +566,9 @@ function getSSRRunner(vite: ViteDevServer) {
   return ssrEnv.runner;
 }
 
-async function importDefaultWith<T>(importer: (modulePath: string) => Promise<any>, modulePath: string): Promise<T> {
+async function importDefaultWith<T>(importer: (modulePath: string) => Promise<unknown>, modulePath: string): Promise<T> {
   const module = await importer(modulePath);
-  const defaultExport = module.default as T;
+  const defaultExport = (module as { default?: T }).default;
   if (!defaultExport) {
     throw new Error(`no default export found when importing ${modulePath}`);
   }

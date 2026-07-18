@@ -94,6 +94,6 @@ export class TaskRunner {
 
 }
 
-export function isInterruption(e: any): boolean {
+export function isInterruption(e: unknown): boolean {
   return e === INTERRUPTED;
 }
