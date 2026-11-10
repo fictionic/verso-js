@@ -2,7 +2,7 @@ import { beforeEach, describe, expect, test } from 'vitest';
 import { getCookie, setCookie } from '../core/common/cookies';
 import { ServerCookies } from '../core/server/ServerCookies';
 import { serverSide, clientSide } from '../userland/testing/isomorphic';
-import { withRLS } from '../userland/testing/rls';
+import { testWithRLS } from '../userland/testing/rls';
 
 function makeRequest(cookieHeader?: string): Request {
   const headers: HeadersInit = {};
@@ -13,41 +13,41 @@ function makeRequest(cookieHeader?: string): Request {
 describe('cookies', () => {
   serverSide(() => {
     describe('getCookie', () => {
-      test('returns response cookie when set', () => withRLS(() => {
+      testWithRLS('returns response cookie when set', () => {
         const sc = new ServerCookies(makeRequest());
         sc.setResponseCookie('session', 'resp-value');
         expect(getCookie('session')).toBe('resp-value');
-      }));
+      });
 
-      test('returns request cookie when no response cookie is set', () => withRLS(() => {
+      testWithRLS('returns request cookie when no response cookie is set', () => {
         new ServerCookies(makeRequest('session=req-value'));
         expect(getCookie('session')).toBe('req-value');
-      }));
+      });
 
-      test('response cookie takes precedence over request cookie', () => withRLS(() => {
+      testWithRLS('response cookie takes precedence over request cookie', () => {
         const sc = new ServerCookies(makeRequest('session=req-value'));
         sc.setResponseCookie('session', 'resp-value');
         expect(getCookie('session')).toBe('resp-value');
-      }));
+      });
 
-      test('returns undefined when cookie not found', () => withRLS(() => {
+      testWithRLS('returns undefined when cookie not found', () => {
         new ServerCookies(makeRequest());
         expect(getCookie('missing')).toBeUndefined();
-      }));
+      });
     });
 
     describe('setCookie', () => {
-      test('delegates to ServerCookies.setResponseCookie', () => withRLS(() => {
+      testWithRLS('delegates to ServerCookies.setResponseCookie', () => {
         const sc = new ServerCookies(makeRequest());
         setCookie('theme', 'dark');
         expect(sc.getResponseCookie('theme')).toBe('dark');
-      }));
+      });
 
-      test('delegates with options', () => withRLS(() => {
+      testWithRLS('delegates with options', () => {
         const sc = new ServerCookies(makeRequest());
         setCookie('auth', 'token123', { path: '/', httpOnly: true });
         expect(sc.getResponseCookie('auth')).toBe('token123');
-      }));
+      });
     });
   });
 
