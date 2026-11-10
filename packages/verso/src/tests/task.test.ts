@@ -1,32 +1,21 @@
-import {describe, test, expect} from "vitest";
-import {TaskRunner, type Task} from "../core/client/task";
+import {describe, test, expect, vi} from "vitest";
+import {isInterruption, TaskRunner, type Task} from "../core/client/task";
+import {silence, silenced} from "../util/promise";
+import {rejected, tick} from "./util/promise";
 
-type Fake = {
+type FakeTask = {
   task: Task;
   started: () => boolean;
   interrupted: () => boolean;
-  settled: () => boolean;
   finish: () => void;
-  fail: (err?: unknown) => void;
+  fail: (err: unknown) => void;
 };
 
-// Mock Task with externally controlled lifecycle.
-// By default, interrupt() rejects the task's promise — matching the real-world
-// shape where the in-flight async work surfaces an AbortError. Pass
-// `resolveOnInterrupt: true` to simulate a Task that ignores interrupt and
-// resolves normally.
-function makeFakeTask(opts: { resolveOnInterrupt?: boolean } = {}): Fake {
+// Mock Task with externally controlled lifecycle
+function makeFakeTask(): FakeTask {
   const dfd = Promise.withResolvers<void>();
   let started = false;
   let interrupted = false;
-  let settled = false;
-
-  dfd.promise.then(
-    () => { settled = true; },
-    () => { settled = true; },
-  );
-  // Suppress unhandled-rejection noise if the test never observes this.
-  dfd.promise.catch(() => {});
 
   const task: Task = () => {
     started = true;
@@ -34,9 +23,6 @@ function makeFakeTask(opts: { resolveOnInterrupt?: boolean } = {}): Fake {
       promise: dfd.promise,
       interrupt: () => {
         interrupted = true;
-        if (!opts.resolveOnInterrupt) {
-          dfd.reject(new Error('interrupted'));
-        }
       },
     };
   };
@@ -45,269 +31,256 @@ function makeFakeTask(opts: { resolveOnInterrupt?: boolean } = {}): Fake {
     task,
     started: () => started,
     interrupted: () => interrupted,
-    settled: () => settled,
     finish: () => dfd.resolve(),
-    fail: (err = new Error('failed')) => dfd.reject(err),
+    fail: (err) => dfd.reject(err),
   };
-}
-
-// Drain the microtask queue. Several rounds because chained awaits need a few
-// ticks to settle.
-async function tick() {
-  for (let i = 0; i < 10; i++) await Promise.resolve();
-}
-
-// Swallow rejections from runTask promises that the test doesn't otherwise
-// observe (e.g. interrupted tasks).
-function silence<T>(p: Promise<T>): Promise<T> {
-  p.catch(() => {});
-  return p;
 }
 
 describe('TaskRunner', () => {
 
-  test('runs a single task to completion', async () => {
-    const runner = new TaskRunner();
-    const fake = makeFakeTask();
+  describe('running tasks', () => {
 
-    const done = runner.runTask(fake.task);
-    await tick();
-    expect(fake.started()).toBe(true);
-    expect(fake.settled()).toBe(false);
+    test('runs a single task to completion', async () => {
+      const runner = new TaskRunner();
+      const fake = makeFakeTask();
+      const done = runner.runTask(fake.task);
+      expect(fake.started()).toBe(true);
+      expect(fake.interrupted()).toBe(false);
+      fake.finish();
+      await done;
+    });
 
-    fake.finish();
-    await done;
-    expect(fake.settled()).toBe(true);
+    test('runs sequential tasks', async () => {
+      const runner = new TaskRunner();
+      const a = makeFakeTask();
+      const b = makeFakeTask();
+
+      const aDone = runner.runTask(a.task);
+      a.finish();
+      await aDone;
+
+      const bDone = runner.runTask(b.task);
+      expect(b.started()).toBe(true);
+      expect(a.interrupted()).toBe(false);
+
+      b.finish();
+      await bDone;
+    });
+
+    test('task failure propagates to caller', async () => {
+      const runner = new TaskRunner();
+      const fake = makeFakeTask();
+      const done = runner.runTask(fake.task);
+      expect(fake.started()).toBe(true);
+      expect(fake.interrupted()).toBe(false);
+      const err = new Error('fake failure');
+      fake.fail(err);
+      await expect(done).rejects.toThrow(err);
+    });
+
+    test('synchronous throw from task factory propagates and leaves runner usable', async () => {
+      const runner = new TaskRunner();
+      const err = new Error('factory boom');
+      const throwingTask: Task = () => { throw err; };
+      await expect(runner.runTask(throwingTask)).rejects.toThrow(err);
+
+      // the runner must not be wedged: a fresh task still runs to completion.
+      const fake = makeFakeTask();
+      const done = runner.runTask(fake.task);
+      expect(fake.started()).toBe(true);
+      fake.finish();
+      await done;
+    });
+
   });
 
-  test('runs sequential tasks', async () => {
-    const runner = new TaskRunner();
-    const a = makeFakeTask();
-    const b = makeFakeTask();
+  describe('interruptions', () => {
 
-    const aDone = runner.runTask(a.task);
-    a.finish();
-    await aDone;
+    test('interrupts current task when new task arrives', () => {
+      const runner = new TaskRunner();
+      const a = makeFakeTask();
+      const b = makeFakeTask();
+      void runner.runTask(a.task);
+      void runner.runTask(b.task);
+      expect(a.interrupted()).toBe(true);
+    });
 
-    // Runner should be ready for B with no leftover state.
-    const bDone = runner.runTask(b.task);
-    await tick();
-    expect(b.started()).toBe(true);
-    expect(a.interrupted()).toBe(false);
+    test('waits for interrupted task to fully settle before starting next', async () => {
+      const runner = new TaskRunner();
+      const a = makeFakeTask();
+      const b = makeFakeTask();
 
-    b.finish();
-    await bDone;
-    expect(b.settled()).toBe(true);
+      const aDone = runner.runTask(a.task);
+      await tick();
+
+      void runner.runTask(b.task);
+      expect(b.started()).toBe(false);
+      a.finish();
+      expect(b.started()).toBe(false);
+      await silenced(aDone);
+      expect(b.started()).toBe(true);
+    });
+
+    test('rejects with sentinel when interrupted, overwriting underlying rejection', async () => {
+      const runner = new TaskRunner();
+      const a = makeFakeTask();
+      const b = makeFakeTask();
+      const aDone = runner.runTask(a.task);
+      void runner.runTask(b.task);
+      a.fail(new Error('some other error'));
+      await expect(aDone).rejects.toThrow();
+      expect(isInterruption(await rejected(aDone))).toBe(true);
+    });
+
+    test('rejects with sentinel when interrupted, even if task resolves', async () => {
+      const runner = new TaskRunner();
+      const a = makeFakeTask();
+      const b = makeFakeTask();
+      const aDone = runner.runTask(a.task);
+      void runner.runTask(b.task);
+      a.finish();
+      await expect(aDone).rejects.toThrow();
+      expect(isInterruption(await rejected(aDone))).toBe(true);
+    });
+
+    test('rejects with sentinel when displaced by new task while still queued', async () => {
+      const runner = new TaskRunner();
+      const a = makeFakeTask();
+      const b = makeFakeTask();
+      const c = makeFakeTask();
+
+      silence(runner.runTask(a.task));
+      const bDone = runner.runTask(b.task);
+      void runner.runTask(c.task);
+
+      a.finish(); // b won't reject until a is done
+      expect(b.started()).toBe(false);
+      await expect(bDone).rejects.toThrow();
+      expect(isInterruption(await rejected(bDone))).toBe(true);
+    });
+
   });
 
-  test('interrupts the current task when a new task arrives', async () => {
-    const runner = new TaskRunner();
-    const a = makeFakeTask();
-    const b = makeFakeTask();
+  describe('lifecycle callbacks', () => {
 
-    const aDone = silence(runner.runTask(a.task));
-    await tick();
-    expect(a.started()).toBe(true);
+    test('single task: onActive once before task starts, onIdle once after settle', async () => {
+      const onActive = vi.fn();
+      const onIdle = vi.fn();
+      const runner = new TaskRunner({ onActive, onIdle });
+      const fake = makeFakeTask();
 
-    const bDone = runner.runTask(b.task);
-    await tick();
-    expect(a.interrupted()).toBe(true);
+      const done = runner.runTask(fake.task);
+      expect(onActive).toHaveBeenCalledTimes(1);
+      expect(onIdle).toHaveBeenCalledTimes(0);
 
-    await aDone.catch(() => {});
+      fake.finish();
+      await done;
+      expect(onIdle).toHaveBeenCalledTimes(1);
+      expect(onActive).toHaveBeenCalledTimes(1);
+    });
 
-    expect(b.started()).toBe(true);
-    b.finish();
-    await bDone;
-    expect(b.settled()).toBe(true);
-  });
+    test('overlapping burst: onActive and onIdle each fire exactly once', async () => {
+      // A in-flight; B and C arrive while A runs.
+      // activeCount never returns to 0 mid-burst, so callbacks fire only once.
+      const onActive = vi.fn();
+      const onIdle = vi.fn();
+      const runner = new TaskRunner({ onActive, onIdle });
+      const a = makeFakeTask();
+      const b = makeFakeTask();
+      const c = makeFakeTask();
 
-  test('waits for interrupted task to fully settle before starting next', async () => {
-    // RLS-safety: the next task installs a new RLS scope. If we install it
-    // before the interrupted task's promise settles, the interrupted task's
-    // continuation will write into the wrong scope.
-    const runner = new TaskRunner();
-    const a = makeFakeTask({ resolveOnInterrupt: true });
-    const b = makeFakeTask();
+      const aDone = silenced(runner.runTask(a.task));
+      await tick();
+      expect(onActive).toHaveBeenCalledTimes(1);
 
-    const aDone = silence(runner.runTask(a.task));
-    await tick();
+      // B and C arrive while A is still in-flight.
+      const bDone = silenced(runner.runTask(b.task));
+      const cDone = runner.runTask(c.task);
+      await tick();
 
-    const bDone = runner.runTask(b.task);
-    await tick();
-    expect(a.interrupted()).toBe(true);
+      // onActive must not fire again -- we never went idle between tasks.
+      expect(onActive).toHaveBeenCalledTimes(1);
+      expect(onIdle).toHaveBeenCalledTimes(0);
 
-    // A's promise has not settled yet. B must not have started.
-    expect(b.started()).toBe(false);
+      // settle A so the interrupted chain can drain.
+      a.finish();
+      await aDone;
+      await bDone;
+      await tick();
 
-    a.finish();
-    await tick();
+      // C is now running; still not idle.
+      expect(onIdle).toHaveBeenCalledTimes(0);
 
-    // Now A is settled; B can proceed.
-    expect(b.started()).toBe(true);
+      c.finish();
+      await cDone;
+      expect(onIdle).toHaveBeenCalledTimes(1);
+      expect(onActive).toHaveBeenCalledTimes(1);
+    });
 
-    b.finish();
-    await bDone;
-    await aDone.catch(() => {});
-  });
+    test('sequential non-overlapping tasks: onActive and onIdle fire once per task', async () => {
+      const onActive = vi.fn();
+      const onIdle = vi.fn();
+      const runner = new TaskRunner({ onActive, onIdle });
+      const a = makeFakeTask();
+      const b = makeFakeTask();
 
-  test('multi-arrival: only the latest task runs', async () => {
-    const runner = new TaskRunner();
-    const a = makeFakeTask();
-    const b = makeFakeTask();
-    const c = makeFakeTask();
+      // First task.
+      const aDone = runner.runTask(a.task);
+      a.finish();
+      await aDone;
+      expect(onActive).toHaveBeenCalledTimes(1);
+      expect(onIdle).toHaveBeenCalledTimes(1);
 
-    const aDone = silence(runner.runTask(a.task));
-    await tick();
+      // Second task starts after first fully settled -- activeCount hit 0.
+      const bDone = runner.runTask(b.task);
+      b.finish();
+      await bDone;
+      expect(onActive).toHaveBeenCalledTimes(2);
+      expect(onIdle).toHaveBeenCalledTimes(2);
+    });
 
-    // B and C both arrive while A is in-flight.
-    const bDone = silence(runner.runTask(b.task));
-    const cDone = runner.runTask(c.task);
-    await tick();
+    test('ordering: onActive fires before task body; onIdle fires after settle (success)', async () => {
+      const order: string[] = [];
+      const onActive = vi.fn(() => order.push('onActive'));
+      const onIdle = vi.fn(() => order.push('onIdle'));
+      const fake = makeFakeTask();
+      const origTask = fake.task;
+      const wrappedTask: Task = () => { order.push('taskStart'); return origTask(); };
 
-    expect(a.interrupted()).toBe(true);
+      const runner = new TaskRunner({ onActive, onIdle });
+      const done = runner.runTask(wrappedTask);
+      expect(order).toEqual(['onActive', 'taskStart']);
 
-    await aDone.catch(() => {});
-    await bDone.catch(() => {});
+      fake.finish();
+      await done;
+      expect(order).toEqual(['onActive', 'taskStart', 'onIdle']);
+    });
 
-    // B was displaced before it could start.
-    expect(b.started()).toBe(false);
+    test('ordering: onIdle fires after settle on failure path', async () => {
+      const onIdle = vi.fn();
+      const runner = new TaskRunner({ onActive: vi.fn(), onIdle });
+      const fake = makeFakeTask();
 
-    // C is the one that actually runs.
-    expect(c.started()).toBe(true);
-    c.finish();
-    await cDone;
-    expect(c.settled()).toBe(true);
-  });
+      const done = runner.runTask(fake.task);
+      fake.fail(new Error('boom'));
+      await done.catch(() => {});
+      expect(onIdle).toHaveBeenCalledTimes(1);
+    });
 
-  test('displaced queued task rejects with interruption without running', async () => {
-    const runner = new TaskRunner();
-    const a = makeFakeTask();
-    const b = makeFakeTask();
-    const c = makeFakeTask();
+    test('synchronous throw from task factory: onActive and onIdle still fire once', async () => {
+      const onActive = vi.fn();
+      const onIdle = vi.fn();
+      const runner = new TaskRunner({ onActive, onIdle });
 
-    const aDone = silence(runner.runTask(a.task));
-    await tick();
+      const throwingTask: Task = () => { throw new Error('factory boom'); };
+      await expect(runner.runTask(throwingTask)).rejects.toThrow();
 
-    // B is queued, then displaced by C before either runs.
-    const bDone = runner.runTask(b.task);
-    const cDone = runner.runTask(c.task);
+      // activeCount must return to 0 even on the synchronous-throw path, so the
+      // idle callback fires exactly once.
+      expect(onActive).toHaveBeenCalledTimes(1);
+      expect(onIdle).toHaveBeenCalledTimes(1);
+    });
 
-    await aDone.catch(() => {});
-
-    // B's runTask rejects with an interruption — it never ran.
-    const bError = await bDone.then(() => null).catch((e) => e);
-    expect(runner.isInterruption(bError)).toBe(true);
-    expect(b.started()).toBe(false);
-
-    expect(c.started()).toBe(true);
-    c.finish();
-    await cDone;
-  });
-
-  test('three-arrival: middle ones never start', async () => {
-    const runner = new TaskRunner();
-    const a = makeFakeTask();
-    const b = makeFakeTask();
-    const c = makeFakeTask();
-    const d = makeFakeTask();
-
-    const aDone = silence(runner.runTask(a.task));
-    await tick();
-
-    const bDone = silence(runner.runTask(b.task));
-    const cDone = silence(runner.runTask(c.task));
-    const dDone = runner.runTask(d.task);
-    await tick();
-
-    await aDone.catch(() => {});
-    await bDone.catch(() => {});
-    await cDone.catch(() => {});
-
-    expect(b.started()).toBe(false);
-    expect(c.started()).toBe(false);
-
-    expect(d.started()).toBe(true);
-    d.finish();
-    await dDone;
-    expect(d.settled()).toBe(true);
-  });
-
-  test('task failure propagates to caller', async () => {
-    const runner = new TaskRunner();
-    const a = makeFakeTask();
-
-    const aDone = runner.runTask(a.task);
-    await tick();
-    a.fail(new Error('boom'));
-
-    await expect(aDone).rejects.toThrow('boom');
-  });
-
-  test('runner state is clean after task failure', async () => {
-    // If a task throws, the runner must still be usable for subsequent tasks.
-    const runner = new TaskRunner();
-    const a = makeFakeTask();
-    const b = makeFakeTask();
-
-    const aDone = runner.runTask(a.task);
-    await tick();
-    a.fail(new Error('boom'));
-    await aDone.catch(() => {});
-
-    const bDone = runner.runTask(b.task);
-    await tick();
-    expect(b.started()).toBe(true);
-    // A is already done (failed), so B should not have called interrupt on it.
-    expect(a.interrupted()).toBe(false);
-
-    b.finish();
-    await bDone;
-    expect(b.settled()).toBe(true);
-  });
-
-  test('runTask rejects with interruption even when task resolves instead of rejecting', async () => {
-    // Guards the `if (ref.interrupted) throw INTERRUPTED` branch: a task that
-    // ignores interrupt() and resolves normally should still cause runTask to
-    // reject with an interruption, not resolve successfully.
-    const runner = new TaskRunner();
-    const a = makeFakeTask({ resolveOnInterrupt: true });
-    const b = makeFakeTask();
-
-    const aDone = runner.runTask(a.task);
-    await tick();
-
-    silence(runner.runTask(b.task));
-    await tick();
-    expect(a.interrupted()).toBe(true);
-
-    a.finish();
-    await tick();
-
-    const aError = await aDone.then(() => null).catch((e) => e);
-    expect(runner.isInterruption(aError)).toBe(true);
-  });
-
-  test('interrupted task failure does not surface to queued task caller', async () => {
-    // When A is interrupted, its promise rejects. B is in drain wait.
-    // B's runTask should not reject because of A's failure — that's A's caller's
-    // concern, not B's.
-    const runner = new TaskRunner();
-    const a = makeFakeTask();
-    const b = makeFakeTask();
-
-    const aDone = silence(runner.runTask(a.task));
-    await tick();
-
-    const bDone = runner.runTask(b.task);
-    await tick();
-    expect(a.interrupted()).toBe(true);
-
-    await aDone.catch(() => {});
-
-    // B proceeds normally; bDone resolves on B's success.
-    expect(b.started()).toBe(true);
-    b.finish();
-    await expect(bDone).resolves.toBeUndefined();
   });
 
 });
