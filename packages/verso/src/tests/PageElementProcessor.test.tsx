@@ -1,4 +1,3 @@
-import React from 'react';
 import {describe, test, expect, vi, beforeEach} from 'vitest';
 
 // Mock tokenizeElements before any imports of the module under test.
