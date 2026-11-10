@@ -45,6 +45,8 @@
     "build": "tsup",
     "dev": "tsup --watch",
     "test": "bunx vitest run",
+    "test:e2e": "bun run --cwd test/e2e test:e2e",
+    "test:e2e:prod": "bun run --cwd test/e2e test:e2e:prod",
     "typecheck": "bunx tsc --noEmit"
   },
   "peerDependencies": {

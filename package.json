@@ -13,7 +13,8 @@
     "packages/store-adapter-valtio",
     "packages/store-adapter-story-stores",
     "packages/playwright",
-    "packages/demo"
+    "packages/demo",
+    "packages/verso/test/e2e"
   ],
   "scripts": {
     "build": "bun run --filter '*' build",

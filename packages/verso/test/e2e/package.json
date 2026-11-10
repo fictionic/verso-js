@@ -1,0 +1,25 @@
+{
+  "name": "@verso-js/e2e-fixture",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "test:e2e": "playwright test -c playwright.dev.config.ts",
+    "test:e2e:prod": "playwright test -c playwright.prod.config.ts",
+    "typecheck": "tsc --noEmit"
+  },
+  "dependencies": {
+    "@verso-js/verso": "workspace:*",
+    "@verso-js/adapter-node": "workspace:*",
+    "react": "^19.2.4",
+    "react-dom": "^19.2.4"
+  },
+  "devDependencies": {
+    "@verso-js/playwright": "workspace:*",
+    "@playwright/test": "^1.58.2",
+    "vite": "^8.0.0",
+    "typescript": "^5",
+    "@types/node": "^25",
+    "@types/react": "^19.2.14",
+    "@types/react-dom": "^19.2.3"
+  }
+}

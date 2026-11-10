@@ -1,0 +1,5 @@
+# Fixture build output (emitted by `vite build` in the prod Playwright config)
+app/dist/
+# Playwright run artifacts
+test-results/
+playwright-report/
