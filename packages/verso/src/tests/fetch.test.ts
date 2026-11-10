@@ -1,0 +1,365 @@
+import { describe, test, expect, vi, beforeEach } from 'vitest';
+import type { Serve } from '@verso-js/contract';
+import { Fetch, setFetchInterceptor } from '../core/common/fetch/Fetch';
+import { nativeFetch } from '../core/common/fetch/nativeFetch';
+import type { DehydratedCache } from '../core/common/fetch/cache';
+import type { ServerSettings } from '../build/config';
+import { ServerCookies } from '../core/server/ServerCookies';
+import { withRLS } from '../userland/testing/rls';
+import { serverSide, clientSide } from '../userland/testing/isomorphic';
+
+// nativeFetch.ts captures globalThis.fetch at import; Fetch.ts calls the imported
+// binding, so a global stub would be bypassed. Mock the module instead and assert
+// on call count/arguments -- the central assertion surface for this suite.
+vi.mock('../core/common/fetch/nativeFetch', () => ({ nativeFetch: vi.fn() }));
+
+const mockFetch = vi.mocked(nativeFetch);
+
+beforeEach(() => {
+  mockFetch.mockReset();
+});
+
+function fullSettings(overrides?: Partial<ServerSettings>): ServerSettings {
+  return {
+    allowedHosts: ['localhost'],
+    trustProxy: false,
+    fetchOrigin: 'request-host',
+    failsafeTtfbDeadlineMs: 20_000,
+    failsafeResponseDeadlineMs: 20_000,
+    ...overrides,
+  };
+}
+
+function loopbackStub(): Serve {
+  return vi.fn(async () => new Response('loopback')) as unknown as Serve;
+}
+
+/** Init Fetch's server branch (and optionally ServerCookies) inside an active RLS. */
+function initServer(opts: {
+  request?: Request;
+  settings?: Partial<ServerSettings>;
+  loopback?: Serve;
+  cookies?: boolean;
+} = {}) {
+  const request = opts.request ?? new Request('https://app.example.com/');
+  const loopback = opts.loopback ?? loopbackStub();
+  Fetch.serverInit(request, loopback, fullSettings(opts.settings));
+  if (opts.cookies) new ServerCookies(request);
+  return { request, loopback };
+}
+
+function dehydrate(): DehydratedCache {
+  return Fetch.getCache().server().dehydrate();
+}
+
+/** The Request passed to nativeFetch on its Nth call. */
+function nativeFetchRequest(call = 0): Request {
+  return mockFetch.mock.calls[call]![0] as Request;
+}
+
+const jsonResponse = (body = '{"x":1}') =>
+  new Response(body, { headers: { 'Content-Type': 'application/json' } });
+
+describe('Fetch orchestration', () => {
+  // -------------------------------------------------------------------------
+  serverSide(() => {
+    describe('Server-side request orchestration', () => {
+      test('two concurrent GETs to the same URL hit nativeFetch once; both get the data', async () => {
+        mockFetch.mockResolvedValue(jsonResponse('{"hello":"world"}'));
+        await withRLS(async () => {
+          initServer();
+          const url = 'https://api.example.com/data';
+          const [r1, r2] = await Promise.all([Fetch.fetch(url), Fetch.fetch(url)]);
+          expect(mockFetch).toHaveBeenCalledTimes(1);
+          expect(await r1.text()).toBe('{"hello":"world"}');
+          expect(await r2.text()).toBe('{"hello":"world"}');
+        });
+      });
+
+      test('POST bypasses the cache: each call hits nativeFetch', async () => {
+        mockFetch.mockImplementation(async () => jsonResponse());
+        await withRLS(async () => {
+          initServer();
+          const url = 'https://api.example.com/data';
+          await Promise.all([
+            Fetch.fetch(url, { method: 'POST' }),
+            Fetch.fetch(url, { method: 'POST' }),
+          ]);
+          expect(mockFetch).toHaveBeenCalledTimes(2);
+        });
+      });
+
+      test('POST with forceToCache is deduped/cached like a GET', async () => {
+        mockFetch.mockResolvedValue(jsonResponse());
+        await withRLS(async () => {
+          initServer();
+          const url = 'https://api.example.com/data';
+          await Promise.all([
+            Fetch.fetch(url, { method: 'POST' }, { forceToCache: true }),
+            Fetch.fetch(url, { method: 'POST' }, { forceToCache: true }),
+          ]);
+          expect(mockFetch).toHaveBeenCalledTimes(1);
+          // present in dehydrate (cached for transport)
+          expect(dehydrate()['https://api.example.com/data']).toHaveLength(1);
+        });
+      });
+
+      test('binary response without forceBinaryToCache: caller gets bytes, entry evicted from dehydrate', async () => {
+        const bytes = new Uint8Array([1, 2, 3, 4, 5]);
+        mockFetch.mockResolvedValue(new Response(bytes, { headers: { 'Content-Type': 'image/png' } }));
+        await withRLS(async () => {
+          initServer();
+          const url = 'https://api.example.com/img';
+          const res = await Fetch.fetch(url);
+          expect(new Uint8Array(await res.arrayBuffer())).toEqual(bytes);
+          expect(dehydrate()[url]).toBeUndefined();
+        });
+      });
+
+      test('binary response with forceBinaryToCache: present in dehydrate', async () => {
+        mockFetch.mockResolvedValue(new Response(new Uint8Array([9, 8, 7]), { headers: { 'Content-Type': 'image/png' } }));
+        await withRLS(async () => {
+          initServer();
+          const url = 'https://api.example.com/img';
+          await Fetch.fetch(url, {}, { forceBinaryToCache: true });
+          expect(dehydrate()[url]).toHaveLength(1);
+        });
+      });
+
+      test('nativeFetch rejects: caller rejects and the error is captured in dehydrate', async () => {
+        mockFetch.mockRejectedValue(new Error('network failure'));
+        await withRLS(async () => {
+          initServer();
+          const url = 'https://api.example.com/data';
+          await expect(Fetch.fetch(url)).rejects.toThrow('network failure');
+          const entry = dehydrate()[url]![0]!;
+          expect(entry.data.error).toEqual({ name: 'Error', message: 'network failure' });
+          expect(entry.data.response).toBeNull();
+        });
+      });
+
+      test('resolved GET is captured in dehydrate with the response data', async () => {
+        mockFetch.mockResolvedValue(jsonResponse('{"a":1}'));
+        await withRLS(async () => {
+          initServer();
+          const url = 'https://api.example.com/data';
+          await Fetch.fetch(url);
+          const entry = dehydrate()[url]![0]!;
+          expect(entry.data.response).toEqual({ body: { text: '{"a":1}' }, status: 200 });
+        });
+      });
+    });
+
+    // -----------------------------------------------------------------------
+    describe('Origin / loopback resolution', () => {
+      test('relative URL with fetchOrigin "loopback" routes through the loopback Serve, not nativeFetch', async () => {
+        const loopback = loopbackStub();
+        await withRLS(async () => {
+          initServer({ settings: { fetchOrigin: 'loopback' }, loopback, cookies: true });
+          await Fetch.fetch('/api/data');
+          expect(loopback).toHaveBeenCalledTimes(1);
+          expect(mockFetch).not.toHaveBeenCalled();
+        });
+      });
+
+      test('without the loopback setting, a relative URL resolves against the request origin and hits nativeFetch', async () => {
+        mockFetch.mockResolvedValue(new Response('ok', { headers: { 'Content-Type': 'text/plain' } }));
+        const loopback = loopbackStub();
+        await withRLS(async () => {
+          initServer({ request: new Request('https://app.example.com/'), loopback, cookies: true });
+          await Fetch.fetch('/api/data');
+          expect(loopback).not.toHaveBeenCalled();
+          expect(mockFetch).toHaveBeenCalledTimes(1);
+          expect(nativeFetchRequest().url).toBe('https://app.example.com/api/data');
+        });
+      });
+    });
+
+    // -----------------------------------------------------------------------
+    describe('Interceptors', () => {
+      test('interceptor rewrites the URL: nativeFetch gets the rewritten URL, cache key stays the original', async () => {
+        mockFetch.mockResolvedValue(jsonResponse());
+        await withRLS(async () => {
+          initServer();
+          setFetchInterceptor((url, init) => ({
+            url: url === 'https://public.example.com/data' ? 'https://private.internal/data' : url,
+            init,
+          }));
+          await Fetch.fetch('https://public.example.com/data');
+          expect(nativeFetchRequest().url).toBe('https://private.internal/data');
+          // cache key is the original, pre-intercept URL
+          expect(Object.keys(dehydrate())).toEqual(['https://public.example.com/data']);
+        });
+      });
+
+      test('interceptor injects headers: they appear on the Request passed to nativeFetch', async () => {
+        mockFetch.mockResolvedValue(jsonResponse());
+        await withRLS(async () => {
+          initServer();
+          setFetchInterceptor((url) => ({ url, init: { headers: { 'X-Custom': 'yes' } } }));
+          await Fetch.fetch('https://api.example.com/data');
+          expect(nativeFetchRequest().headers.get('X-Custom')).toBe('yes');
+        });
+      });
+
+      test('no interceptor set: URL passes through unchanged (default identity)', async () => {
+        mockFetch.mockResolvedValue(jsonResponse());
+        await withRLS(async () => {
+          initServer();
+          await Fetch.fetch('https://api.example.com/data');
+          expect(nativeFetchRequest().url).toBe('https://api.example.com/data');
+        });
+      });
+    });
+
+    // -----------------------------------------------------------------------
+    describe('Cookie forwarding', () => {
+      const withCookies = new Request('https://app.example.com/', {
+        headers: { cookie: 'session=abc' },
+      });
+
+      test('same-origin fetch auto-forwards the request cookies', async () => {
+        mockFetch.mockResolvedValue(new Response('ok', { headers: { 'Content-Type': 'text/plain' } }));
+        await withRLS(async () => {
+          initServer({ request: withCookies, cookies: true });
+          await Fetch.fetch('/api/data');
+          expect(nativeFetchRequest().headers.get('Cookie')).toBe('session=abc');
+        });
+      });
+
+      test('cross-origin does not forward by default', async () => {
+        mockFetch.mockResolvedValue(jsonResponse());
+        await withRLS(async () => {
+          initServer({ request: withCookies, cookies: true });
+          await Fetch.fetch('https://other.example.com/api');
+          expect(nativeFetchRequest().headers.get('Cookie')).toBeNull();
+        });
+      });
+
+      test('credentials "include" forces forwarding cross-origin', async () => {
+        mockFetch.mockResolvedValue(jsonResponse());
+        await withRLS(async () => {
+          initServer({ request: withCookies, cookies: true });
+          await Fetch.fetch('https://other.example.com/api', { credentials: 'include' });
+          expect(nativeFetchRequest().headers.get('Cookie')).toBe('session=abc');
+        });
+      });
+
+      test('credentials "omit" prevents forwarding even same-origin', async () => {
+        mockFetch.mockResolvedValue(new Response('ok', { headers: { 'Content-Type': 'text/plain' } }));
+        await withRLS(async () => {
+          initServer({ request: withCookies, cookies: true });
+          await Fetch.fetch('/api/data', { credentials: 'omit' });
+          expect(nativeFetchRequest().headers.get('Cookie')).toBeNull();
+        });
+      });
+
+      test('forceForwardRequestCookies forces forwarding regardless of origin', async () => {
+        mockFetch.mockResolvedValue(jsonResponse());
+        await withRLS(async () => {
+          initServer({ request: withCookies, cookies: true });
+          await Fetch.fetch('https://other.example.com/api', {}, { forceForwardRequestCookies: true });
+          expect(nativeFetchRequest().headers.get('Cookie')).toBe('session=abc');
+        });
+      });
+
+      test('forwardResponseSetCookieHeaders attaches the fetch response Set-Cookie to the page response', async () => {
+        mockFetch.mockResolvedValue(
+          new Response('ok', {
+            headers: { 'Content-Type': 'text/plain', 'Set-Cookie': 'fromFetch=1; Path=/' },
+          }),
+        );
+        await withRLS(async () => {
+          initServer({ request: withCookies, cookies: true });
+          await Fetch.fetch('/api/data', {}, { forwardResponseSetCookieHeaders: true });
+          expect(ServerCookies.get()!.getResponseCookie('fromFetch')).toBe('1');
+        });
+      });
+    });
+
+    // -----------------------------------------------------------------------
+    describe('Content-type-driven caching decision', () => {
+      async function fetchAndCheckCached(contentType: string | null): Promise<boolean> {
+        const url = 'https://api.example.com/resource';
+        const headers: Record<string, string> = {};
+        if (contentType) headers['Content-Type'] = contentType;
+        // Use a typed-array body so no Content-Type is auto-applied when omitted.
+        mockFetch.mockResolvedValue(new Response(new Uint8Array([1, 2, 3]), { headers }));
+        return withRLS(async () => {
+          initServer();
+          await Fetch.fetch(url);
+          return dehydrate()[url] !== undefined;
+        });
+      }
+
+      test.each(['text/html', 'application/json', 'text/plain'])(
+        '%s is treated as text -> cached/present in dehydrate',
+        async (ct) => {
+          expect(await fetchAndCheckCached(ct)).toBe(true);
+        },
+      );
+
+      test.each(['image/png', 'application/octet-stream'])(
+        '%s is treated as binary -> evicted/absent from dehydrate',
+        async (ct) => {
+          expect(await fetchAndCheckCached(ct)).toBe(false);
+        },
+      );
+
+      test('missing Content-Type is treated as binary -> absent from dehydrate', async () => {
+        expect(await fetchAndCheckCached(null)).toBe(false);
+      });
+    });
+  });
+
+  // -------------------------------------------------------------------------
+  clientSide(() => {
+    const URL = 'https://api.example.com/data';
+
+    function dehydratedWith(requesters = 1): DehydratedCache {
+      return {
+        [URL]: [
+          {
+            aux: { method: 'GET', query: '', body: null },
+            data: { response: { body: { text: '{"cached":true}' }, status: 200 }, error: null, requesters },
+          },
+        ],
+      };
+    }
+
+    describe('Client-side fetch branch', () => {
+      test('cache hit replays server data with no nativeFetch call, then consumes the entry', async () => {
+        await withRLS(async () => {
+          Fetch.clientInit(dehydratedWith(1));
+
+          const hit = await Fetch.fetch(URL);
+          expect(mockFetch).not.toHaveBeenCalled();
+          expect(await hit.text()).toBe('{"cached":true}');
+
+          // entry consumed (requesters -> 0 -> evicted): second call misses, falls through
+          mockFetch.mockResolvedValue(new Response('fresh', { headers: { 'Content-Type': 'text/plain' } }));
+          await Fetch.fetch(URL);
+          expect(mockFetch).toHaveBeenCalledTimes(1);
+        });
+      });
+
+      test('URL absent from the rehydrated cache falls through to nativeFetch', async () => {
+        mockFetch.mockResolvedValue(new Response('miss', { headers: { 'Content-Type': 'text/plain' } }));
+        await withRLS(async () => {
+          Fetch.clientInit(dehydratedWith(1));
+          await Fetch.fetch('https://api.example.com/other');
+          expect(mockFetch).toHaveBeenCalledTimes(1);
+        });
+      });
+
+      test('post-hydration (clientInit with no payload) goes straight to nativeFetch', async () => {
+        mockFetch.mockResolvedValue(new Response('live', { headers: { 'Content-Type': 'text/plain' } }));
+        await withRLS(async () => {
+          Fetch.clientInit();
+          await Fetch.fetch(URL);
+          expect(mockFetch).toHaveBeenCalledTimes(1);
+        });
+      });
+    });
+  });
+});
