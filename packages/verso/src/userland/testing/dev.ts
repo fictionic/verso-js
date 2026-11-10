@@ -1,11 +1,11 @@
-import { afterEach, beforeEach, describe } from 'vitest';
+import { afterAll, beforeAll, describe } from 'vitest';
 
 export function devOnly(fn: () => void): void {
   describe('(dev)', () => {
-    beforeEach(() => {
+    beforeAll(() => {
       globalThis.IS_DEV = true;
     });
-    afterEach(() => {
+    afterAll(() => {
       globalThis.IS_DEV = false;
     });
     fn();
