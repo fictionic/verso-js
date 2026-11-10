@@ -31,6 +31,22 @@ describe('Resolver', () => {
       expect(res.handler).toBeDefined();
     });
 
+    test('query string is ignored when matching → route still resolves', async () => {
+      const routes: RoutesMap = {
+        home: { path: '/', handler: 'HomeHandler' },
+        search: { path: '/search', handler: 'SearchHandler' },
+      };
+      const handler = definePage(() => ({
+        getRouteDirective: () => ({ kind: 'ok' }),
+        getElements: () => [],
+      }));
+      const resolver = new Resolver(routes, (name) => name === 'search' ? handler : null, []);
+      const res = await withRLS(() => resolver.resolveRoute(makeRequest('/search?q=hello&page=2')));
+      expect(res.kind).toBe('response');
+      if (res.kind !== 'response') return;
+      expect(res.routeName).toBe('search');
+    });
+
     test('URL matching no route → kind: not-found', async () => {
       const routes: RoutesMap = {
         home: { path: '/', handler: 'HomeHandler' },
