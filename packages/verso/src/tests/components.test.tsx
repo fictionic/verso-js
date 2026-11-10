@@ -35,7 +35,7 @@ describe('makeRootComponent', () => {
 describe('scheduleRootRender', () => {
   test('returns { promise, attrs }; promise resolves with the rendered element', async () => {
     const element = <Root>hello</Root> as AnyRootElement;
-    const { promise, attrs } = scheduleRootRender(element);
+    const { promise, attrs } = scheduleRootRender(element, 0);
     expect(attrs).toBeDefined();
     const resolved = await promise;
     expect(React.isValidElement(resolved)).toBe(true);
@@ -52,7 +52,7 @@ describe('scheduleRootRender', () => {
     );
     const element = React.createElement(MyRoot, { when }) as AnyRootElement;
     let settled = false;
-    const promise = scheduleRootRender(element).promise.then((r) => { settled = true; return r; });
+    const promise = scheduleRootRender(element, 0).promise.then((r) => { settled = true; return r; });
     await Promise.resolve();
     expect(settled).toBe(false);
     resolve('data');
@@ -66,7 +66,7 @@ describe('scheduleRootRender', () => {
       (p) => ({ id: p.label, className: 'my-class', 'data-foo': 'bar' }),
     );
     const element = React.createElement(MyRoot, { label: 'my-id' }) as AnyRootElement;
-    const { attrs } = scheduleRootRender(element);
+    const { attrs } = scheduleRootRender(element, 0);
     expect(attrs).toEqual({ id: 'my-id', className: 'my-class', 'data-foo': 'bar' });
   });
 
@@ -77,7 +77,7 @@ describe('scheduleRootRender', () => {
       (p) => ({ when: p.when, id: 'x' }),
     );
     const element = React.createElement(MyRoot, { when }) as AnyRootElement;
-    const { attrs } = scheduleRootRender(element);
+    const { attrs } = scheduleRootRender(element, 0);
     expect(attrs).not.toHaveProperty('when');
     expect(attrs).toEqual({ id: 'x' });
   });
@@ -98,7 +98,7 @@ describe('useRootData', () => {
       (p) => ({ when: p.when }),
     );
     const element = React.createElement(MyRoot, { when }) as AnyRootElement;
-    const rendered = await scheduleRootRender(element).promise;
+    const rendered = await scheduleRootRender(element, 0).promise;
     renderToString(rendered);
     expect(captured).toEqual(payload);
   });
@@ -115,7 +115,7 @@ describe('useRootData', () => {
       () => ({}),
     );
     const element = React.createElement(MyRoot) as AnyRootElement;
-    const rendered = await scheduleRootRender(element).promise;
+    const rendered = await scheduleRootRender(element, 0).promise;
     renderToString(rendered);
     expect(captured).toBeUndefined();
   });
