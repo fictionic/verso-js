@@ -28,32 +28,10 @@ export interface VersoHandle {
 
 export const versoFixtures = {
   verso: async ({ page }: { page: Page }, use: (verso: VersoHandle) => Promise<void>) => {
-    const getNavHandle = async () => await getVersoNavigationHandle(page);
-    const proxy: VersoHandle = {
-      waitForNavigationIdle: async () => {
-        const navHandle = await getNavHandle();
-        // wrap the promise in an object so playwright doesn't await it
-        const promiseHandle = await navHandle.evaluateHandle((nav) => ({ promise: nav.waitForIdle() }));
-        await navHandle.dispose();
-        await promiseHandle.evaluate(({ promise }) => promise);
-        await promiseHandle.dispose();
-      },
-      expectNavigation: async () => {
-        const navHandle = await getNavHandle();
-        // wrap the promise in an object so playwright doesn't await it
-        const promiseHandle = await navHandle.evaluateHandle((nav) => ({ promise: nav.waitForNextIdle() }));
-        await navHandle.dispose();
-        return {
-          waitForIdle: async () => {
-            await promiseHandle.evaluate(({ promise }) => promise);
-            await promiseHandle.dispose();
-          },
-        };
-      },
-    };
-    await use(proxy);
+    await use(createVersoHandle(page));
   },
-  page: async ({ page, verso }: { page: Page, verso: VersoHandle }, use: (page: Page) => Promise<void>) => {
+  page: async ({ page }: { page: Page }, use: (page: Page) => Promise<void>) => {
+    const verso = createVersoHandle(page);
     const realWaitForLoadState = page.waitForLoadState.bind(page);
     const patchedWaitForLoadState = async (state: LoadState = STATE_HYDRATED, options?: WaitForLoadStateOptions) => {
       if (state === STATE_HYDRATED) {
@@ -81,6 +59,38 @@ export const versoFixtures = {
     await use(page);
   },
 };
+
+/**
+ * Builds a VersoHandle over a page. The handle is stateless — every method
+ * re-derives the navigation handle from `page`, holding nothing between calls —
+ * so both the `verso` and `page` fixtures construct their own from `page` rather
+ * than the `page` fixture depending on the `verso` fixture (which would create a
+ * page -> verso -> page dependency cycle Playwright rejects).
+ */
+function createVersoHandle(page: Page): VersoHandle {
+  return {
+    waitForNavigationIdle: async () => {
+      const navHandle = await getVersoNavigationHandle(page);
+      // wrap the promise in an object so playwright doesn't await it
+      const promiseHandle = await navHandle.evaluateHandle((nav) => ({ promise: nav.waitForIdle() }));
+      await navHandle.dispose();
+      await promiseHandle.evaluate(({ promise }) => promise);
+      await promiseHandle.dispose();
+    },
+    expectNavigation: async () => {
+      const navHandle = await getVersoNavigationHandle(page);
+      // wrap the promise in an object so playwright doesn't await it
+      const promiseHandle = await navHandle.evaluateHandle((nav) => ({ promise: nav.waitForNextIdle() }));
+      await navHandle.dispose();
+      return {
+        waitForIdle: async () => {
+          await promiseHandle.evaluate(({ promise }) => promise);
+          await promiseHandle.dispose();
+        },
+      };
+    },
+  };
+}
 
 async function getVersoNavigationHandle(page: Page): Promise<JSHandle<VersoNavigationGlobal>> {
   await page.waitForFunction(() => !!window.__versoNavigation);
