@@ -24,7 +24,7 @@ describe('Resolver', () => {
         getElements: () => [],
       }));
       const resolver = new Resolver(routes, (name) => name === 'home' ? handler : null, []);
-      const res = await withRLS(() => resolver.resolve(makeRequest('/')));
+      const res = await withRLS(() => resolver.resolveRoute(makeRequest('/')));
       expect(res.kind).toBe('response');
       if (res.kind !== 'response') return;
       expect(res.routeName).toBe('home');
@@ -36,7 +36,7 @@ describe('Resolver', () => {
         home: { path: '/', handler: 'HomeHandler' },
       };
       const resolver = new Resolver(routes, () => null, []);
-      const res = await withRLS(() => resolver.resolve(makeRequest('/missing')));
+      const res = await withRLS(() => resolver.resolveRoute(makeRequest('/missing')));
       expect(res.kind).toBe('not-found');
     });
 
@@ -45,7 +45,7 @@ describe('Resolver', () => {
         home: { path: '/', handler: 'HomeHandler', method: 'GET' },
       };
       const resolver = new Resolver(routes, () => null, []);
-      const res = await withRLS(() => resolver.resolve(makeRequest('/', 'POST')));
+      const res = await withRLS(() => resolver.resolveRoute(makeRequest('/', 'POST')));
       expect(res.kind).toBe('not-found');
     });
 
@@ -67,7 +67,7 @@ describe('Resolver', () => {
         general: generalHandler,
       };
       const resolver = new Resolver(routes, (name) => handlers[name] ?? null, []);
-      const res = await withRLS(() => resolver.resolve(makeRequest('/users/admin')));
+      const res = await withRLS(() => resolver.resolveRoute(makeRequest('/users/admin')));
       expect(res.kind).toBe('response');
       if (res.kind !== 'response') return;
       expect(res.routeName).toBe('specific');
@@ -79,7 +79,7 @@ describe('Resolver', () => {
       };
       const consoleSpy = vi.spyOn(console, 'error').mockImplementation(() => {});
       const resolver = new Resolver(routes, () => null, []);
-      const res = await withRLS(() => resolver.resolve(makeRequest('/')));
+      const res = await withRLS(() => resolver.resolveRoute(makeRequest('/')));
       expect(res.kind).toBe('error');
       expect(consoleSpy).toHaveBeenCalledWith(expect.stringContaining('no handler for route'));
       consoleSpy.mockRestore();
@@ -100,11 +100,11 @@ describe('Resolver', () => {
       }));
       const resolver = new Resolver(routes, () => handler, []);
 
-      const res42 = await withRLS(() => resolver.resolve(makeRequest('/items/42')));
+      const res42 = await withRLS(() => resolver.resolveRoute(makeRequest('/items/42')));
       expect(res42.kind).toBe('response');
       if (res42.kind === 'response') expect(res42.statusCode).toBe(200);
 
-      const res99 = await withRLS(() => resolver.resolve(makeRequest('/items/99')));
+      const res99 = await withRLS(() => resolver.resolveRoute(makeRequest('/items/99')));
       expect(res99.kind).toBe('response');
       if (res99.kind === 'response') expect(res99.statusCode).toBe(404);
     });
@@ -118,7 +118,7 @@ describe('Resolver', () => {
         getElements: () => [],
       }));
       const resolver = new Resolver(routes, () => handler, []);
-      const res = await withRLS(() => resolver.resolve(makeRequest('/')));
+      const res = await withRLS(() => resolver.resolveRoute(makeRequest('/')));
       expect(res.kind).toBe('response');
       if (res.kind !== 'response') return;
       expect(res.statusCode).toBe(200);
@@ -132,7 +132,7 @@ describe('Resolver', () => {
         getElements: () => [],
       }));
       const resolver = new Resolver(routes, () => handler, []);
-      const res = await withRLS(() => resolver.resolve(makeRequest('/p')));
+      const res = await withRLS(() => resolver.resolveRoute(makeRequest('/p')));
       expect(res.kind).toBe('response');
       if (res.kind !== 'response') return;
       expect(res.statusCode).toBe(503);
@@ -148,7 +148,7 @@ describe('Resolver', () => {
           getElements: () => [],
         }));
         const resolver = new Resolver(routes, () => handler, []);
-        const res = await withRLS(() => resolver.resolve(makeRequest('/r')));
+        const res = await withRLS(() => resolver.resolveRoute(makeRequest('/r')));
         expect(res.kind).toBe('response');
         if (res.kind !== 'response') return;
         expect(res.statusCode).toBe(code);
@@ -166,7 +166,7 @@ describe('Resolver', () => {
         getElements: () => [],
       }));
       const resolver = new Resolver(routes, () => handler, []);
-      const res = await withRLS(() => resolver.resolve(makeRequest('/p')));
+      const res = await withRLS(() => resolver.resolveRoute(makeRequest('/p')));
       expect(res.kind).toBe('response');
       if (res.kind !== 'response') return;
       expect(res.handler).toBeDefined();
@@ -179,7 +179,7 @@ describe('Resolver', () => {
         getElements: () => [],
       }));
       const resolver = new Resolver(routes, () => handler, []);
-      const res = await withRLS(() => resolver.resolve(makeRequest('/p')));
+      const res = await withRLS(() => resolver.resolveRoute(makeRequest('/p')));
       expect(res.kind).toBe('response');
       if (res.kind !== 'response') return;
       expect(res.handler).toBeUndefined();
@@ -192,7 +192,7 @@ describe('Resolver', () => {
         getElements: () => [],
       }));
       const resolver = new Resolver(routes, () => handler, []);
-      const res = await withRLS(() => resolver.resolve(makeRequest('/p')));
+      const res = await withRLS(() => resolver.resolveRoute(makeRequest('/p')));
       expect(res.kind).toBe('response');
       if (res.kind !== 'response') return;
       expect(res.handler).toBeDefined();
@@ -206,7 +206,7 @@ describe('Resolver', () => {
         getResponseData: () => '{"error":"not found"}',
       }));
       const resolver = new Resolver(routes, () => handler, []);
-      const res = await withRLS(() => resolver.resolve(makeRequest('/e')));
+      const res = await withRLS(() => resolver.resolveRoute(makeRequest('/e')));
       expect(res.kind).toBe('response');
       if (res.kind !== 'response') return;
       expect(res.handler).toBeDefined();
@@ -221,7 +221,7 @@ describe('Resolver', () => {
         getResponseData: () => '{"error":"not found"}',
       }));
       const resolver = new Resolver(routes, () => handler, []);
-      const res = await withRLS(() => resolver.resolve(makeRequest('/e')));
+      const res = await withRLS(() => resolver.resolveRoute(makeRequest('/e')));
       expect(res.kind).toBe('response');
       if (res.kind !== 'response') return;
       expect(res.handler).toBeUndefined();
@@ -239,7 +239,7 @@ describe('Resolver', () => {
         }));
         const warnSpy = vi.spyOn(console, 'warn').mockImplementation(() => {});
         const resolver = new Resolver(routes, () => handler, []);
-        const res = await withRLS(() => resolver.resolve(makeRequest('/p')));
+        const res = await withRLS(() => resolver.resolveRoute(makeRequest('/p')));
         expect(res.kind).toBe('response');
         if (res.kind !== 'response') return;
         expect(res.statusCode).toBe(code);
@@ -257,7 +257,7 @@ describe('Resolver', () => {
       }));
       const warnSpy = vi.spyOn(console, 'warn').mockImplementation(() => {});
       const resolver = new Resolver(routes, () => handler, []);
-      const res = await withRLS(() => resolver.resolve(makeRequest('/p')));
+      const res = await withRLS(() => resolver.resolveRoute(makeRequest('/p')));
       expect(res.kind).toBe('response');
       if (res.kind !== 'response') return;
       expect(res.statusCode).toBe(302);
@@ -283,7 +283,7 @@ describe('Resolver', () => {
       }));
       const handlers: Record<string, AnyDef> = { a: aHandler, b: bHandler };
       const resolver = new Resolver(routes, (name) => handlers[name] ?? null, []);
-      const res = await withRLS(() => resolver.resolve(makeRequest('/a')));
+      const res = await withRLS(() => resolver.resolveRoute(makeRequest('/a')));
       expect(res.kind).toBe('response');
       if (res.kind !== 'response') return;
       expect(res.routeName).toBe('b');
@@ -312,7 +312,7 @@ describe('Resolver', () => {
       }));
       const handlers: Record<string, AnyDef> = { a: aHandler, item: itemHandler };
       const resolver = new Resolver(routes, (name) => handlers[name] ?? null, []);
-      const res = await withRLS(() => resolver.resolve(makeRequest('/a')));
+      const res = await withRLS(() => resolver.resolveRoute(makeRequest('/a')));
       expect(res.kind).toBe('response');
       if (res.kind !== 'response') return;
       expect(res.routeName).toBe('item');
@@ -339,7 +339,7 @@ describe('Resolver', () => {
       }));
       const handlers: Record<string, AnyDef> = { a: aHandler, b: bHandler, c: cHandler };
       const resolver = new Resolver(routes, (name) => handlers[name] ?? null, []);
-      const res = await withRLS(() => resolver.resolve(makeRequest('/a')));
+      const res = await withRLS(() => resolver.resolveRoute(makeRequest('/a')));
       expect(res.kind).toBe('response');
       if (res.kind !== 'response') return;
       expect(res.routeName).toBe('c');
@@ -354,7 +354,7 @@ describe('Resolver', () => {
       }));
       const errorSpy = vi.spyOn(console, 'error').mockImplementation(() => {});
       const resolver = new Resolver(routes, () => selfHandler, []);
-      const res = await withRLS(() => resolver.resolve(makeRequest('/self')));
+      const res = await withRLS(() => resolver.resolveRoute(makeRequest('/self')));
       expect(res.kind).toBe('error');
       expect(errorSpy).toHaveBeenCalledWith(expect.stringContaining('cannot proxy itself'));
       errorSpy.mockRestore();
@@ -368,7 +368,7 @@ describe('Resolver', () => {
       }));
       const errorSpy = vi.spyOn(console, 'error').mockImplementation(() => {});
       const resolver = new Resolver(routes, (name) => name === 'a' ? aHandler : null, []);
-      const res = await withRLS(() => resolver.resolve(makeRequest('/a')));
+      const res = await withRLS(() => resolver.resolveRoute(makeRequest('/a')));
       expect(res.kind).toBe('error');
       expect(errorSpy).toHaveBeenCalledWith(expect.stringContaining('proxy route does not exist'));
       errorSpy.mockRestore();
@@ -390,7 +390,7 @@ describe('Resolver', () => {
       const handlers: Record<string, AnyDef> = { a: aHandler, b: bHandler };
       const errorSpy = vi.spyOn(console, 'error').mockImplementation(() => {});
       const resolver = new Resolver(routes, (name) => handlers[name] ?? null, []);
-      const res = await withRLS(() => resolver.resolve(makeRequest('/a', 'POST')));
+      const res = await withRLS(() => resolver.resolveRoute(makeRequest('/a', 'POST')));
       expect(res.kind).toBe('error');
       expect(errorSpy).toHaveBeenCalledWith(expect.stringContaining('does not handle HTTP method'));
       errorSpy.mockRestore();
@@ -414,7 +414,7 @@ describe('Resolver', () => {
       const handlers: Record<string, AnyDef> = { ping: pingHandler, pong: pongHandler };
       const errorSpy = vi.spyOn(console, 'error').mockImplementation(() => {});
       const resolver = new Resolver(routes, (name) => handlers[name] ?? null, []);
-      const res = await withRLS(() => resolver.resolve(makeRequest('/ping')));
+      const res = await withRLS(() => resolver.resolveRoute(makeRequest('/ping')));
       expect(res.kind).toBe('error');
       expect(errorSpy).toHaveBeenCalledWith(expect.stringContaining('max proxy depth exceeded'));
       errorSpy.mockRestore();
@@ -430,7 +430,7 @@ describe('Resolver', () => {
       }));
       const errorSpy = vi.spyOn(console, 'error').mockImplementation(() => {});
       const resolver = new Resolver(routes, () => handler, []);
-      const res = await withRLS(() => resolver.resolve(makeRequest('/p')));
+      const res = await withRLS(() => resolver.resolveRoute(makeRequest('/p')));
       expect(res.kind).toBe('error');
       expect(errorSpy).toHaveBeenCalledWith(
         expect.stringContaining('error during getRouteDirective'),
@@ -454,7 +454,7 @@ describe('Resolver', () => {
         },
       }));
       const resolver = new Resolver(routes, () => handler, [rewriteMiddleware]);
-      const res = await withRLS(() => resolver.resolve(makeRequest('/p')));
+      const res = await withRLS(() => resolver.resolveRoute(makeRequest('/p')));
       expect(res.kind).toBe('response');
       if (res.kind !== 'response') return;
       expect(res.statusCode).toBe(418);
@@ -470,7 +470,7 @@ describe('Resolver', () => {
         getRouteDirective: (_next) => ({ kind: 'status', code: 503, hasBody: false }),
       }));
       const resolver = new Resolver(routes, () => handler, [shortCircuitMiddleware]);
-      const res = await withRLS(() => resolver.resolve(makeRequest('/p')));
+      const res = await withRLS(() => resolver.resolveRoute(makeRequest('/p')));
       expect(res.kind).toBe('response');
       if (res.kind !== 'response') return;
       expect(res.statusCode).toBe(503);
