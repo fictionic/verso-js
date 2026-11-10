@@ -1,10 +1,10 @@
 import {describe, test, expect} from "vitest";
 import {definePage} from "../core/common/handler/Page";
 import type {RoutesMap} from "../build/config";
-import {parseHtml, responseBodyAsString, runRoute} from "./helpers/runAppHarness";
+import {parseHtml, responseBodyAsString, run} from "./helpers/serveResponseHarness";
 
 // just a smoke test for the harness
-describe("runApp harness smoke test", () => {
+describe("serveResponse harness smoke test", () => {
   test("a single-root page renders a full HTML document", async () => {
     const routes: RoutesMap = {
       home: {path: "/", handler: "HomeHandler"},
@@ -14,7 +14,11 @@ describe("runApp harness smoke test", () => {
       getElements: () => [<div>Hello</div>],
     }));
 
-    const response = await runRoute(page, routes, new Request("http://localhost/"));
+    const response = await run(
+      new Request("http://localhost/"),
+      routes,
+      page,
+    );
 
     expect(response.status).toBe(200);
     expect(response.headers.get("Content-Type")).toBe("text/html; charset=utf-8");
