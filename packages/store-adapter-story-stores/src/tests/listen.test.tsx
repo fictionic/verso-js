@@ -6,57 +6,10 @@ import { defineStoryStore } from "../story-stores";
 
 afterEach(cleanup);
 
-// ─── Basic rendering ────────────────────────────────────────────────────────
-
-test("renders initial state via IsoStoreProvider", () => {
-  const CounterStore = defineStoryStore<{}, { count: number }>(
-    () => () => ({ count: 42 })
-  );
-
-  const store = CounterStore.createStore({});
-
-  function Widget() {
-    const count = CounterStore.hooks.useStory(s => s.count);
-    return <div>{count}</div>;
-  }
-
-  render(
-    <IsoStoreProvider stores={[store]}>
-      <Widget />
-    </IsoStoreProvider>
-  );
-
-  expect(screen.getByText("42")).toBeTruthy();
-});
-
-// ─── setAsync ───────────────────────────────────────────────────────────────
-
-test("setAsync: whenReady resolves after promise settles, state is updated", async () => {
-  let resolve!: (v: string) => void;
-
-  const NameStore = defineStoryStore<{}, { name: string }>(
-    (_opts, { setAsync }) => () => ({
-      ...setAsync("name", new Promise<string>(r => { resolve = r; })),
-    })
-  );
-
-  const store = NameStore.createStore({});
-
-  function Widget() {
-    const name = NameStore.hooks.useStory(s => s.name);
-    return <div>{name ?? "empty"}</div>;
-  }
-
-  render(
-    <IsoStoreProvider stores={[store]}>
-      <Widget />
-    </IsoStoreProvider>
-  );
-
-  resolve("Alice");
-  await act(async () => { await store.whenReady; });
-  await waitForDom(() => screen.getByText("Alice"));
-});
+// The generic adapter contract (provider + hooks, setAsync/whenReady, ...) is
+// covered by conformance.test.tsx. This file covers only the adapter's own
+// glue: `listen` accepts an IsoStoreInstance, waits on its whenReady, and
+// subscribes to its native store.
 
 // ─── listen with IsoStoreInstance ────────────────────────────────────────────
 
@@ -83,7 +36,7 @@ test("listen: child blocks on parent's whenReady", async () => {
   const child = ChildStore.createStore({ parent });
 
   let childReady = false;
-  child.whenReady.then(() => { childReady = true; });
+  void child.whenReady.then(() => { childReady = true; });
 
   // child shouldn't be ready yet — parent hasn't resolved
   await act(async () => {});
@@ -215,7 +168,7 @@ test("listen: child listens to multiple async parents", async () => {
   const child = ChildStore.createStore({ a, b });
 
   let childReady = false;
-  child.whenReady.then(() => { childReady = true; });
+  void child.whenReady.then(() => { childReady = true; });
 
   // resolve only one parent — child should still not be ready
   resolveA(10);
