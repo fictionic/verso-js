@@ -17,13 +17,20 @@
   "scripts": {
     "build": "tsup",
     "dev": "tsup --watch",
+    "test": "vitest --run",
     "typecheck": "bunx tsc --noEmit"
   },
   "dependencies": {},
   "devDependencies": {
+    "@testing-library/react": "^16.3.2",
     "@types/react": "^19.2.14",
     "@verso-js/stores": "workspace:*",
-    "redux": "^5.0.1"
+    "@verso-js/verso": "workspace:*",
+    "jsdom": "^29.0.0",
+    "react": "^19.2.4",
+    "react-dom": "^19.2.4",
+    "redux": "^5.0.1",
+    "vitest": "^4.1.0"
   },
   "peerDependencies": {
     "@verso-js/stores": "workspace:*",
