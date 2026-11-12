@@ -26,6 +26,7 @@ import {
   type WaitFor,
   type SetAsync,
   type SetNonBlockingAsync,
+  type DefinitionOptions,
 } from "./types";
 import {useIsoStoreLifecycle} from "./lifecycle";
 
@@ -42,12 +43,16 @@ type PendingValue<T> = {
 // we're typing the values as any because of the shenanigans with CreateStoreArgs
 const definitions: Map<DefinitionID, any> = new Map();
 
-export function defineIsoStore<Opts, State extends object, Message, NativeStoreInit, A extends Adapter<State, any, NativeStoreInit, any, any>>(
+export function defineIsoStore<
+  Opts,
+  State extends object,
+  Message,
+  NativeStoreInit,
+  A extends Adapter<State, any, NativeStoreInit, any, any>,
+>(
   isoInit: IsoStoreInit<Opts, State, Message, NativeStoreInit>,
   adapter: A,
-  options?: {
-    onError?: (error: unknown) => void;
-  },
+  options?: DefinitionOptions,
 ): IsoStoreDefinition<Opts, Message, NativeStoreOf<A>, HooksOf<A>, ClientHooksOf<A>> {
   type NativeStore = NativeStoreOf<A>;
   const definitionId = Symbol() as DefinitionID;

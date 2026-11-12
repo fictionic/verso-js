@@ -1,11 +1,11 @@
 import {getRLS} from "@verso-js/verso";
 import {useEffect, useState} from "react";
-import type {IsoStoreDefinition, IsoStoreInstance} from "./core/types";
+import type {AnyStoreDef, IsoStoreDefinition, IsoStoreInstance} from "./core/types";
 import {STORE_DEFINITION_INTERNALS} from "./core/constants";
 
-const RLS = getRLS<{ instances: Map<IsoStoreDefinition<any, never, any, any, any>, IsoStoreInstance<any>> }>();
+const RLS = getRLS<{ instances: Map<AnyStoreDef, IsoStoreInstance<any>> }>();
 
-function getInstances(): Map<IsoStoreDefinition<any, never, any, any, any>, IsoStoreInstance<any>> {
+function getInstances(): Map<AnyStoreDef, IsoStoreInstance<any>> {
   const ns = RLS();
   if (!ns.instances) ns.instances = new Map();
   return ns.instances;
@@ -15,16 +15,14 @@ export type UseClientHooks<NativeClientHooks> = () => readonly [ready: boolean, 
 
 type NativeClientHooksOf<D> = D extends IsoStoreDefinition<any, never, any, any, infer C> ? C : never;
 
-export type AsSingletonDefinition<D extends IsoStoreDefinition<any, never, any, any, any>> = {
+export type AsSingletonDefinition<D extends AnyStoreDef> = {
   createStore: D['createStore'];
   hooks: D['hooks'];
   useClientHooks: UseClientHooks<NativeClientHooksOf<D>>;
   message: D['broadcast'];
 };
 
-// broadcast uses `never` so that SendMessage<never> (no-message stores) is assignable:
-// (msg: Message) => void extends (msg: never) => void since never extends Message for all Message.
-export function asSingleton<D extends IsoStoreDefinition<any, never, any, any, any>>(def: D): AsSingletonDefinition<D> {
+export function asSingleton<D extends AnyStoreDef>(def: D): AsSingletonDefinition<D> {
   return {
     createStore: ((opts: Parameters<D['createStore']>[0]) => {
       const instances = getInstances();

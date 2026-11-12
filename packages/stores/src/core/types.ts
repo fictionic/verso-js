@@ -38,12 +38,20 @@ export interface IsoStoreDefinition<
   broadcast: SendMessage<Message>;
 }
 
+export interface DefinitionOptions {
+  onError?: (error: unknown) => void;
+};
+
 // --- internal ---
+
+// NOTE: Message is typed as `never` instead of `any` because it is
+// contravariant: (msg: never) => void is assignable to (msg: whatever) => void
+export type AnyStoreDef = IsoStoreDefinition<any, never, any, any, any>;
 
 export interface InternalIsoStoreInstance<NativeStore> extends IsoStoreInstance<NativeStore> {
   [STORE_INSTANCE_INTERNALS]: {
     identifier: InstanceID;
-    definition: InternalIsoStoreDefinition<any, any, any, any, any>;
+    definition: InternalIsoStoreDefinition<any, never, any, any, any>;
     messageHandlers: Array<MessageHandler<any>>;
     onMount: () => void;
   };
