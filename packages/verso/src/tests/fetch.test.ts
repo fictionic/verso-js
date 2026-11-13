@@ -8,9 +8,7 @@ import { ServerCookies } from '../core/server/ServerCookies';
 import { withRLS } from '../userland/testing/rls';
 import { serverSide, clientSide } from '../userland/testing/isomorphic';
 
-// nativeFetch.ts captures globalThis.fetch at import; Fetch.ts calls the imported
-// binding, so a global stub would be bypassed. Mock the module instead and assert
-// on call count/arguments -- the central assertion surface for this suite.
+// nativeFetch captures globalThis.fetch at import, so a global stub has no effect
 vi.mock('../core/common/fetch/nativeFetch', () => ({ nativeFetch: vi.fn() }));
 
 const mockFetch = vi.mocked(nativeFetch);
@@ -34,7 +32,6 @@ function loopbackStub(): Serve {
   return vi.fn(async () => new Response('loopback')) as unknown as Serve;
 }
 
-/** Init Fetch's server branch (and optionally ServerCookies) inside an active RLS. */
 function initServer(opts: {
   request?: Request;
   settings?: Partial<ServerSettings>;
@@ -52,7 +49,6 @@ function dehydrate(): DehydratedCache {
   return Fetch.getCache().server().dehydrate();
 }
 
-/** The Request passed to nativeFetch on its Nth call. */
 function nativeFetchRequest(call = 0): Request {
   return mockFetch.mock.calls[call]![0] as Request;
 }
@@ -61,7 +57,6 @@ const jsonResponse = (body = '{"x":1}') =>
   new Response(body, { headers: { 'Content-Type': 'application/json' } });
 
 describe('Fetch orchestration', () => {
-  // -------------------------------------------------------------------------
   serverSide(() => {
     describe('Server-side request orchestration', () => {
       test('two concurrent GETs to the same URL hit nativeFetch once; both get the data', async () => {
@@ -99,7 +94,6 @@ describe('Fetch orchestration', () => {
             Fetch.fetch(url, { method: 'POST' }, { forceToCache: true }),
           ]);
           expect(mockFetch).toHaveBeenCalledTimes(1);
-          // present in dehydrate (cached for transport)
           expect(dehydrate()['https://api.example.com/data']).toHaveLength(1);
         });
       });
@@ -150,7 +144,6 @@ describe('Fetch orchestration', () => {
       });
     });
 
-    // -----------------------------------------------------------------------
     describe('Origin / loopback resolution', () => {
       test('relative URL with fetchOrigin "loopback" routes through the loopback Serve, not nativeFetch', async () => {
         const loopback = loopbackStub();
@@ -175,7 +168,6 @@ describe('Fetch orchestration', () => {
       });
     });
 
-    // -----------------------------------------------------------------------
     describe('Interceptors', () => {
       test('interceptor rewrites the URL: nativeFetch gets the rewritten URL, cache key stays the original', async () => {
         mockFetch.mockResolvedValue(jsonResponse());
@@ -187,7 +179,6 @@ describe('Fetch orchestration', () => {
           }));
           await Fetch.fetch('https://public.example.com/data');
           expect(nativeFetchRequest().url).toBe('https://private.internal/data');
-          // cache key is the original, pre-intercept URL
           expect(Object.keys(dehydrate())).toEqual(['https://public.example.com/data']);
         });
       });
@@ -212,7 +203,6 @@ describe('Fetch orchestration', () => {
       });
     });
 
-    // -----------------------------------------------------------------------
     describe('Cookie forwarding', () => {
       const withCookies = new Request('https://app.example.com/', {
         headers: { cookie: 'session=abc' },
@@ -277,13 +267,12 @@ describe('Fetch orchestration', () => {
       });
     });
 
-    // -----------------------------------------------------------------------
     describe('Content-type-driven caching decision', () => {
       async function fetchAndCheckCached(contentType: string | null): Promise<boolean> {
         const url = 'https://api.example.com/resource';
         const headers: Record<string, string> = {};
         if (contentType) headers['Content-Type'] = contentType;
-        // Use a typed-array body so no Content-Type is auto-applied when omitted.
+        // a string body would get an automatic text/plain Content-Type
         mockFetch.mockResolvedValue(new Response(new Uint8Array([1, 2, 3]), { headers }));
         return withRLS(async () => {
           initServer();
@@ -312,7 +301,6 @@ describe('Fetch orchestration', () => {
     });
   });
 
-  // -------------------------------------------------------------------------
   clientSide(() => {
     const URL = 'https://api.example.com/data';
 
@@ -336,7 +324,6 @@ describe('Fetch orchestration', () => {
           expect(mockFetch).not.toHaveBeenCalled();
           expect(await hit.text()).toBe('{"cached":true}');
 
-          // entry consumed (requesters -> 0 -> evicted): second call misses, falls through
           mockFetch.mockResolvedValue(new Response('fresh', { headers: { 'Content-Type': 'text/plain' } }));
           await Fetch.fetch(URL);
           expect(mockFetch).toHaveBeenCalledTimes(1);

@@ -1,7 +1,6 @@
 import { definePage } from '@verso-js/verso';
 import { Nav } from '../components/Nav';
 
-// Two independent roots, written to the stream in document order.
 export default definePage(() => ({
   getTitle: () => 'Multi Root Page',
   getRouteDirective: () => ({ kind: 'ok' }),

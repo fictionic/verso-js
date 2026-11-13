@@ -9,24 +9,8 @@ import type { RouteHandlerDefinition, RouteHandlerType } from '../core/common/ha
 import type { RouteMatch } from '../core/common/router';
 import { VersoRequest } from '../core/common/VersoRequest';
 
-// --- Test harness ---------------------------------------------------------
-//
-// This suite tests chain composition in isolation: build a chain with
-// `createHandlerChain` and call methods on the resulting standardized handler.
-// No `serveResponse` / resolver involvement.
-//
-// `createHandlerChain(def, versoRequest, route, globalMiddleware)` owns the
-// per-request `MiddlewareConfig` and `RouteHandlerCtx` internally: it creates
-// the config, builds the ctx via `createCtx`, runs `def.init(ctx)`, registers /
-// sets config from the middleware + handler, then folds the middleware around
-// the standardized handler. Because the chain builds the real ctx, the
-// config-lifecycle tests below exercise the real `createCtx` wiring (the
-// handler reads config through the ctx it is handed in `init`).
-
 const NO_ELEMENTS: ReactElement[] = [];
 
-// Build a chain with a stub request + route. The chain creates its own config
-// and ctx, so tests only supply the handler definition and middleware.
 function buildChain<T extends RouteHandlerType, O extends {}, R extends {}>(
   def: RouteHandlerDefinition<T, O, R>,
   middleware: MiddlewareDefinition<Scope>[] = [],
@@ -108,7 +92,6 @@ describe('createHandlerChain', () => {
           return directive;
         },
       }));
-      // Declaration order [a, b] => a is outermost.
       const chain = buildChain(def, [a, b]);
 
       await chain.getRouteDirective();
@@ -128,9 +111,7 @@ describe('createHandlerChain', () => {
       }));
       const chain = buildChain(def, [mw]);
 
-      // getElements is untouched: still the handler's own function/value.
       expect(chain.getElements()).toBe(els);
-      // getRouteDirective is wrapped.
       expect(await chain.getRouteDirective()).toEqual({ kind: 'status', code: 503, hasBody: false });
     });
 
@@ -140,8 +121,7 @@ describe('createHandlerChain', () => {
         getTitle: () => 'orig-title',
         getElements: () => NO_ELEMENTS,
       }));
-      // page-scoped: wrapping getTitle (a page method) requires page scope;
-      // 'all' middleware may only wrap shared methods.
+      // only 'page' scope can wrap getTitle. 'all' can only wrap shared methods.
       const mw = defineMiddleware('page', () => ({
         getRouteDirective: async (next) => {
           await next();
@@ -168,7 +148,6 @@ describe('createHandlerChain', () => {
       }));
       const chain = buildChain(def, [pageMw]);
 
-      // Page middleware filtered out -> endpoint's own directive wins.
       expect(await chain.getRouteDirective()).toEqual({ kind: 'ok' });
     });
 
@@ -237,8 +216,6 @@ describe('createHandlerChain', () => {
       const chain = buildChain(def, [parent]);
 
       await chain.getRouteDirective();
-      // Children are expanded before their parent in `allMiddleware`, so the
-      // child wraps the parent: child runs first (outermost).
       expect(order).toEqual([
         'child-before',
         'parent-before',
@@ -310,9 +287,6 @@ describe('createHandlerChain', () => {
 
     test("setConfigValues overrides a key declared elsewhere; the handler's override (applied last) wins", async () => {
       let observed: unknown;
-      // The middleware *declares + seeds* the key; the handler overrides it via
-      // setConfigValues. Handlers/setters run after all addConfigValues, and the
-      // handler's setConfigValues runs after the middleware's, so its value wins.
       const def = definePage((ctx) => ({
         setConfigValues: () => ({ flag: 'from-handler' }),
         getRouteDirective: () => {
@@ -382,7 +356,6 @@ describe('createHandlerChain', () => {
     });
 
     test('shared optional methods are defaulted too (getRouteDirective => ok, getHeaders => empty)', async () => {
-      // Handler omits getRouteDirective entirely; the standardizer fills it.
       const def = definePage(() => ({
         getElements: () => NO_ELEMENTS,
       }));
@@ -392,11 +365,6 @@ describe('createHandlerChain', () => {
       expect(chain.getHeaders()).toBeInstanceOf(Headers);
       expect([...chain.getHeaders().keys()]).toEqual([]);
     });
-
-    // NOTE: presence of required methods (e.g. `getElements`) is enforced at the
-    // TypeScript type level by `definePage`/`defineEndpoint`, not re-validated at
-    // runtime. Omitting one is a compile error, so there is intentionally no
-    // runtime guard to test here.
 
     test('defineMiddleware(init) defaults scope to "page"', () => {
       const mw = defineMiddleware(() => ({}));
@@ -444,7 +412,6 @@ describe('createHandlerChain', () => {
       const chain = buildChain(def, [mw]);
 
       await expect(chain.getRouteDirective()).rejects.toThrow(/next\(\) called more than once/);
-      // the first next() ran before the second threw
       expect(handlerDirective).toHaveBeenCalledTimes(1);
     });
 
@@ -458,7 +425,6 @@ describe('createHandlerChain', () => {
       }));
       const chain = buildChain(def, [mw]);
 
-      // Each invocation gets a fresh guard, so calling the method twice is fine.
       expect(await chain.getRouteDirective()).toEqual({ kind: 'ok' });
       expect(await chain.getRouteDirective()).toEqual({ kind: 'ok' });
     });

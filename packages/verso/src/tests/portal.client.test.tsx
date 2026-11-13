@@ -4,19 +4,17 @@ import type { ReactElement } from 'react';
 import { ensureRootElement, scheduleRootRender } from '../core/common/components/Root';
 import { IsomorphicPortal } from '../userland/components/portal';
 
-// useId() reads the RootContext, so the portal must render inside a Root.
-// scheduleRootRender supplies that context, as the framework does.
+// useId() reads the RootContext, so the portal must render inside a Root
 function inRoot(element: ReactElement): Promise<ReactElement> {
   return scheduleRootRender(ensureRootElement(element), 0).promise;
 }
 
-describe('IsomorphicPortal — client failure branches', () => {
+describe('IsomorphicPortal: client failure branches', () => {
   afterEach(() => {
     vi.restoreAllMocks();
   });
 
   test('throws when selector matches no element', async () => {
-    // Silence React's own error output for the uncaught render error.
     vi.spyOn(console, 'error').mockImplementation(() => {});
 
     const element = await inRoot(
@@ -36,7 +34,7 @@ describe('IsomorphicPortal — client failure branches', () => {
     document.body.appendChild(target);
 
     try {
-      // render() flushes the effect + the setMounted re-render synchronously.
+      // render() flushes the effect and the re-render synchronously
       render(await inRoot(
         <IsomorphicPortal selector="#portal-target">
           <span>portal content</span>
@@ -46,7 +44,6 @@ describe('IsomorphicPortal — client failure branches', () => {
       expect(warnSpy).toHaveBeenCalledWith(
         '[verso-portal:client] cannot find server-rendered source node',
       );
-      // Component still mounts — children land in the target node.
       expect(target.textContent).toContain('portal content');
     } finally {
       document.body.removeChild(target);

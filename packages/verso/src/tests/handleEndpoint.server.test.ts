@@ -1,16 +1,3 @@
-// Suite 1, Section 3 — Endpoint responses.
-//
-// Endpoints-only wire-protocol assertions on the body shape `handleEndpoint`
-// produces from `getResponseData()`. Content-Type wiring is covered by Section 1
-// (cross-handler symmetry) and is not duplicated here. `handleEndpoint` pipes
-// `getResponseData()`'s output through a `TransformStream` (via
-// `new Response(data).body`), so a string/ArrayBuffer body round-trips its bytes
-// and a `ReadableStream` body stays streaming rather than being buffered.
-//
-// Server pass only (the harness runs server-path code: `runWithServerRLS`,
-// `serveResponse`), hence the `.server.test.ts` suffix — see the 2b/2c entries
-// in _progress.md for the same rename rationale.
-
 import {describe, test, expect} from "vitest";
 import {defineEndpoint} from "../core/common/handler/Endpoint";
 import type {RoutesMap} from "../build/config";
@@ -42,7 +29,6 @@ describe("handleEndpoint responses", () => {
       getResponseData: () => buffer,
     }));
     const response = await run(req(), routes, endpoint);
-    // The bytes round-trip unchanged through the TransformStream.
     expect(await responseBodyAsString(response)).toBe(source);
   });
 
@@ -58,17 +44,12 @@ describe("handleEndpoint responses", () => {
     const response = await run(req(), routes, endpoint);
     const sr = streamReader(response);
 
-    // First chunk: written, must become readable before the stream is closed —
-    // if the body were buffered into a string before the Response was built,
-    // nothing would arrive until close().
     await writer.write(encoder.encode("CHUNK1"));
     await sr.readUntil((t) => t.includes("CHUNK1"));
     expect(sr.text()).toContain("CHUNK1");
     expect(sr.text()).not.toContain("CHUNK2");
     expect(sr.isDone()).toBe(false);
 
-    // Second chunk arrives only after it is written — proves the stream stays
-    // open between writes and chunks flow in the order written.
     await writer.write(encoder.encode("CHUNK2"));
     await sr.readUntil((t) => t.includes("CHUNK2"));
     expect(sr.text()).toBe("CHUNK1CHUNK2");

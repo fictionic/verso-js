@@ -2,8 +2,6 @@ import { definePage } from '@verso-js/verso';
 import { Counter } from '../components/Counter';
 import { Nav } from '../components/Nav';
 
-// A component that throws during render. It lives in its own root, so its
-// failure is isolated — the sibling root must still render and hydrate.
 function Boom(): never {
   throw new Error('[fixture] intentional render error from error-root page');
 }

@@ -13,8 +13,6 @@ function makeRequest(path: string, method = 'GET'): Request {
 
 type AnyDef = RouteHandlerDefinition<RouteHandlerType, any, any>;
 
-// The proxy chain is real definePage handlers: a → b → c, c renders.
-// z is a standalone route for the baseline and isolation cases.
 const handlers: Record<string, AnyDef> = {
   a: definePage(() => ({
     getRouteDirective: () => ({ kind: 'proxy', routeName: 'b' }),
@@ -34,8 +32,6 @@ const handlers: Record<string, AnyDef> = {
   })),
 };
 
-// Every route in the chain must be a real RoutesMap entry that accepts GET —
-// the proxy branch reads this.routes[proxiedRouteName] and runs routeAcceptsMethod.
 const routes: RoutesMap = {
   a: { path: '/a', handler: 'A' },
   b: { path: '/b', handler: 'B' },
@@ -45,10 +41,6 @@ const routes: RoutesMap = {
 
 const getRouteHandler = (name: string) => handlers[name] ?? null;
 
-/**
- * Resolve `path` and return the resolved page handler's accumulated header
- * assets. Each call runs in its own fresh RLS scope.
- */
 async function resolveAssets(
   bundleLoader: ReturnType<typeof createViteBundleLoader>,
   path: string,
@@ -94,7 +86,7 @@ function makeBundleLoader(overrides?: {
   });
 }
 
-describe('Suite 29: proxy ↔ bundle-loader asset accumulation', () => {
+describe('proxy + bundle-loader asset accumulation', () => {
   describe('Accumulation across the chain', () => {
     test('JS preloads cover every hop', async () => {
       const { preloadHrefs } = await resolveAssets(makeBundleLoader(), '/a');
@@ -130,7 +122,6 @@ describe('Suite 29: proxy ↔ bundle-loader asset accumulation', () => {
       const { preloadHrefs } = await resolveAssets(bundleLoader, '/a');
       const sharedCount = preloadHrefs.filter((h) => h === '/chunks/shared.js').length;
       expect(sharedCount).toBe(1);
-      // distinct URLs are all still present
       expect(preloadHrefs).toContain('/chunks/a.js');
       expect(preloadHrefs).toContain('/chunks/b.js');
       expect(preloadHrefs).toContain('/chunks/c.js');
@@ -148,10 +139,8 @@ describe('Suite 29: proxy ↔ bundle-loader asset accumulation', () => {
   describe('Request isolation', () => {
     test('routeNames resets per request', async () => {
       const bundleLoader = makeBundleLoader();
-      // First request: the a → b → c chain (separate RLS scope).
       const chain = await resolveAssets(bundleLoader, '/a');
       expect(chain.preloadHrefs).toEqual(['/chunks/a.js', '/chunks/b.js', '/chunks/c.js']);
-      // Second request: standalone z in its own RLS scope — nothing leaks in.
       const standalone = await resolveAssets(bundleLoader, '/z');
       expect(standalone.preloadHrefs).toEqual(['/chunks/z.js']);
       expect(standalone.preloadHrefs).not.toContain('/chunks/a.js');

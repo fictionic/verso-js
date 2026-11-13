@@ -4,19 +4,7 @@ import { Resolver, type RouteResolution } from '../core/common/resolver';
 import type { AnyStandardizedHandler } from '../core/common/handler/RouteHandler';
 import { silenced } from '../util/promise';
 
-// The resolver is ClientNavigationManager's only real collaborator (the build
-// hands it in), so it's the one thing we mock. Everything the manager itself
-// owns -- state transitions, commit, error/interruption handling, and the
-// getPageResolution wrapper -- is asserted by controlling the resolver's result.
-//
-// Supersession *mechanics* (interrupt -> drain -> restart, the interruption
-// sentinel, the onActive/onIdle burst accounting) belong to TaskRunner and are
-// proven directly in task.test.ts against a controllable fake. We don't
-// re-derive them here by counting microtasks; the few tests below that need a
-// real overlap assert only what the manager adds on top of TaskRunner.
-
-// A minimal 'response' resolution carrying a page handler. Only handler.type is
-// inspected by the manager, so the rest of the handler is an unused stand-in.
+// the manager only reads handler.type
 function makeResolution(routeName = 'home'): RouteResolution {
   return {
     kind: 'response',
@@ -26,7 +14,6 @@ function makeResolution(routeName = 'home'): RouteResolution {
   };
 }
 
-// A default start function. `onSignal` lets a test capture the AbortSignal.
 function makeStart(
   url = 'http://localhost/',
   onSignal?: (s: AbortSignal) => void,
@@ -58,7 +45,7 @@ describe('ClientNavigationManager', () => {
       resolveRoute.mockReturnValueOnce(new Promise<RouteResolution>(() => {}));
       const nav = manager.requestNavigation(makeStart('http://localhost/slow'), vi.fn(async () => {}));
 
-      // setPending runs synchronously inside the task, before requestNavigation yields.
+      // setPending runs before requestNavigation yields
       const state = manager.getState();
       expect(state.status).toBe('pending');
       if (state.status === 'pending') {
@@ -94,8 +81,7 @@ describe('ClientNavigationManager', () => {
 
   describe('getPageResolution', () => {
     test('follows a same-origin redirect to the redirected route', async () => {
-      // Same-origin is relative to the jsdom location, so derive it rather than
-      // hardcoding the port.
+      // same-origin is relative to the jsdom location
       const redirectLocation = new URL('/new', window.location.origin).href;
       resolveRoute
         .mockResolvedValueOnce({ kind: 'response', routeName: 'old', statusCode: 302, redirectLocation })
@@ -149,17 +135,13 @@ describe('ClientNavigationManager', () => {
     });
   });
 
-  // These need a genuine overlap through the real TaskRunner. To hold A in
-  // flight we leave its resolution pending forever; starting B supersedes it.
-  // We assert only the manager's own contributions over an interruption -- not
-  // that TaskRunner interrupts correctly (that's task.test.ts).
   describe('supersession', () => {
     test('the superseded navigation does not commit or go idle; the winner does', async () => {
       const commitA = vi.fn(async () => {});
       const commitB = vi.fn(async () => {});
 
-      resolveRoute.mockReturnValueOnce(new Promise<RouteResolution>(() => {})); // A: never settles
-      resolveRoute.mockResolvedValueOnce(makeResolution('page-b'));             // B: wins
+      resolveRoute.mockReturnValueOnce(new Promise<RouteResolution>(() => {}));
+      resolveRoute.mockResolvedValueOnce(makeResolution('page-b'));
 
       const navA = manager.requestNavigation(makeStart(), commitA);
       const navB = manager.requestNavigation(makeStart(), commitB);
@@ -198,7 +180,6 @@ describe('ClientNavigationManager', () => {
       expect(signalA).toBeDefined();
       expect(signalA!.aborted).toBe(false);
 
-      // Starting B calls interrupt() -> abortController.abort() synchronously.
       const navB = manager.requestNavigation(makeStart(), vi.fn(async () => {}));
       expect(signalA!.aborted).toBe(true);
 

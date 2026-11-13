@@ -9,8 +9,7 @@ import type {
 } from "@verso-js/stores/conformance";
 import { defineZustandIsoStore } from "../zustand";
 
-// The zustand client-hooks bag the suite hands to `readClient`. `ZustandClientHooks`
-// is internal to the adapter, so the structural shape is declared here.
+// ZustandClientHooks is not exported
 type ZustandClientHooksShape<State> = {
   useStore: <U>(selector: (s: State) => U) => U | undefined;
 };

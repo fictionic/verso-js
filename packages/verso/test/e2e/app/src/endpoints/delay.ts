@@ -1,7 +1,5 @@
 import { defineEndpoint } from '@verso-js/verso';
 
-// Responds after a configurable delay (the `ms` query param). Backs the
-// slow-root page's gated root.
 function delayMs(url: string): number {
   const ms = Number(new URL(url).searchParams.get('ms'));
   return Number.isFinite(ms) && ms > 0 ? ms : 0;

@@ -15,7 +15,7 @@ type AnyDef = RouteHandlerDefinition<RouteHandlerType, any, any>;
 
 describe('Resolver', () => {
   describe('Route matching & dispatch', () => {
-    test('URL matching a defined route → kind: response, routeName set, handler present', async () => {
+    test('URL matching a defined route -> kind: response, routeName set, handler present', async () => {
       const routes: RoutesMap = {
         home: { path: '/', handler: 'HomeHandler' },
       };
@@ -31,7 +31,7 @@ describe('Resolver', () => {
       expect(res.handler).toBeDefined();
     });
 
-    test('query string is ignored when matching → route still resolves', async () => {
+    test('query string is ignored when matching -> route still resolves', async () => {
       const routes: RoutesMap = {
         home: { path: '/', handler: 'HomeHandler' },
         search: { path: '/search', handler: 'SearchHandler' },
@@ -47,7 +47,7 @@ describe('Resolver', () => {
       expect(res.routeName).toBe('search');
     });
 
-    test('URL matching no route → kind: not-found', async () => {
+    test('URL matching no route -> kind: not-found', async () => {
       const routes: RoutesMap = {
         home: { path: '/', handler: 'HomeHandler' },
       };
@@ -56,7 +56,7 @@ describe('Resolver', () => {
       expect(res.kind).toBe('not-found');
     });
 
-    test('method mismatch (POST to GET-only route) → kind: not-found', async () => {
+    test('method mismatch (POST to GET-only route) -> kind: not-found', async () => {
       const routes: RoutesMap = {
         home: { path: '/', handler: 'HomeHandler', method: 'GET' },
       };
@@ -89,7 +89,7 @@ describe('Resolver', () => {
       expect(res.routeName).toBe('specific');
     });
 
-    test('matched route with null getRouteHandler → kind: error, logs error', async () => {
+    test('matched route with null getRouteHandler -> kind: error, logs error', async () => {
       const routes: RoutesMap = {
         home: { path: '/', handler: 'HomeHandler' },
       };
@@ -126,8 +126,8 @@ describe('Resolver', () => {
     });
   });
 
-  describe('Directive → status / redirect', () => {
-    test("{ kind: 'ok' } → status 200, no redirect location", async () => {
+  describe('Directive -> status / redirect', () => {
+    test("{ kind: 'ok' } -> status 200, no redirect location", async () => {
       const routes: RoutesMap = { home: { path: '/', handler: 'H' } };
       const handler = definePage(() => ({
         getRouteDirective: () => ({ kind: 'ok' }),
@@ -141,7 +141,7 @@ describe('Resolver', () => {
       expect(res.redirectLocation).toBeUndefined();
     });
 
-    test('non-redirect status directive → statusCode propagates, no redirect location', async () => {
+    test('non-redirect status directive -> statusCode propagates, no redirect location', async () => {
       const routes: RoutesMap = { p: { path: '/p', handler: 'H' } };
       const handler = definePage(() => ({
         getRouteDirective: () => ({ kind: 'status', code: 503, hasBody: false }),
@@ -156,7 +156,7 @@ describe('Resolver', () => {
     });
 
     test.each([301, 302, 303, 307, 308] as const)(
-      'redirect directive (code %i) → statusCode and redirectLocation propagate, no handler',
+      'redirect directive (code %i) -> statusCode and redirectLocation propagate, no handler',
       async (code) => {
         const routes: RoutesMap = { r: { path: '/r', handler: 'H' } };
         const handler = definePage(() => ({
@@ -175,7 +175,7 @@ describe('Resolver', () => {
   });
 
   describe('Handler attachment (hasBody logic)', () => {
-    test("{ kind: 'ok' } page → handler present", async () => {
+    test("{ kind: 'ok' } page -> handler present", async () => {
       const routes: RoutesMap = { p: { path: '/p', handler: 'H' } };
       const handler = definePage(() => ({
         getRouteDirective: () => ({ kind: 'ok' }),
@@ -188,7 +188,7 @@ describe('Resolver', () => {
       expect(res.handler).toBeDefined();
     });
 
-    test('status directive with hasBody: false → handler is undefined', async () => {
+    test('status directive with hasBody: false -> handler is undefined', async () => {
       const routes: RoutesMap = { p: { path: '/p', handler: 'H' } };
       const handler = definePage(() => ({
         getRouteDirective: () => ({ kind: 'status', code: 404, hasBody: false }),
@@ -201,7 +201,7 @@ describe('Resolver', () => {
       expect(res.handler).toBeUndefined();
     });
 
-    test('status directive with hasBody: true → handler present', async () => {
+    test('status directive with hasBody: true -> handler present', async () => {
       const routes: RoutesMap = { p: { path: '/p', handler: 'H' } };
       const handler = definePage(() => ({
         getRouteDirective: () => ({ kind: 'status', code: 404, hasBody: true }),
@@ -214,7 +214,7 @@ describe('Resolver', () => {
       expect(res.handler).toBeDefined();
     });
 
-    test('endpoint follows hasBody too: status with hasBody: true → handler present, type endpoint', async () => {
+    test('endpoint follows hasBody too: status with hasBody: true -> handler present, type endpoint', async () => {
       const routes: RoutesMap = { e: { path: '/e', handler: 'H' } };
       const handler = defineEndpoint(() => ({
         getRouteDirective: () => ({ kind: 'status', code: 404, hasBody: true }),
@@ -229,7 +229,7 @@ describe('Resolver', () => {
       expect(res.handler?.type).toBe('endpoint');
     });
 
-    test('endpoint status with hasBody: false → handler is undefined', async () => {
+    test('endpoint status with hasBody: false -> handler is undefined', async () => {
       const routes: RoutesMap = { e: { path: '/e', handler: 'H' } };
       const handler = defineEndpoint(() => ({
         getRouteDirective: () => ({ kind: 'status', code: 404, hasBody: false }),
@@ -246,7 +246,7 @@ describe('Resolver', () => {
 
   describe('Body & redirect guards', () => {
     test.each([204, 304, 100] as const)(
-      'body-prohibited status %i with hasBody: true → warns and drops the handler',
+      'body-prohibited status %i with hasBody: true -> warns and drops the handler',
       async (code) => {
         const routes: RoutesMap = { p: { path: '/p', handler: 'H' } };
         const handler = definePage(() => ({
@@ -265,7 +265,7 @@ describe('Resolver', () => {
       },
     );
 
-    test('status directive carrying a redirect code → warns, no redirect location', async () => {
+    test('status directive carrying a redirect code -> warns, no redirect location', async () => {
       const routes: RoutesMap = { p: { path: '/p', handler: 'H' } };
       const handler = definePage(() => ({
         getRouteDirective: () => ({ kind: 'status', code: 302, hasBody: false }),
@@ -284,7 +284,7 @@ describe('Resolver', () => {
   });
 
   describe('Proxy directives', () => {
-    test('proxy directive → resolves the target route; response reflects the proxied route', async () => {
+    test('proxy directive -> resolves the target route; response reflects the proxied route', async () => {
       const routes: RoutesMap = {
         a: { path: '/a', handler: 'A' },
         b: { path: '/b', handler: 'B' },
@@ -362,7 +362,7 @@ describe('Resolver', () => {
       expect(res.statusCode).toBe(200);
     });
 
-    test('a route proxying itself → kind: error, logs error', async () => {
+    test('a route proxying itself -> kind: error, logs error', async () => {
       const routes: RoutesMap = { self: { path: '/self', handler: 'Self' } };
       const selfHandler = definePage(() => ({
         getRouteDirective: () => ({ kind: 'proxy', routeName: 'self' }),
@@ -376,7 +376,7 @@ describe('Resolver', () => {
       errorSpy.mockRestore();
     });
 
-    test('proxy to a non-existent route → kind: error, logs error', async () => {
+    test('proxy to a non-existent route -> kind: error, logs error', async () => {
       const routes: RoutesMap = { a: { path: '/a', handler: 'A' } };
       const aHandler = definePage(() => ({
         getRouteDirective: () => ({ kind: 'proxy', routeName: 'nonexistent' }),
@@ -390,7 +390,7 @@ describe('Resolver', () => {
       errorSpy.mockRestore();
     });
 
-    test('proxy to a route that does not accept the request method → kind: error, logs error', async () => {
+    test('proxy to a route that does not accept the request method -> kind: error, logs error', async () => {
       const routes: RoutesMap = {
         a: { path: '/a', handler: 'A', method: 'POST' },
         b: { path: '/b', handler: 'B', method: 'GET' },
@@ -412,8 +412,8 @@ describe('Resolver', () => {
       errorSpy.mockRestore();
     });
 
-    test('a mutual proxy cycle exceeding max depth → kind: error, logs error', async () => {
-      // ping ↔ pong: neither proxies *itself*, so it evades the self-proxy
+    test('a mutual proxy cycle exceeding max depth -> kind: error, logs error', async () => {
+      // ping <-> pong: neither proxies *itself*, so it evades the self-proxy
       // guard and instead exhausts the recursion-depth limit.
       const routes: RoutesMap = {
         ping: { path: '/ping', handler: 'Ping' },
@@ -438,7 +438,7 @@ describe('Resolver', () => {
   });
 
   describe('Errors', () => {
-    test('getRouteDirective throws → kind: error, logs error, does not propagate', async () => {
+    test('getRouteDirective throws -> kind: error, logs error, does not propagate', async () => {
       const routes: RoutesMap = { p: { path: '/p', handler: 'H' } };
       const handler = definePage(() => ({
         getRouteDirective: () => { throw new Error('directive failure'); },

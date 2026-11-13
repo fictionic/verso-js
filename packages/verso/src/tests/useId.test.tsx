@@ -8,10 +8,6 @@ import {
   type AnyRootElement,
 } from '../core/common/components/Root';
 
-// Render a root at `index` whose probe calls useId() twice, and return the two
-// ids it produced. scheduleRootRender supplies the RootContext (carrying the
-// root index) that useId() reads, so this exercises useId through the same path
-// the framework renders roots.
 async function idsFromRoot(index: number): Promise<[string, string]> {
   const ids: string[] = [];
   const Probe: React.FC = () => {
@@ -40,8 +36,8 @@ describe('useId', () => {
   test('same tree positions in different roots do not collide', async () => {
     const first = await idsFromRoot(1);
     const second = await idsFromRoot(4);
-    // React's useId gives the same intra-root suffix at the same position, so
-    // the root-index namespace is what keeps the two roots from colliding.
+    // React's useId gives the same suffix at the same tree position, so only
+    // the root-index prefix keeps the ids distinct
     expect(first).not.toContain(second[0]);
     expect(first).not.toContain(second[1]);
     expect(first.every((id) => id.startsWith('1:'))).toBe(true);

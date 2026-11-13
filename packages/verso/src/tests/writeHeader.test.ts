@@ -40,7 +40,7 @@ describe('writeHeader', () => {
       expect(charsetIdx).toBeLessThan(titleIdx);
     });
 
-    test('sections render in order: charset → meta → title → link → stylesheets', async () => {
+    test('sections render in order: charset -> meta -> title -> link -> stylesheets', async () => {
       const page = makePage({
         getMetaTags: () => [{name: 'description', content: 'desc'}],
         getTitle: () => 'Page',
@@ -51,7 +51,7 @@ describe('writeHeader', () => {
       const charsetIdx = html.indexOf('<meta charset="utf-8">');
       const metaIdx = html.indexOf('<meta name=');
       const titleIdx = html.indexOf('<title>');
-      // getLinkTagAttrs puts the sentinel attr first, so look for the sentinel on link tags
+      // the sentinel attr is first, which tells link tags from stylesheet links
       const linkIdx = html.indexOf(`<link ${PAGE_HEADER_LINK_ELEMENT_ATTR}`);
       const styleIdx = html.indexOf(`<link ${PAGE_HEADER_STYLE_ELEMENT_ATTR}`);
       expect(charsetIdx).toBeLessThan(metaIdx);
@@ -62,7 +62,7 @@ describe('writeHeader', () => {
   });
 
   describe('title', () => {
-    test('string title renders <title>…</title>', async () => {
+    test('string title renders <title>...</title>', async () => {
       const html = await collect(makePage({getTitle: () => 'Hello World'}));
       expect(html).toContain('<title>Hello World</title>');
     });
@@ -80,14 +80,14 @@ describe('writeHeader', () => {
   });
 
   describe('meta tags', () => {
-    test('name meta tag renders <meta name=… content=…>', async () => {
+    test('name meta tag renders <meta name=... content=...>', async () => {
       const html = await collect(makePage({
         getMetaTags: () => [{name: 'description', content: 'A page'}],
       }));
       expect(html).toContain('<meta name="description" content="A page">');
     });
 
-    test('property meta tag renders <meta property=… content=…>', async () => {
+    test('property meta tag renders <meta property=... content=...>', async () => {
       const html = await collect(makePage({
         getMetaTags: () => [{property: 'og:title', content: 'OG Title'}],
       }));
@@ -133,7 +133,7 @@ describe('writeHeader', () => {
       expect(html).not.toContain('<style');
     });
 
-    test('inline stylesheet renders <style>…text…</style>', async () => {
+    test('inline stylesheet renders <style>...text...</style>', async () => {
       const html = await collect(makePage({
         getStylesheets: () => [{text: 'body { color: red; }'}],
       }));
@@ -146,9 +146,7 @@ describe('writeHeader', () => {
       const html = await collect(makePage({
         getStylesheets: () => [{text: 'a { content: "</style><script>evil()</script>" }</STYLE>end'}],
       }));
-      // escapeStyleText replaces </style with <\/style in user content
       expect(html).toContain('<\\/style');
-      // only one </style> in the output — the actual closing tag, not user-injected ones
       const closingTagCount = html.split('</style>').length - 1;
       expect(closingTagCount).toBe(1);
     });
@@ -177,7 +175,6 @@ describe('renderOpenTag', () => {
   });
 
   test('valueless attr renders as bare name', () => {
-    // renderAttrs: !value → bare name. Empty string is falsy.
     expect(renderOpenTag('script', {async: '', src: 'a.js'})).toBe('<script async src="a.js">');
   });
 

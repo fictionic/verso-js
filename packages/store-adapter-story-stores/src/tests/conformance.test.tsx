@@ -9,9 +9,7 @@ import type {
 } from "@verso-js/stores/conformance";
 import { defineStoryStore } from "../story-stores";
 
-// The story-stores client-hooks bag the suite hands to `readClient`.
-// `StoryClientHooks` is internal to the adapter, so the structural shape is
-// declared here.
+// StoryClientHooks is not exported
 type StoryClientHooksShape<State> = {
   useStory: <U>(selector: (s: State) => U) => U | undefined;
 };

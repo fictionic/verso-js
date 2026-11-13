@@ -1,8 +1,6 @@
 import { defineEndpoint } from '@verso-js/verso';
 
-// No-op endpoint at `/` so the webServer health check gets a 200. The fixture
-// has no other root route, and Playwright only treats <400 as "ready" — without
-// this, `/` would 404 forever and the webServer would time out.
+// the playwright webServer waits for a non-error response at `/`
 export default defineEndpoint(() => ({
   getRouteDirective: () => ({ kind: 'ok' }),
   getContentType: () => 'text/plain',

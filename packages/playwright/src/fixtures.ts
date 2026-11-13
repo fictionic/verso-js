@@ -60,13 +60,8 @@ export const versoFixtures = {
   },
 };
 
-/**
- * Builds a VersoHandle over a page. The handle is stateless — every method
- * re-derives the navigation handle from `page`, holding nothing between calls —
- * so both the `verso` and `page` fixtures construct their own from `page` rather
- * than the `page` fixture depending on the `verso` fixture (which would create a
- * page -> verso -> page dependency cycle Playwright rejects).
- */
+// The handle is stateless, so each fixture makes its own. If `page` depended on
+// `verso`, Playwright would reject the page -> verso -> page cycle.
 function createVersoHandle(page: Page): VersoHandle {
   return {
     waitForNavigationIdle: async () => {

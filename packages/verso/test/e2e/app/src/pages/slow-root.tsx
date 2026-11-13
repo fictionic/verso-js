@@ -1,9 +1,6 @@
 import { definePage, fetch, Root } from '@verso-js/verso';
 import { Nav } from '../components/Nav';
 
-// A fast root that renders immediately, and a slow root gated on a delayed
-// endpoint via `when`. The slow root is written to the stream only after its
-// `when` promise settles, so it arrives after the fast root.
 export default definePage(() => {
   const slow = fetch('/api/delay?ms=500').then((r) => r.json());
   return {

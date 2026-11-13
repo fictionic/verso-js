@@ -1,8 +1,5 @@
 import { Link } from '@verso-js/verso';
 
-// Shared in-page navigation. Every page carries it so the navigation suites
-// (back/forward across 3+ pages, navigateTo, portal survives-nav) always have
-// links to click and destinations to reach.
 export function Nav() {
   return (
     <nav data-testid="nav">

@@ -124,7 +124,6 @@ export function describeIsoStoreAdapter(recipe: ConformanceRecipe): void {
         void instance.whenReady.then(() => { whenReadyResolved = true; });
 
         await act(async () => {});
-        // whenReady settles even though the non-blocking promise is still pending
         expect(whenReadyResolved).toBe(true);
 
         resolve("loaded"); // resolve so we don't leak a pending promise
@@ -144,7 +143,6 @@ export function describeIsoStoreAdapter(recipe: ConformanceRecipe): void {
           </IsoStoreProvider>,
         );
 
-        // onMount (useEffect) has fired, but our promise hasn't resolved yet
         expect(screen.getByText("pending")).toBeTruthy();
 
         resolve("loaded");
@@ -169,7 +167,6 @@ export function describeIsoStoreAdapter(recipe: ConformanceRecipe): void {
         );
 
         await act(async () => {});
-        // gate still pending → whenReady blocked; the value key is untouched throughout
         expect(resolved).toBe(false);
         expect(screen.getByText("steady")).toBeTruthy();
 
@@ -209,17 +206,17 @@ export function describeIsoStoreAdapter(recipe: ConformanceRecipe): void {
         expect(((errors[0] as Error).cause as Error).message).toBe("fetch failed");
       });
 
-      test("duplicate async key throws (setAsync × setAsync)", () => {
+      test("duplicate async key throws (setAsync + setAsync)", () => {
         const def = recipe.makeDuplicateKeyStore("async+async");
         expect(() => def.createStore({})).toThrow("duplicate async key");
       });
 
-      test("duplicate async key throws (setNonBlockingAsync × setNonBlockingAsync)", () => {
+      test("duplicate async key throws (setNonBlockingAsync + setNonBlockingAsync)", () => {
         const def = recipe.makeDuplicateKeyStore("nonBlocking+nonBlocking");
         expect(() => def.createStore({})).toThrow("duplicate async key");
       });
 
-      test("duplicate async key throws (setAsync × setNonBlockingAsync)", () => {
+      test("duplicate async key throws (setAsync + setNonBlockingAsync)", () => {
         const def = recipe.makeDuplicateKeyStore("async+nonBlocking");
         expect(() => def.createStore({})).toThrow("duplicate async key");
       });
@@ -273,7 +270,6 @@ export function describeIsoStoreAdapter(recipe: ConformanceRecipe): void {
           store.def.broadcast({ type: "rename", name: "Bob" });
         });
 
-        // await the re-render — some adapters batch view notification (see reactivity note).
         await waitForDom(() => expect(screen.getAllByText("Bob")).toHaveLength(2));
       });
     });
@@ -376,7 +372,6 @@ export function describeIsoStoreAdapter(recipe: ConformanceRecipe): void {
           return <div>{value}</div>;
         }
 
-        // No IsoStoreProvider — useClientHooks accesses the singleton via RLS
         render(<Widget />);
 
         await waitForDom(() => screen.getByText("hello"));
@@ -403,7 +398,6 @@ export function describeIsoStoreAdapter(recipe: ConformanceRecipe): void {
           singleton.message({ type: "rename", name: "Bob" });
         });
 
-        // await the re-render — some adapters batch view notification (see reactivity note).
         expect(await screen.findByText("Bob")).toBeTruthy();
       });
     });

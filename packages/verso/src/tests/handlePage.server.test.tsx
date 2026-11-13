@@ -1,17 +1,3 @@
-// Suite 1, Section 2 — Page rendering.
-//
-// Pages-only wire-protocol assertions on what `serveResponse` -> `handlePage`
-// emits: rendered HTML (document shape, roots, containers, scripts, body
-// classes), streaming chunk order, and VersoPipe-call placement (bootstrap at
-// the fold, hydrateRootsUpTo, abortHydration, late arrivals). HTML content is
-// inspected through `parseHtml` (jsdom-as-parser) or byte-offset comparison;
-// streaming order is inspected by consuming the body chunk-by-chunk and
-// classifying chunks with `findPipeCalls` / `findPipeValue` / `findPipeEvents`.
-//
-// Server pass only (the harness runs server-path code: `runWithServerRLS`,
-// `renderToString`), hence the `.server.test.tsx` suffix — see the 2b entry in
-// _progress.md for the same rename rationale.
-
 import type {FC, ReactElement} from "react";
 import {describe, test, expect, vi, beforeEach} from "vitest";
 import {definePage} from "../core/common/handler/Page";
@@ -44,10 +30,7 @@ import {
 } from "./helpers/serveResponseHarness";
 import {delay} from "./util/promise";
 
-// `nativeFetch.ts` captures `globalThis.fetch` at import time, so a `vi.stubGlobal`
-// after import is silently bypassed; the one-line module indirection exists so
-// tests `vi.mock` it. Only the late-arrival tests drive it; everything else
-// never calls fetch, so the default `vi.fn()` (returns undefined) is harmless.
+// nativeFetch captures globalThis.fetch at import, so a global stub has no effect
 vi.mock("../core/common/fetch/nativeFetch", () => ({nativeFetch: vi.fn()}));
 
 const routes: RoutesMap = {home: {path: "/", handler: "H"}};
@@ -56,7 +39,6 @@ function req(controller?: AbortController, path = "/"): Request {
   return new Request(`http://localhost${path}`, controller ? {signal: controller.signal} : undefined);
 }
 
-/** A `definePage` whose directive is a plain 200 and whose elements are fixed. */
 function okPage(elements: ReactElement[]) {
   return definePage(() => ({
     getRouteDirective: () => ({kind: "ok"}),
@@ -64,17 +46,15 @@ function okPage(elements: ReactElement[]) {
   }));
 }
 
-/** A Root gated on a `when` promise, with a text marker for offset/content checks. */
 function slowRoot(when: Promise<unknown>, marker: string): ReactElement {
   return <Root when={when}>{marker}</Root>;
 }
 
-/** A promise that never settles — keeps a Root PENDING across an abort. */
 function neverResolves(): Promise<unknown> {
   return new Promise<unknown>(() => {});
 }
 
-/** Offset of the `fetchCache` data write — the true bootstrap (fold) landmark. */
+// the fetchCache write marks the bootstrap point
 function bootstrapOffset(html: string): number {
   const event = findPipeEvents(html).find((e) => e.kind === "data" && e.key === FETCH_CACHE_KEY);
   if (!event) throw new Error("no fetchCache bootstrap write found");
@@ -104,7 +84,7 @@ describe("handlePage rendering", () => {
       expect(parseHtml(body).body.className).toBe("alpha beta");
     });
 
-    test("no body classes → <body> carries no class attribute", async () => {
+    test("no body classes -> <body> carries no class attribute", async () => {
       const body = await responseBodyAsString(await run(req(), routes, okPage([<div>X</div>])));
       expect(parseHtml(body).body.hasAttribute("class")).toBe(false);
     });
@@ -123,7 +103,6 @@ describe("handlePage rendering", () => {
       const dfd = Promise.withResolvers<void>();
       const response = await run(req(), routes, okPage([<div>FASTA</div>, slowRoot(dfd.promise, "SLOWB")]));
       const sr = streamReader(response);
-      // FASTA flushes while the slow root is still pending (unresolved).
       await sr.readUntil((t) => t.includes("FASTA"));
       expect(sr.text()).not.toContain("SLOWB");
       dfd.resolve();
@@ -136,7 +115,6 @@ describe("handlePage rendering", () => {
       const response = await run(req(), routes, okPage([slowRoot(dfd.promise, "SLOWA"), <div>FASTB</div>]));
       const sr = streamReader(response);
       await sr.readUntil((t) => t.includes("</head>"));
-      // FASTB is rendered but cannot flush ahead of the still-pending SLOWA.
       expect(await sr.raceOpen(50)).toBe("open");
       dfd.resolve();
       await sr.readAll();
@@ -214,8 +192,6 @@ describe("handlePage rendering", () => {
         getScripts: () => [{text: "console.log('inline-script-body')"}],
       }));
       const body = await responseBodyAsString(await run(req(), routes, page));
-      // page scripts carry the data-verso-script-element sentinel, which
-      // distinguishes them from the VersoPipe inline scripts.
       const script = parseHtml(body).querySelector("script[data-verso-script-element]");
       expect(script).not.toBeNull();
       expect(script?.textContent).toContain("console.log('inline-script-body')");
@@ -240,8 +216,6 @@ describe("handlePage rendering", () => {
       const errorSpy = vi.spyOn(console, "error").mockImplementation(() => {});
       const body = await responseBodyAsString(await run(req(), routes, okPage([<Boom />])));
       const root = parseHtml(body).querySelector("div[data-verso-root]");
-      // the response did not crash: a (now empty) root div is still present so
-      // the client has something to hydrate into.
       expect(root).not.toBeNull();
       expect(root?.textContent).toBe("");
       expect(errorSpy).toHaveBeenCalled();
@@ -259,10 +233,8 @@ describe("handlePage rendering", () => {
     });
 
     test("each separately-arriving post-fold root emits its own hydrateRootsUpTo(N)", async () => {
-      // tokens: 0=root, 1=fold, 2=root(POST1), 3=root(POST2, slow). Post-fold
-      // roots that arrive in the same flush batch into a single cumulative
-      // hydrateRootsUpTo(max) (the "up to N" semantics) — so to observe one call
-      // per root they must flush separately, which a slow second root forces.
+      // token indices: 0=PRE, 1=fold, 2=POST1, 3=POST2. Roots in the same flush
+      // share one hydrateRootsUpTo call, so POST2 is slow to force a second flush.
       const dfd = Promise.withResolvers<void>();
       const page = okPage([<div>PRE</div>, <TheFold />, <div>POST1</div>, slowRoot(dfd.promise, "POST2")]);
       const sr = streamReader(await run(req(), routes, page));
@@ -278,7 +250,7 @@ describe("handlePage rendering", () => {
       expect(hydrateArgs).toContain(3);
     });
 
-    test("no TheFold declared → synthetic bootstrap after the last root", async () => {
+    test("no TheFold declared -> synthetic bootstrap after the last root", async () => {
       const body = await responseBodyAsString(await run(req(), routes, okPage([<div>ONLYROOT</div>])));
       expect(body.indexOf("ONLYROOT")).toBeLessThan(bootstrapOffset(body));
     });
@@ -288,7 +260,6 @@ describe("handlePage rendering", () => {
       const page = okPage([<div>A</div>, <TheFold />, <div>B</div>, <TheFold />]);
       const body = await responseBodyAsString(await run(req(), routes, page));
       expect(warnSpy).toHaveBeenCalledWith(expect.stringContaining("additional TheFold"));
-      // only one fetchCache write (one bootstrap)
       const fetchCacheWrites = findPipeEvents(body).filter(
         (e) => e.kind === "data" && e.key === FETCH_CACHE_KEY,
       );
@@ -310,7 +281,7 @@ describe("handlePage rendering", () => {
       expect(findPipeValue(body, CLIENT_MANIFEST_KEY)).toEqual(manifest);
     });
 
-    test("no manifest (dev default) → no clientManifest data write", async () => {
+    test("no manifest (dev default) -> no clientManifest data write", async () => {
       const body = await responseBodyAsString(
         await run(req(), routes, okPage([<div>X</div>, <TheFold />])),
       );
@@ -329,7 +300,6 @@ describe("handlePage rendering", () => {
       const dfd = Promise.withResolvers<void>();
       const sr = streamReader(await run(req(), routes, okPage([<div>FASTA</div>, slowRoot(dfd.promise, "SLOWB")])));
       await sr.readUntil((t) => t.includes("FASTA"));
-      // FASTA is on the wire in its own chunk while SLOWB is still pending.
       expect(sr.chunks.some((c) => c.includes("FASTA"))).toBe(true);
       expect(sr.text()).not.toContain("SLOWB");
       dfd.resolve();
@@ -340,7 +310,6 @@ describe("handlePage rendering", () => {
       const dfd = Promise.withResolvers<void>();
       const sr = streamReader(await run(req(), routes, okPage([slowRoot(dfd.promise, "SLOWA"), <div>FASTB</div>])));
       await sr.readUntil((t) => t.includes("</head>"));
-      // nothing flushes past the head while index 0 is pending
       expect(await sr.raceOpen(50)).toBe("open");
       expect(sr.text()).not.toContain("FASTB");
       dfd.resolve();
@@ -417,7 +386,6 @@ describe("handlePage rendering", () => {
           okPage([<div>PREFOLD</div>, <TheFold />, slowRoot(neverResolves(), "SLOW")]),
         ),
       );
-      // wait until bootstrap has streamed (haveBootstrapped is true), then abort
       await sr.readUntil((t) => findPipeValue(t, FETCH_CACHE_KEY) !== undefined);
       controller.abort();
       await sr.readAll();
@@ -429,7 +397,6 @@ describe("handlePage rendering", () => {
       const sr = streamReader(
         await run(req(controller), routes, okPage([slowRoot(neverResolves(), "SLOW")])),
       );
-      // only the head chunk has flushed; no fold has been reached
       await sr.readUntil((t) => t.includes("</head>"));
       controller.abort();
       await sr.readAll();
@@ -458,8 +425,6 @@ describe("handlePage rendering", () => {
       vi.mocked(nativeFetch).mockReturnValueOnce(fetchDfd.promise);
       const page = definePage(() => ({
         getRouteDirective: () => {
-          // fire-and-forget: registers as pending synchronously, stays pending
-          // until we resolve the mocked native fetch below.
           void Fetch.fetch("/api/data");
           return {kind: "ok"};
         },
@@ -467,22 +432,21 @@ describe("handlePage rendering", () => {
       }));
       const response = await run(req(), routes, page);
       const bodyPromise = responseBodyAsString(response);
-      // let writePage reach the fold and capture the pending fetch before we
-      // resolve it (resolving earlier would settle it before the fold).
+      // resolve only after the fold, so the fetch is a late arrival
       await delay(20);
       fetchDfd.resolve(new Response("late data", {headers: {"content-type": "text/plain"}}));
       const body = await bodyPromise;
       expect(findPipeCalls(body).some((c) => c.fn === FN_RECEIVE_LATE_DATA_ARRIVAL)).toBe(true);
     });
 
-    test("no pending fetches at the fold → no late-arrival calls", async () => {
+    test("no pending fetches at the fold -> no late-arrival calls", async () => {
       const body = await responseBodyAsString(
         await run(req(), routes, okPage([<div>ROOT</div>, <TheFold />])),
       );
       expect(findPipeCalls(body).some((c) => c.fn === FN_RECEIVE_LATE_DATA_ARRIVAL)).toBe(false);
     });
 
-    test("abort while waiting for late arrivals → page finishes without them", async () => {
+    test("abort while waiting for late arrivals -> page finishes without them", async () => {
       const fetchDfd = Promise.withResolvers<Response>();
       vi.mocked(nativeFetch).mockReturnValueOnce(fetchDfd.promise);
       const controller = new AbortController();
@@ -491,9 +455,7 @@ describe("handlePage rendering", () => {
           void Fetch.fetch("/api/data");
           return {kind: "ok"};
         },
-        // a never-resolving post-fold root keeps the abort landing while the
-        // late-arrival fetch is still pending, so didAbort() is true by the time
-        // wrapUpLateArrivals() runs and short-circuits.
+        // the pending root keeps the page open, so the abort comes while the fetch is pending
         getElements: () => [<TheFold />, slowRoot(neverResolves(), "SLOW")],
       }));
       const sr = streamReader(await run(req(controller), routes, page));
@@ -501,23 +463,12 @@ describe("handlePage rendering", () => {
       controller.abort();
       await sr.readAll();
       expect(sr.isDone()).toBe(true);
-      // the still-pending fetch never produces a late-arrival call
       expect(findPipeCalls(sr.text()).some((c) => c.fn === FN_RECEIVE_LATE_DATA_ARRIVAL)).toBe(false);
-      // resolving the fetch after the fact must not change the closed output
       fetchDfd.resolve(new Response("ignored"));
     });
   });
 
   describe("End-of-data signal", () => {
-    // The client tears down the VersoPipe on FN_SIGNAL_END_OF_DATA. These tests
-    // pin the server contract the client's late-arrival handling depends on:
-    // end-of-data must be the *terminal* pipe call, emitted after roots-complete
-    // and after every late arrival. If it ever moved ahead of a late arrival,
-    // that arrival would land against an already-destroyed pipe on the client —
-    // the exact race the end-of-data signal was introduced to close. See the
-    // paired client-side assertions in clientHydration.client.test.ts.
-
-    // pipe-call fns in document (= emission) order.
     const callFns = (html: string): string[] =>
       findPipeEvents(html).flatMap((e) => (e.kind === "call" ? [e.fn] : []));
 
@@ -533,8 +484,7 @@ describe("handlePage rendering", () => {
       }));
       const response = await run(req(), routes, page);
       const bodyPromise = responseBodyAsString(response);
-      // let writePage reach the fold and capture the pending fetch before
-      // resolving it, so it genuinely pipes as a late arrival.
+      // resolve only after the fold, so the fetch is a late arrival
       await delay(20);
       fetchDfd.resolve(new Response("late data", {headers: {"content-type": "text/plain"}}));
       const fns = callFns(await bodyPromise);
@@ -543,13 +493,10 @@ describe("handlePage rendering", () => {
       const rootsCompleteIdx = fns.indexOf(FN_SIGNAL_ROOTS_COMPLETE);
       const lastLateIdx = fns.lastIndexOf(FN_RECEIVE_LATE_DATA_ARRIVAL);
 
-      // it's actually emitted, exactly once, and it's the very last call
       expect(fns.filter((f) => f === FN_SIGNAL_END_OF_DATA)).toHaveLength(1);
       expect(fns.at(-1)).toBe(FN_SIGNAL_END_OF_DATA);
-      // sanity: this run really did produce both prerequisites
       expect(rootsCompleteIdx).toBeGreaterThanOrEqual(0);
       expect(lastLateIdx).toBeGreaterThanOrEqual(0);
-      // the ordering the client relies on for teardown
       expect(endIdx).toBeGreaterThan(rootsCompleteIdx);
       expect(endIdx).toBeGreaterThan(lastLateIdx);
     });

@@ -1,12 +1,6 @@
 // @vitest-environment jsdom
-//
-// The redux row of the spec-30 adapter conformance matrix. Expresses each
-// scenario in redux's native idiom — a `(dispatch, getState) => Reducer` store
-// init, `dispatch(action)` mutations, and `useSelector`/`useDispatch` reads.
-//
-// Unlike zustand/valtio, the redux adapter exports no `defineReduxIsoStore`
-// convenience, so the recipe wires the definition itself via the core
-// `defineIsoStore(isoInit, getAdapter())`.
+
+// the redux adapter has no defineReduxIsoStore, so this calls defineIsoStore
 import { describeIsoStoreAdapter } from "@verso-js/stores/conformance";
 import type {
   ConformanceRecipe,
@@ -18,8 +12,7 @@ import { defineIsoStore } from "@verso-js/stores";
 import type { IsoStoreInit } from "@verso-js/stores";
 import { getAdapter, type ReduxStoreInit } from "../redux";
 
-// The redux client-hooks bag the suite hands to `readClient`. `ReduxClientHooks`
-// is internal to the adapter, so the structural shape is declared here.
+// ReduxClientHooks is not exported
 type ReduxClientHooksShape<State> = {
   useSelector: <U>(selector: (s: State) => U) => U | undefined;
 };

@@ -3,24 +3,8 @@ import type { ReactElement } from 'react';
 import { getPass } from './pass';
 
 /**
- * Assert that a component hydrates cleanly — i.e. the server render and the
- * client render agree, so React won't throw away the server markup.
- *
- * Used in `*.hydration.test.*` files, which the `hydration` project (see
- * versoProjects) is the only pass to collect. It uses jsdom and — crucially —
- * does NOT statically define `IS_SERVER`, leaving it a runtime global this
- * helper flips across the two phases:
- *
- *  1. server phase: `IS_SERVER = true`, render to HTML via `renderToString`
- *     (exactly what Verso does on the server).
- *  2. client phase: `IS_SERVER = false`, hydrate that markup with real ReactDOM.
- *
- * Any hydration mismatch React reports (`onRecoverableError`) fails the test.
- * The `getPass()` guard below is a belt-and-suspenders check — the filename
- * suffix already routes these to the hydration pass only.
- *
- * `render` is invoked once per phase, so environment branching at element-
- * construction time is exercised too — not just branching inside components.
+ * Registers a test that fails if the server render of `render()` does not
+ * hydrate cleanly on the client. `render` is called once per phase.
  */
 export function testHydration(desc: string, render: () => ReactElement): void {
   if (getPass() !== 'hydration') {
@@ -42,17 +26,11 @@ export class HydrationMismatchError extends Error {
   }
 }
 
-/**
- * Renders the component given in `render` into HTML, and then attempts to
- * hydrate it using `hydrateRoot`. If there are hydration mismatches, a
- * `HydrationMismatchError` is thrown containing the details.
- */
 export async function throwIfHydrationMismatch(render: () => ReactElement): Promise<void> {
   const { renderToString } = await import('react-dom/server');
   const { hydrateRoot } = await import('react-dom/client');
   const { act } = await import('react');
 
-  // server phase
   globalThis.IS_SERVER = true;
   const html = renderToString(render());
 
@@ -60,7 +38,6 @@ export async function throwIfHydrationMismatch(render: () => ReactElement): Prom
   container.innerHTML = html;
   document.body.appendChild(container);
 
-  // client phase
   globalThis.IS_SERVER = false;
   const mismatches: Error[] = [];
   let root!: ReturnType<typeof hydrateRoot>;

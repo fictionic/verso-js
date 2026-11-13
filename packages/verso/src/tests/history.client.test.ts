@@ -1,7 +1,6 @@
 import { describe, test, expect, vi, beforeEach } from 'vitest';
 import { HistoryManager, VERSO_HISTORY_FRAME_KEY } from '../core/client/history';
 
-// Drain the microtask queue — several rounds because chained awaits need a few ticks.
 async function tick() {
   for (let i = 0; i < 10; i++) await Promise.resolve();
 }
@@ -24,7 +23,6 @@ describe('HistoryManager', () => {
   });
 
   test('stampHistoryFrame clobbers non-object state', () => {
-    // history.state is already null from beforeEach
     const manager = new HistoryManager(vi.fn());
     manager.stampHistoryFrame({ reuseDom: true });
 

@@ -1,11 +1,8 @@
 import { describe, test, expect, vi, beforeEach } from 'vitest';
 import { createElement } from 'react';
 
-// --- Mocks at the boundaries -------------------------------------------------
-// hydrateRoot is mocked so we can observe call ordering without doing real React
-// work; createRoot is also mocked only because the body transitioner (pulled in
-// by the controller's module graph) imports it -- it's never called on the
-// hydrate path. nativeFetch is mocked so cache-miss fall-through is observable.
+// createRoot is not used on the hydrate path. It is mocked only because the
+// controller's module graph imports it.
 const { hydrateRoot, createRoot } = vi.hoisted(() => ({
   hydrateRoot: vi.fn(),
   createRoot: vi.fn(),
@@ -34,11 +31,6 @@ import type { CacheableRequest, CacheEntryData, DehydratedCache } from '../core/
 import { PAGE_ROOT_ELEMENT_ATTR, PAGE_ELEMENT_TOKEN_IDX_ATTR } from '../core/common/constants';
 import {tick} from './util/promise';
 
-// --- Pipe driver -------------------------------------------------------------
-// We drive the *real* VersoPipe: its writer emits `<script>...</script>` strings
-// that the browser would run; here we strip the wrapper and execute the body
-// against the jsdom `window`, exactly populating `window.__versoPipe` the way a
-// streamed pageload does. The reader (used inside the controller) then sees it.
 function execPipeScript(html: string) {
   const js = html.slice('<script>'.length, -'</script>'.length);
   new Function('window', js)(window);
@@ -62,7 +54,6 @@ const abortHydration = () => writer.callFn(FN_ABORT_HYDRATION, []);
 const lateArrival = (req: CacheableRequest, data: CacheEntryData) =>
 writer.callFn(FN_RECEIVE_LATE_DATA_ARRIVAL, [req, data]);
 
-// --- Fixtures ----------------------------------------------------------------
 type StandardizedPageLike = { type: 'page'; getElements: () => React.ReactElement[] };
 
 function makeController(page: StandardizedPageLike) {
@@ -77,7 +68,6 @@ function makeController(page: StandardizedPageLike) {
   return new ClientController(resolver, null, settings);
 }
 
-// Plant the server-rendered DOM node the controller looks up by token index.
 function plantRoot(i: number): HTMLElement {
   const el = document.createElement('div');
   el.setAttribute(PAGE_ROOT_ELEMENT_ATTR, '');
@@ -116,14 +106,13 @@ describe('ClientController.hydrate()', () => {
       });
 
       const hydrating = controller.hydrate();
-      await tick(); // commit runs, handlers register
+      await tick();
 
       hydrateUpTo(1);
       signalRootsComplete();
       await hydrating;
 
       expect(hydrateRoot).toHaveBeenCalledTimes(2);
-      // first arg of each call is the DOM node -- assert document order
       expect(hydrateRoot.mock.calls[0]![0]).toBe(nodes[0]);
       expect(hydrateRoot.mock.calls[1]![0]).toBe(nodes[1]);
     });
@@ -140,11 +129,11 @@ describe('ClientController.hydrate()', () => {
       const hydrating = controller.hydrate();
       await tick();
 
-      hydrateUpTo(0); // only root 0 is "delivered"
+      hydrateUpTo(0);
       await tick();
       expect(hydrateRoot).toHaveBeenCalledTimes(1);
 
-      hydrateUpTo(1); // now root 1 too
+      hydrateUpTo(1);
       await tick();
       expect(hydrateRoot).toHaveBeenCalledTimes(2);
 
@@ -166,7 +155,6 @@ describe('ClientController.hydrate()', () => {
       let idled = false;
       void window.__versoNavigation.waitForIdle().then(() => { idled = true; });
 
-      // mid-hydration: not yet idle
       hydrateUpTo(0);
       await tick();
       expect(idled).toBe(false);
@@ -198,7 +186,6 @@ describe('ClientController.hydrate()', () => {
 
       expect(clientInitSpy).toHaveBeenCalledWith(fetchCache);
       expect(hydrateRoot).toHaveBeenCalledTimes(1);
-      // clientInit (cache rehydration) ran before the root hydrated
       expect(clientInitSpy.mock.invocationCallOrder[0]!).toBeLessThan(
         hydrateRoot.mock.invocationCallOrder[0]!,
       );
@@ -241,7 +228,7 @@ describe('ClientController.hydrate()', () => {
       const controller = makeController({
         type: 'page',
         getElements: () => {
-          latePromise = Fetch.fetch('/api/late'); // cache hit, but entry is still pending
+          latePromise = Fetch.fetch('/api/late');
           return [createElement('div', {}, 'A')];
         },
       });
@@ -251,7 +238,6 @@ describe('ClientController.hydrate()', () => {
       hydrateUpTo(0);
       await tick();
 
-      // pipe still open (no SIGNAL_ROOTS_COMPLETE): deliver the late arrival
       lateArrival(
         { url: '/api/late', method: 'GET', body: null },
         { response: { body: { text: '{"late":true}' }, status: 200 }, error: null, requesters: 1 },
@@ -260,7 +246,7 @@ describe('ClientController.hydrate()', () => {
       const res = await latePromise;
       expect(await res.text()).toBe('{"late":true}');
 
-      void hydrating; // never settles (SIGNAL_ROOTS_COMPLETE intentionally withheld)
+      void hydrating; // never settles, because FN_SIGNAL_ROOTS_COMPLETE is not sent
     });
 
     test('late arrival after roots complete (before end-of-data) is delivered through the pipe', async () => {
@@ -271,8 +257,6 @@ describe('ClientController.hydrate()', () => {
       let latePromise!: Promise<Response>;
       const controller = makeController({
         type: 'page',
-        // the root does not depend on the late fetch, so hydration can complete
-        // while that fetch is still outstanding
         getElements: () => {
           latePromise = Fetch.fetch('/api/late');
           return [createElement('div', {}, 'A')];
@@ -283,11 +267,8 @@ describe('ClientController.hydrate()', () => {
       await tick();
       hydrateUpTo(0);
       signalRootsComplete();
-      await hydrating; // roots settled, but the pipe stays open until end-of-data
+      await hydrating;
 
-      // the server signals roots complete before it finishes piping late arrivals,
-      // so a late arrival can legitimately land after `hydrating` resolves. it must
-      // still reach the cache -- the pipe is only torn down on FN_SIGNAL_END_OF_DATA.
       lateArrival(
         { url: '/api/late', method: 'GET', body: null },
         { response: { body: { text: '{"late":true}' }, status: 200 }, error: null, requesters: 1 },
@@ -317,13 +298,11 @@ describe('ClientController.hydrate()', () => {
       signalRootsComplete();
       await hydrating;
 
-      // end-of-data is the server's "nothing more will be piped" signal
       signalEndOfData();
-      await tick(); // let the destroy microtask run
+      await tick();
       expect((window as any).__versoPipe).toBeUndefined();
 
-      // an arrival after teardown can't reach the reader: the wire script targets a
-      // now-deleted global, so it throws instead of delivering (i.e. it is dropped).
+      // the pipe global is gone, so the wire script throws
       expect(() =>
         lateArrival(
           { url: '/api/late', method: 'GET', body: null },
@@ -331,7 +310,6 @@ describe('ClientController.hydrate()', () => {
         ),
       ).toThrow();
 
-      // the pending fetch never receives the dropped data
       const settled = await Promise.race([
         latePromise.then(() => 'resolved' as const),
         tick().then(() => 'pending' as const),
@@ -353,18 +331,16 @@ describe('ClientController.hydrate()', () => {
       const hydrating = controller.hydrate();
       await tick();
 
-      hydrateUpTo(0); // deliver only root 0
+      hydrateUpTo(0);
       await tick();
       expect(hydrateRoot).toHaveBeenCalledTimes(1);
       const root0 = hydrateRoot.mock.results[0]!.value as { unmount: ReturnType<typeof vi.fn> };
 
-      abortHydration(); // abort from the next pending root (root 1) onward
+      abortHydration();
       signalRootsComplete();
       await hydrating;
 
-      // root 1 never hydrated
       expect(hydrateRoot).toHaveBeenCalledTimes(1);
-      // root 0 remains mounted (not torn down)
       expect(root0.unmount).not.toHaveBeenCalled();
     });
 
@@ -379,7 +355,6 @@ describe('ClientController.hydrate()', () => {
       const hydrating = controller.hydrate();
       await tick();
 
-      // both roots delivered, but the stream ends here -- no SIGNAL_ROOTS_COMPLETE
       hydrateUpTo(1);
       await tick();
 
@@ -387,7 +362,7 @@ describe('ClientController.hydrate()', () => {
       expect(hydrateRoot.mock.calls[0]![0]).toBe(nodes[0]);
       expect(hydrateRoot.mock.calls[1]![0]).toBe(nodes[1]);
 
-      void hydrating; // done waits on SIGNAL_ROOTS_COMPLETE, which never comes
+      void hydrating; // never settles, because FN_SIGNAL_ROOTS_COMPLETE is not sent
     });
   });
 });

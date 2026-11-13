@@ -1,14 +1,7 @@
 import type { Page } from '@playwright/test';
 import { test, expect } from '../helpers/fixtures';
 
-// Suite 19: Navigation (E2E). Real browser history (back/forward) driving verso
-// client transitions, plus a smoke for the programmatic `navigateTo()` entry
-// point. The rapid-click race is owned by Suite 28 (jsdom); <base>/meta swaps
-// are a jsdom transitioner concern.
-
-// A full reload replaces `window`, so a marker set on it survives only client
-// transitions. Set it once after the first pageload, then check it after each
-// step to prove no step reloaded the document.
+// a full reload replaces `window`, so the marker survives only client transitions
 async function markDocument(page: Page) {
   await page.evaluate(() => {
     (window as unknown as { __suite19Marker?: boolean }).__suite19Marker = true;
@@ -51,7 +44,7 @@ async function expectNavTarget(page: Page) {
 }
 
 test('browser back/forward across 3 pages transitions on the client', async ({ page, verso }) => {
-  // Arm before each action so a fast transition can't be missed.
+  // arm before the action, so that a fast transition is not missed
   const step = async (action: () => Promise<unknown>) => {
     const { waitForIdle } = await verso.expectNavigation();
     await action();
@@ -62,25 +55,21 @@ test('browser back/forward across 3 pages transitions on the client', async ({ p
   await markDocument(page);
   await expectBasic(page);
 
-  // Build a 3-entry history with Link transitions.
   await step(() => page.getByTestId('nav-multi-root').click());
   await expectMultiRoot(page);
   await step(() => page.getByTestId('nav-nav-target').click());
   await expectNavTarget(page);
 
-  // Walk back to the start...
   await step(() => page.goBack());
   await expectMultiRoot(page);
   await step(() => page.goBack());
   await expectBasic(page);
 
-  // ...and forward to the end again.
   await step(() => page.goForward());
   await expectMultiRoot(page);
   await step(() => page.goForward());
   await expectNavTarget(page);
 
-  // The final page hydrated: its Counter is interactive.
   await page.getByTestId('nav-target-counter').click();
   await expect(page.getByTestId('nav-target-counter')).toHaveText('count: 1');
 });
@@ -95,7 +84,6 @@ test('navigateTo() performs a client transition @smoke', async ({ page, verso })
 
   await expectNavTarget(page);
 
-  // The new root is live after the transition.
   await page.getByTestId('nav-target-counter').click();
   await expect(page.getByTestId('nav-target-counter')).toHaveText('count: 1');
 });

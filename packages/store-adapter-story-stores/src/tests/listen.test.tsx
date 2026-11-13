@@ -6,13 +6,6 @@ import { defineStoryStore } from "../story-stores";
 
 afterEach(cleanup);
 
-// The generic adapter contract (provider + hooks, setAsync/whenReady, ...) is
-// covered by conformance.test.tsx. This file covers only the adapter's own
-// glue: `listen` accepts an IsoStoreInstance, waits on its whenReady, and
-// subscribes to its native store.
-
-// ─── listen with IsoStoreInstance ────────────────────────────────────────────
-
 test("listen: child blocks on parent's whenReady", async () => {
   let resolveParent!: (v: number) => void;
 
@@ -38,7 +31,7 @@ test("listen: child blocks on parent's whenReady", async () => {
   let childReady = false;
   void child.whenReady.then(() => { childReady = true; });
 
-  // child shouldn't be ready yet — parent hasn't resolved
+  // child shouldn't be ready yet, because parent hasn't resolved
   await act(async () => {});
   expect(childReady).toBe(false);
 
@@ -170,12 +163,12 @@ test("listen: child listens to multiple async parents", async () => {
   let childReady = false;
   void child.whenReady.then(() => { childReady = true; });
 
-  // resolve only one parent — child should still not be ready
+  // resolve only one parent. child should still not be ready
   resolveA(10);
   await act(async () => { await a.whenReady; });
   expect(childReady).toBe(false);
 
-  // resolve second parent — now child should be ready
+  // resolve second parent. now child should be ready
   resolveB(20);
   await act(async () => {
     await b.whenReady;

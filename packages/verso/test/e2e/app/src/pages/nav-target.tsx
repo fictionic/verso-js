@@ -2,7 +2,6 @@ import { definePage } from '@verso-js/verso';
 import { Counter } from '../components/Counter';
 import { Nav } from '../components/Nav';
 
-// A simple destination for navigation tests.
 export default definePage(() => ({
   getTitle: () => 'Nav Target Page',
   getRouteDirective: () => ({ kind: 'ok' }),

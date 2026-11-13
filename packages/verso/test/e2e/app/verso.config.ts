@@ -2,8 +2,7 @@ import { defineConfig } from '@verso-js/verso/config';
 
 export default defineConfig({
   server: {
-    // resolvePublicRequest enforces the host allowlist; requests are rejected
-    // without this. Port 3001 keeps the fixture off the demo's E2E port (3000).
+    // port 3001 keeps the fixture off the demo E2E port (3000)
     allowedHosts: ['localhost:3001'],
     fetchOrigin: 'loopback',
   },

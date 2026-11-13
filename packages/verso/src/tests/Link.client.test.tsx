@@ -26,7 +26,7 @@ describe('Link', () => {
     expect(onClick).toHaveBeenCalledTimes(1);
   });
 
-  test('defaultPrevented → bails: navigateTo not called, onClick not called', () => {
+  test('defaultPrevented -> bails: navigateTo not called, onClick not called', () => {
     const onClick = vi.fn();
     render(
       <div onClickCapture={(e) => e.preventDefault()}>
@@ -38,43 +38,43 @@ describe('Link', () => {
     expect(onClick).not.toHaveBeenCalled();
   });
 
-  test('non-left button → bails: navigateTo not called', () => {
+  test('non-left button -> bails: navigateTo not called', () => {
     render(<Link href="/about">Go</Link>);
     fireEvent.click(screen.getByRole('link', { name: 'Go' }), { button: 1 });
     expect(mockNavigateTo).not.toHaveBeenCalled();
   });
 
-  test('metaKey → bails: navigateTo not called', () => {
+  test('metaKey -> bails: navigateTo not called', () => {
     render(<Link href="/about">Go</Link>);
     fireEvent.click(screen.getByRole('link', { name: 'Go' }), { button: 0, metaKey: true });
     expect(mockNavigateTo).not.toHaveBeenCalled();
   });
 
-  test('ctrlKey → bails: navigateTo not called', () => {
+  test('ctrlKey -> bails: navigateTo not called', () => {
     render(<Link href="/about">Go</Link>);
     fireEvent.click(screen.getByRole('link', { name: 'Go' }), { button: 0, ctrlKey: true });
     expect(mockNavigateTo).not.toHaveBeenCalled();
   });
 
-  test('shiftKey → bails: navigateTo not called', () => {
+  test('shiftKey -> bails: navigateTo not called', () => {
     render(<Link href="/about">Go</Link>);
     fireEvent.click(screen.getByRole('link', { name: 'Go' }), { button: 0, shiftKey: true });
     expect(mockNavigateTo).not.toHaveBeenCalled();
   });
 
-  test('altKey → bails: navigateTo not called', () => {
+  test('altKey -> bails: navigateTo not called', () => {
     render(<Link href="/about">Go</Link>);
     fireEvent.click(screen.getByRole('link', { name: 'Go' }), { button: 0, altKey: true });
     expect(mockNavigateTo).not.toHaveBeenCalled();
   });
 
-  test('target="_blank" → bails: navigateTo not called', () => {
+  test('target="_blank" -> bails: navigateTo not called', () => {
     render(<Link href="/about" target="_blank">Go</Link>);
     fireEvent.click(screen.getByRole('link', { name: 'Go' }), { button: 0 });
     expect(mockNavigateTo).not.toHaveBeenCalled();
   });
 
-  test('target="_self" → intercepts: navigateTo called', () => {
+  test('target="_self" -> intercepts: navigateTo called', () => {
     render(<Link href="/about" target="_self">Go</Link>);
     fireEvent.click(screen.getByRole('link', { name: 'Go' }), { button: 0 });
     expect(mockNavigateTo).toHaveBeenCalledWith('/about', { reuseDom: undefined });

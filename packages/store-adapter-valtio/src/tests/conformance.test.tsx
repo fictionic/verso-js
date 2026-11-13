@@ -1,10 +1,5 @@
 // @vitest-environment jsdom
-//
-// The valtio row of the spec-30 adapter conformance matrix. Expresses each
-// scenario in valtio's native idiom — an init that returns the proxy's initial
-// state (or a `getProxy => state` function so `onMessage`/actions can mutate the
-// proxy after the fact), direct proxy mutation, and `useSnapshot`/`useProxy`
-// reads.
+
 import { describeIsoStoreAdapter } from "@verso-js/stores/conformance";
 import type {
   ConformanceRecipe,
@@ -14,9 +9,7 @@ import type {
 } from "@verso-js/stores/conformance";
 import { defineValtioIsoStore } from "../valtio";
 
-// The valtio client-hooks bag the suite hands to `readClient`. `ValtioClientHooks`
-// exposes `useSnapshot(): Snapshot<State> | undefined`; the `value` read is
-// declared structurally here to sidestep valtio's `Snapshot<T>` variance.
+// declared structurally to avoid the variance of valtio's Snapshot<T>
 type ValtioClientSnapshotShape<State> = {
   useSnapshot: () => State | undefined;
 };
