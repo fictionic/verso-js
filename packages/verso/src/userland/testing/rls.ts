@@ -23,15 +23,18 @@ export function withRLS<R, P extends MaybePromise<R>>(fn: () => P): P {
 
 export const testWithRLS: TestAPI = wrapWithRLS(test);
 
-function wrapWithRLS<T extends object>(api: T): T {
+function wrapWithRLS<T extends (...args: any[]) => any>(api: T): T {
   return new Proxy(api, {
     apply(target, thisArg, args: unknown[]) {
       const wrapped = args.map((arg, i) => {
         return i > 0 && typeof arg === "function"
-          ? (ctx: unknown) => withRLS(() => (arg as Function)(ctx))
+          ? (...fnArgs: unknown[]) => withRLS(() => arg(...fnArgs))
           : arg;
       });
-      return Reflect.apply(target as Function, thisArg, wrapped);
+      const result = Reflect.apply(target, thisArg, wrapped);
+      // the `.each` function accepts a table of cases and returns a test function,
+      // so we might have to wrap the result
+      return typeof result === "function" ? wrapWithRLS(result) : result;
     },
     get(target, prop, receiver) {
       const value = Reflect.get(target, prop, receiver);
