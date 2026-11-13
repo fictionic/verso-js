@@ -3,6 +3,7 @@ import { ClientNavigationManager, type StartNavigation } from '../core/client/na
 import { Resolver, type RouteResolution } from '../core/common/resolver';
 import type { AnyStandardizedHandler } from '../core/common/handler/RouteHandler';
 import { silenced } from '../util/promise';
+import { tick } from './util/promise';
 
 // the manager only reads handler.type
 function makeResolution(routeName = 'home'): RouteResolution {
@@ -27,11 +28,12 @@ function makeStart(
 describe('ClientNavigationManager', () => {
 
   let manager: ClientNavigationManager;
+  let resolver: Resolver;
   let resolveRoute: Mock<Resolver['resolveRoute']>;
 
   beforeEach(async () => {
     resolveRoute = vi.fn<Resolver['resolveRoute']>();
-    const resolver = {
+    resolver = {
       resolveRoute,
     } as unknown as Resolver;
     manager = new ClientNavigationManager(resolver);
@@ -67,15 +69,6 @@ describe('ClientNavigationManager', () => {
         expect(state.routeName).toBe('page-a');
         expect(state.location).toBe('http://localhost/a');
       }
-    });
-
-    test('waitForNextIdle resolves once the navigation settles', async () => {
-      const next = window.__versoNavigation.waitForNextIdle();
-
-      resolveRoute.mockResolvedValueOnce(makeResolution('page-a'));
-      await manager.requestNavigation(makeStart(), vi.fn(async () => {}));
-
-      await expect(next).resolves.toBeUndefined();
     });
   });
 
@@ -185,6 +178,87 @@ describe('ClientNavigationManager', () => {
 
       await navB;
       await silenced(navA);
+    });
+  });
+
+  describe('window.__versoNavigation', () => {
+    describe('waitForIdle', () => {
+      test('resolves immediately when no navigation is in flight', async () => {
+        await expect(window.__versoNavigation.waitForIdle()).resolves.toBeUndefined();
+      });
+
+      test('stays pending during hydration until the first navigation settles', async () => {
+        manager = new ClientNavigationManager(resolver);
+        const wait = window.__versoNavigation.waitForIdle();
+        let idle = false;
+        void wait.then(() => { idle = true; });
+
+        await tick();
+        expect(idle).toBe(false);
+
+        const resolution = Promise.withResolvers<RouteResolution>();
+        resolveRoute.mockReturnValueOnce(resolution.promise);
+        const nav = manager.requestNavigation(makeStart(), vi.fn(async () => {}));
+
+        await tick();
+        expect(resolveRoute).toHaveBeenCalledTimes(1);
+        expect(idle).toBe(false);
+
+        resolution.resolve(makeResolution());
+        await nav;
+        await expect(wait).resolves.toBeUndefined();
+      });
+
+      test('stays pending while a navigation is in flight and resolves when it settles', async () => {
+        const resolution = Promise.withResolvers<RouteResolution>();
+        resolveRoute.mockReturnValueOnce(resolution.promise);
+        const nav = manager.requestNavigation(makeStart(), vi.fn(async () => {}));
+
+        const wait = window.__versoNavigation.waitForIdle();
+        let idle = false;
+        void wait.then(() => { idle = true; });
+
+        await tick();
+        expect(resolveRoute).toHaveBeenCalledTimes(1);
+        expect(idle).toBe(false);
+
+        resolution.resolve(makeResolution());
+        await nav;
+        await expect(wait).resolves.toBeUndefined();
+      });
+    });
+
+    describe('waitForNextIdle', () => {
+      test('resolves once the next navigation settles', async () => {
+        const next = window.__versoNavigation.waitForNextIdle();
+
+        resolveRoute.mockResolvedValueOnce(makeResolution('page-a'));
+        await manager.requestNavigation(makeStart(), vi.fn(async () => {}));
+
+        await expect(next).resolves.toBeUndefined();
+      });
+
+      test('waits for the superseding navigation to settle', async () => {
+        const next = window.__versoNavigation.waitForNextIdle();
+        let idle = false;
+        void next.then(() => { idle = true; });
+
+        const resolutionB = Promise.withResolvers<RouteResolution>();
+        resolveRoute.mockReturnValueOnce(new Promise<RouteResolution>(() => {}));
+        resolveRoute.mockReturnValueOnce(resolutionB.promise);
+
+        const navA = manager.requestNavigation(makeStart(), vi.fn(async () => {}));
+        const navB = manager.requestNavigation(makeStart(), vi.fn(async () => {}));
+
+        await navA;
+        await tick();
+        expect(resolveRoute).toHaveBeenCalledTimes(2);
+        expect(idle).toBe(false);
+
+        resolutionB.resolve(makeResolution('page-b'));
+        await navB;
+        await expect(next).resolves.toBeUndefined();
+      });
     });
   });
 
