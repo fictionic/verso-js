@@ -8,8 +8,8 @@ import {
   waitFor as waitForDom,
 } from "@testing-library/react";
 import { testWithRLS } from "@verso-js/verso/testing";
-import { IsoStoreProvider } from "../../IsoStoreProvider";
-import { asSingleton } from "../../singleton";
+import { IsoStoreProvider } from "../IsoStoreProvider";
+import { asSingleton } from "../singleton";
 import type { ConformanceRecipe } from "./recipe";
 
 export function describeIsoStoreAdapter(recipe: ConformanceRecipe): void {

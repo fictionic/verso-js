@@ -1,4 +1,4 @@
-import type { AnyStoreDef, DefinitionOptions, IsoStoreDefinition } from "../../core/types";
+import type { AnyStoreDef, DefinitionOptions, IsoStoreDefinition } from "../core/types";
 
 // ---------------------------------------------------------------------------
 // The adapter conformance "recipe".

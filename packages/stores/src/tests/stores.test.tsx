@@ -1,6 +1,6 @@
 // @vitest-environment jsdom
 
-import { describeIsoStoreAdapter } from "./conformance";
+import { describeIsoStoreAdapter } from "../conformance";
 import { dummyStoreRecipe } from "./helpers/dummyRecipe";
 
 // we can't very well test the isomorphic stores mechanism without an actual

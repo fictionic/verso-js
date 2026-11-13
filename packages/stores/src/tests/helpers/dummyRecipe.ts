@@ -5,7 +5,7 @@ import type {
   DuplicateKeyMode,
   RenameMessage,
   ValueSeed,
-} from "../conformance/recipe";
+} from "../../conformance/recipe";
 
 export const dummyStoreRecipe: ConformanceRecipe = {
   name: "testStore",
