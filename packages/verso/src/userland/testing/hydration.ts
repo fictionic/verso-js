@@ -26,38 +26,55 @@ export function testHydration(desc: string, render: () => ReactElement): void {
   if (getPass() !== 'hydration') {
     return;
   }
-  test(desc, async () => {
-    const { renderToString } = await import('react-dom/server');
-    const { hydrateRoot } = await import('react-dom/client');
-    const { act } = await import('react');
+  test(desc, () => throwIfHydrationMismatch(render));
+}
 
-    // server phase
-    globalThis.IS_SERVER = true;
-    const html = renderToString(render());
+export class HydrationMismatchError extends Error {
+  readonly mismatches: Error[];
 
-    const container = document.createElement('div');
-    container.innerHTML = html;
-    document.body.appendChild(container);
+  constructor(mismatches: Error[]) {
+    super(
+      `hydration mismatch(es):\n` +
+        mismatches.map((e) => `  - ${e.message}`).join('\n'),
+    );
+    this.name = 'HydrationMismatchError';
+    this.mismatches = mismatches;
+  }
+}
 
-    // client phase
-    globalThis.IS_SERVER = false;
-    const mismatches: Error[] = [];
-    let root!: ReturnType<typeof hydrateRoot>;
-    await act(async () => {
-      root = hydrateRoot(container, render(), {
-        onRecoverableError: (error) => mismatches.push(error as Error),
-      });
+/**
+ * Renders the component given in `render` into HTML, and then attempts to
+ * hydrate it using `hydrateRoot`. If there are hydration mismatches, a
+ * `HydrationMismatchError` is thrown containing the details.
+ */
+export async function throwIfHydrationMismatch(render: () => ReactElement): Promise<void> {
+  const { renderToString } = await import('react-dom/server');
+  const { hydrateRoot } = await import('react-dom/client');
+  const { act } = await import('react');
+
+  // server phase
+  globalThis.IS_SERVER = true;
+  const html = renderToString(render());
+
+  const container = document.createElement('div');
+  container.innerHTML = html;
+  document.body.appendChild(container);
+
+  // client phase
+  globalThis.IS_SERVER = false;
+  const mismatches: Error[] = [];
+  let root!: ReturnType<typeof hydrateRoot>;
+  await act(async () => {
+    root = hydrateRoot(container, render(), {
+      onRecoverableError: (error) => mismatches.push(error as Error),
     });
-    await act(async () => {
-      root.unmount();
-    });
-    container.remove();
-
-    if (mismatches.length > 0) {
-      throw new Error(
-        `hydration mismatch in "${desc}":\n` +
-          mismatches.map((e) => `  - ${e.message}`).join('\n'),
-      );
-    }
   });
+  await act(async () => {
+    root.unmount();
+  });
+  container.remove();
+
+  if (mismatches.length > 0) {
+    throw new HydrationMismatchError(mismatches);
+  }
 }
