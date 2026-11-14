@@ -1,6 +1,6 @@
 import { test, expect } from '../helpers/fixtures';
 
-test('streams a multi-root page and hydrates in the browser @smoke', async ({ page }) => {
+test('loads and hydrates a multi-root page @smoke', async ({ page }) => {
   await page.goto('/slow-root');
 
   await expect(page.getByTestId('fast-root')).toContainText('Fast Root');
