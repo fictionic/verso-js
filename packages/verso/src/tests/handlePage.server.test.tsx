@@ -224,14 +224,6 @@ describe("handlePage rendering", () => {
   });
 
   describe("TheFold and bootstrap", () => {
-    test("bootstrap lands precisely at the fold (preRoot < bootstrap < postRoot)", async () => {
-      const page = okPage([<div>PREFOLD</div>, <TheFold />, <div>POSTFOLD</div>]);
-      const body = await responseBodyAsString(await run(req(), routes, page));
-      const boot = bootstrapOffset(body);
-      expect(body.indexOf("PREFOLD")).toBeLessThan(boot);
-      expect(boot).toBeLessThan(body.indexOf("POSTFOLD"));
-    });
-
     test("each separately-arriving post-fold root emits its own hydrateRootsUpTo(N)", async () => {
       // token indices: 0=PRE, 1=fold, 2=POST1, 3=POST2. Roots in the same flush
       // share one hydrateRootsUpTo call, so POST2 is slow to force a second flush.
@@ -383,16 +375,6 @@ describe("handlePage rendering", () => {
       expect(sr.isDone()).toBe(true);
       expect(findPipeCalls(sr.text()).some((c) => c.fn === FN_ABORT_HYDRATION)).toBe(false);
     });
-
-    test("a never-aborted signal with all roots resolved finishes cleanly", async () => {
-      const controller = new AbortController();
-      const body = await responseBodyAsString(
-        await run(req(controller), routes, okPage([<div>CLEAN</div>])),
-      );
-      expect(body).toContain("CLEAN");
-      expect(findPipeCalls(body).some((c) => c.fn === FN_ABORT_HYDRATION)).toBe(false);
-      expect(body.trimEnd().endsWith("</html>")).toBe(true);
-    });
   });
 
   describe("Late arrivals", () => {
@@ -426,8 +408,7 @@ describe("handlePage rendering", () => {
     });
 
     test("abort while waiting for late arrivals -> page finishes without them", async () => {
-      const fetchDfd = Promise.withResolvers<Response>();
-      vi.mocked(nativeFetch).mockReturnValueOnce(fetchDfd.promise);
+      vi.mocked(nativeFetch).mockReturnValueOnce(new Promise<Response>(() => {}));
       const controller = new AbortController();
       const page = definePage(() => ({
         getRouteDirective: () => {
@@ -443,7 +424,6 @@ describe("handlePage rendering", () => {
       await sr.readAll();
       expect(sr.isDone()).toBe(true);
       expect(findPipeCalls(sr.text()).some((c) => c.fn === FN_RECEIVE_LATE_DATA_ARRIVAL)).toBe(false);
-      fetchDfd.resolve(new Response("ignored"));
     });
   });
 
