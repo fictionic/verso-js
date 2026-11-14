@@ -1,4 +1,4 @@
-import {describe, test, expect, vi} from "vitest";
+import {describe, test, expect, vi, afterEach} from "vitest";
 import {definePage} from "../core/common/handler/Page";
 import {defineEndpoint} from "../core/common/handler/Endpoint";
 import {defineMiddleware} from "../core/common/handler/Middleware";
@@ -11,6 +11,10 @@ const routes: RoutesMap = {home: {path: "/", handler: "H"}};
 function req(path = "/"): Request {
   return new Request(`http://localhost${path}`);
 }
+
+afterEach(() => {
+  vi.restoreAllMocks();
+});
 
 describe("serveResponse envelope", () => {
   describe("Dispatch passthrough", () => {
@@ -167,7 +171,6 @@ describe("serveResponse envelope", () => {
       const response = await run(req(), routes, page);
       expect(response.status).toBe(500);
       expect(await responseBodyAsString(response)).toBe("Internal Server Error");
-      errorSpy.mockRestore();
     });
   });
 

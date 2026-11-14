@@ -1,4 +1,4 @@
-import { describe, test, expect, vi } from 'vitest';
+import { describe, test, expect, vi, afterEach } from 'vitest';
 import { Resolver } from '../core/common/resolver';
 import { definePage } from '../core/common/handler/Page';
 import { defineEndpoint } from '../core/common/handler/Endpoint';
@@ -12,6 +12,10 @@ function makeRequest(path: string, method = 'GET'): Request {
 }
 
 type AnyDef = RouteHandlerDefinition<RouteHandlerType, any, any>;
+
+afterEach(() => {
+  vi.restoreAllMocks();
+});
 
 describe('Resolver', () => {
   describe('Route matching & dispatch', () => {
@@ -98,7 +102,6 @@ describe('Resolver', () => {
       const res = await withRLS(() => resolver.resolveRoute(makeRequest('/')));
       expect(res.kind).toBe('error');
       expect(consoleSpy).toHaveBeenCalledWith(expect.stringContaining('no handler for route'));
-      consoleSpy.mockRestore();
     });
 
     test('route params reach the handler via ctx.getRoute().params', async () => {
@@ -261,7 +264,6 @@ describe('Resolver', () => {
         expect(res.statusCode).toBe(code);
         expect(res.handler).toBeUndefined();
         expect(warnSpy).toHaveBeenCalledWith(expect.stringContaining('cannot carry a body'));
-        warnSpy.mockRestore();
       },
     );
 
@@ -279,7 +281,6 @@ describe('Resolver', () => {
       expect(res.statusCode).toBe(302);
       expect(res.redirectLocation).toBeUndefined();
       expect(warnSpy).toHaveBeenCalledWith(expect.stringContaining('redirect code'));
-      warnSpy.mockRestore();
     });
   });
 
@@ -373,7 +374,6 @@ describe('Resolver', () => {
       const res = await withRLS(() => resolver.resolveRoute(makeRequest('/self')));
       expect(res.kind).toBe('error');
       expect(errorSpy).toHaveBeenCalledWith(expect.stringContaining('cannot proxy itself'));
-      errorSpy.mockRestore();
     });
 
     test('proxy to a non-existent route -> kind: error, logs error', async () => {
@@ -387,7 +387,6 @@ describe('Resolver', () => {
       const res = await withRLS(() => resolver.resolveRoute(makeRequest('/a')));
       expect(res.kind).toBe('error');
       expect(errorSpy).toHaveBeenCalledWith(expect.stringContaining('proxy route does not exist'));
-      errorSpy.mockRestore();
     });
 
     test('proxy to a route that does not accept the request method -> kind: error, logs error', async () => {
@@ -409,7 +408,6 @@ describe('Resolver', () => {
       const res = await withRLS(() => resolver.resolveRoute(makeRequest('/a', 'POST')));
       expect(res.kind).toBe('error');
       expect(errorSpy).toHaveBeenCalledWith(expect.stringContaining('does not handle HTTP method'));
-      errorSpy.mockRestore();
     });
 
     test('a mutual proxy cycle exceeding max depth -> kind: error, logs error', async () => {
@@ -433,7 +431,6 @@ describe('Resolver', () => {
       const res = await withRLS(() => resolver.resolveRoute(makeRequest('/ping')));
       expect(res.kind).toBe('error');
       expect(errorSpy).toHaveBeenCalledWith(expect.stringContaining('max proxy depth exceeded'));
-      errorSpy.mockRestore();
     });
   });
 
@@ -452,7 +449,6 @@ describe('Resolver', () => {
         expect.stringContaining('error during getRouteDirective'),
         expect.any(Error),
       );
-      errorSpy.mockRestore();
     });
   });
 

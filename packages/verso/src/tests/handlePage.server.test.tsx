@@ -1,5 +1,5 @@
 import type {FC, ReactElement} from "react";
-import {describe, test, expect, vi, beforeEach} from "vitest";
+import {describe, test, expect, vi, beforeEach, afterEach} from "vitest";
 import {definePage} from "../core/common/handler/Page";
 import {Root, makeRootComponent} from "../core/common/components/Root";
 import {RootContainer} from "../core/common/components/RootContainer";
@@ -59,6 +59,10 @@ function bootstrapOffset(html: string): number {
   if (!event) throw new Error("no fetchCache bootstrap write found");
   return event.offset;
 }
+
+afterEach(() => {
+  vi.restoreAllMocks();
+});
 
 describe("handlePage rendering", () => {
   describe("Basic rendering", () => {
@@ -219,7 +223,6 @@ describe("handlePage rendering", () => {
       expect(root).not.toBeNull();
       expect(root?.textContent).toBe("");
       expect(errorSpy).toHaveBeenCalled();
-      errorSpy.mockRestore();
     });
   });
 
@@ -258,7 +261,6 @@ describe("handlePage rendering", () => {
       expect(fetchCacheWrites).toHaveLength(1);
       expect(body).toContain("A");
       expect(body).toContain("B");
-      warnSpy.mockRestore();
     });
 
     test("client manifest is streamed through the pipe when present", async () => {

@@ -1,4 +1,4 @@
-import { describe, test, expect, vi, beforeEach } from 'vitest';
+import { describe, test, expect, vi, beforeEach, afterEach } from 'vitest';
 import { createElement } from 'react';
 
 // createRoot is not used on the hydrate path. It is mocked only because the
@@ -95,6 +95,10 @@ beforeEach(() => {
   nativeFetch.mockReset();
 });
 
+afterEach(() => {
+  vi.restoreAllMocks();
+});
+
 describe('ClientController.hydrate()', () => {
   describe('Hydration ordering', () => {
     test('roots hydrate in document order', async () => {
@@ -189,7 +193,6 @@ describe('ClientController.hydrate()', () => {
       expect(clientInitSpy.mock.invocationCallOrder[0]!).toBeLessThan(
         hydrateRoot.mock.invocationCallOrder[0]!,
       );
-      clientInitSpy.mockRestore();
     });
 
     test('cache hit during hydration returns server data without a network request', async () => {

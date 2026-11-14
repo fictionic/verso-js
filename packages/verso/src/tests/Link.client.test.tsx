@@ -15,6 +15,7 @@ describe('Link', () => {
   afterEach(() => {
     cleanup();
     vi.clearAllMocks();
+    vi.restoreAllMocks();
   });
 
   test('plain left-click: preventDefault, calls navigateTo, calls onClick', () => {
@@ -97,7 +98,6 @@ describe('Link', () => {
     await vi.waitFor(() => {
       expect(errSpy).toHaveBeenCalledWith('[verso] navigation failed', err);
     });
-    vi.restoreAllMocks();
   });
 
   test('rest props spread onto anchor; href is set', () => {
