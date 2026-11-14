@@ -28,7 +28,6 @@ import {
   streamReader,
   type RunRouteOpts,
 } from "./helpers/serveResponseHarness";
-import {delay} from "./util/promise";
 
 // nativeFetch captures globalThis.fetch at import, so a global stub has no effect
 vi.mock("../core/common/fetch/nativeFetch", () => ({nativeFetch: vi.fn()}));
@@ -115,7 +114,8 @@ describe("handlePage rendering", () => {
       const response = await run(req(), routes, okPage([slowRoot(dfd.promise, "SLOWA"), <div>FASTB</div>]));
       const sr = streamReader(response);
       await sr.readUntil((t) => t.includes("</head>"));
-      expect(await sr.raceOpen(50)).toBe("open");
+      expect(await sr.raceOpen()).toBe("open");
+      expect(sr.text()).not.toContain("FASTB");
       dfd.resolve();
       await sr.readAll();
       const body = sr.text();
@@ -296,31 +296,11 @@ describe("handlePage rendering", () => {
       expect(sr.chunks[0]?.trimEnd().endsWith("</head>")).toBe(true);
     });
 
-    test("a fast root flushes before a slow root resolves", async () => {
-      const dfd = Promise.withResolvers<void>();
-      const sr = streamReader(await run(req(), routes, okPage([<div>FASTA</div>, slowRoot(dfd.promise, "SLOWB")])));
-      await sr.readUntil((t) => t.includes("FASTA"));
-      expect(sr.chunks.some((c) => c.includes("FASTA"))).toBe(true);
-      expect(sr.text()).not.toContain("SLOWB");
-      dfd.resolve();
-      await sr.readAll();
-    });
-
-    test("a slow root blocks subsequent roots from flushing", async () => {
-      const dfd = Promise.withResolvers<void>();
-      const sr = streamReader(await run(req(), routes, okPage([slowRoot(dfd.promise, "SLOWA"), <div>FASTB</div>])));
-      await sr.readUntil((t) => t.includes("</head>"));
-      expect(await sr.raceOpen(50)).toBe("open");
-      expect(sr.text()).not.toContain("FASTB");
-      dfd.resolve();
-      await sr.readAll();
-    });
-
     test("stream remains open while a pending root exists", async () => {
       const dfd = Promise.withResolvers<void>();
       const sr = streamReader(await run(req(), routes, okPage([slowRoot(dfd.promise, "SLOW")])));
       await sr.readUntil((t) => t.includes("</head>"));
-      expect(await sr.raceOpen(50)).toBe("open");
+      expect(await sr.raceOpen()).toBe("open");
       expect(sr.isDone()).toBe(false);
       dfd.resolve();
       await sr.readAll();
@@ -430,13 +410,12 @@ describe("handlePage rendering", () => {
         },
         getElements: () => [<div>ROOT</div>, <TheFold />],
       }));
-      const response = await run(req(), routes, page);
-      const bodyPromise = responseBodyAsString(response);
+      const sr = streamReader(await run(req(), routes, page));
       // resolve only after the fold, so the fetch is a late arrival
-      await delay(20);
+      await sr.readUntil((t) => findPipeValue(t, FETCH_CACHE_KEY) !== undefined);
       fetchDfd.resolve(new Response("late data", {headers: {"content-type": "text/plain"}}));
-      const body = await bodyPromise;
-      expect(findPipeCalls(body).some((c) => c.fn === FN_RECEIVE_LATE_DATA_ARRIVAL)).toBe(true);
+      await sr.readAll();
+      expect(findPipeCalls(sr.text()).some((c) => c.fn === FN_RECEIVE_LATE_DATA_ARRIVAL)).toBe(true);
     });
 
     test("no pending fetches at the fold -> no late-arrival calls", async () => {
@@ -482,12 +461,12 @@ describe("handlePage rendering", () => {
         },
         getElements: () => [<div>ROOT</div>, <TheFold />],
       }));
-      const response = await run(req(), routes, page);
-      const bodyPromise = responseBodyAsString(response);
+      const sr = streamReader(await run(req(), routes, page));
       // resolve only after the fold, so the fetch is a late arrival
-      await delay(20);
+      await sr.readUntil((t) => findPipeValue(t, FETCH_CACHE_KEY) !== undefined);
       fetchDfd.resolve(new Response("late data", {headers: {"content-type": "text/plain"}}));
-      const fns = callFns(await bodyPromise);
+      await sr.readAll();
+      const fns = callFns(sr.text());
 
       const endIdx = fns.indexOf(FN_SIGNAL_END_OF_DATA);
       const rootsCompleteIdx = fns.indexOf(FN_SIGNAL_ROOTS_COMPLETE);

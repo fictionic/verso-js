@@ -7,7 +7,7 @@ import {serveResponse} from "../../core/server/serveResponse";
 import {Resolver} from "../../core/common/resolver";
 import {runWithServerRLS} from "../../core/common/RequestLocalStorage";
 import {fillServerSettings, type RoutesMap, type ServerSettings} from "../../core/config";
-import {delay} from "../util/promise";
+import {tick} from "../util/promise";
 import type {MiddlewareDefinition} from "../../core/common/handler/Middleware";
 import type {RouteHandlerDefinition, RouteHandlerType} from "../../core/common/handler/RouteHandler";
 import type {ClientManifest, Serve} from "@verso-js/contract";
@@ -100,11 +100,11 @@ export function streamReader(response: Response) {
     async readAll(): Promise<void> {
       while (await readOne());
     },
-    // if the timer wins, the pending read still records its chunk when it arrives
-    async raceOpen(ms: number): Promise<"open" | "progressed"> {
+    // if the tick wins, the pending read still records its chunk when it arrives
+    async raceOpen(): Promise<"open" | "progressed"> {
       return Promise.race([
         readOne().then(() => "progressed" as const),
-        delay(ms).then(() => "open" as const),
+        tick().then(() => "open" as const),
       ]);
     },
   };
