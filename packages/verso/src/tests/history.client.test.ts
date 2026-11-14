@@ -1,10 +1,21 @@
-import { describe, test, expect, vi, beforeEach } from 'vitest';
+import { describe, test, expect, vi, beforeEach, afterEach, type MockInstance } from 'vitest';
 import { HistoryManager, VERSO_HISTORY_FRAME_KEY } from '../core/client/history';
 
 describe('HistoryManager', () => {
 
+  let addEventListener: MockInstance<typeof window.addEventListener>;
+
   beforeEach(() => {
     history.replaceState(null, '');
+    addEventListener = vi.spyOn(window, 'addEventListener');
+  });
+
+  // HistoryManager has no way to remove its popstate listener
+  afterEach(() => {
+    for (const [type, listener] of addEventListener.mock.calls) {
+      window.removeEventListener(type, listener);
+    }
+    addEventListener.mockRestore();
   });
 
   test('stampHistoryFrame merges into an existing object state', () => {
@@ -19,6 +30,7 @@ describe('HistoryManager', () => {
   });
 
   test('stampHistoryFrame clobbers non-object state', () => {
+    history.replaceState('not an object', '');
     const manager = new HistoryManager(vi.fn());
     manager.stampHistoryFrame({ reuseDom: true });
 
@@ -51,7 +63,7 @@ describe('HistoryManager', () => {
     expect(manager.getNavigateOptions()).toBeNull();
   });
 
-  test('onPopState ignores foreign frames', async () => {
+  test('onPopState ignores foreign frames', () => {
     const onPop = vi.fn();
     const manager = new HistoryManager(onPop);
     manager.installListener();
@@ -61,7 +73,7 @@ describe('HistoryManager', () => {
     expect(onPop).not.toHaveBeenCalled();
   });
 
-  test('onPopState fires for a verso frame', async () => {
+  test('onPopState fires for a verso frame', () => {
     const onPop = vi.fn(async () => {});
     const manager = new HistoryManager(onPop);
     manager.installListener();
