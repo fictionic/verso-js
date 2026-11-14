@@ -17,13 +17,10 @@ import {TOKEN, tokenizeElements, type PageElementToken} from '../core/common/tok
 import {Root} from '../core/common/components/Root';
 import {PageElementProcessor, type ProcessorOpts} from '../core/common/PageElementProcessor';
 import {getAbortPromise} from '../core/common/abort';
+import {tick} from './util/promise';
 
 const tokenizeElementsMock = vi.mocked(tokenizeElements);
 const getAbortPromiseMock = vi.mocked(getAbortPromise);
-
-async function tick(n = 10) {
-  for (let i = 0; i < n; i++) await Promise.resolve();
-}
 
 function rootToken(when: Promise<unknown>): PageElementToken {
   return {

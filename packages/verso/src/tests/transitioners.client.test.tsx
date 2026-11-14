@@ -10,6 +10,7 @@ import {
 } from "../core/common/constants";
 import type {Stylesheet} from "../core/common/handler/Page";
 import {devOnly} from "../userland/testing/dev";
+import {tick} from "./util/promise";
 
 // in prod, a transition to a route that is not in the manifest throws
 const manifest: ClientManifest = {
@@ -26,7 +27,7 @@ afterEach(() => {
 
 // jsdom never fires `load` for <link>, so fire it by hand after the appends
 async function settleStyles(promise: Promise<() => void>): Promise<() => void> {
-  await new Promise((r) => setTimeout(r, 0));
+  await tick();
   document.head
     .querySelectorAll("link")
     .forEach((link) => link.dispatchEvent(new Event("load")));
