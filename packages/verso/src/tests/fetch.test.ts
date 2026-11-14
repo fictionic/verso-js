@@ -1,4 +1,4 @@
-import { describe, expect, vi, beforeEach } from 'vitest';
+import { describe, expect, vi, beforeEach, type Mock } from 'vitest';
 import type { Serve } from '@verso-js/contract';
 import { Fetch, setFetchInterceptor } from '../core/common/fetch/Fetch';
 import { nativeFetch } from '../core/common/fetch/nativeFetch';
@@ -28,8 +28,8 @@ function fullSettings(overrides?: Partial<ServerSettings>): ServerSettings {
   };
 }
 
-function loopbackStub(): Serve {
-  return vi.fn(async () => new Response('loopback')) as unknown as Serve;
+function loopbackStub(): Mock<Serve> {
+  return vi.fn<Serve>(async () => new Response('loopback'));
 }
 
 function initServer(opts: {
