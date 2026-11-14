@@ -1,10 +1,6 @@
 import { describe, test, expect, vi, beforeEach } from 'vitest';
 import { HistoryManager, VERSO_HISTORY_FRAME_KEY } from '../core/client/history';
 
-async function tick() {
-  for (let i = 0; i < 10; i++) await Promise.resolve();
-}
-
 describe('HistoryManager', () => {
 
   beforeEach(() => {
@@ -61,7 +57,6 @@ describe('HistoryManager', () => {
     manager.installListener();
 
     window.dispatchEvent(new PopStateEvent('popstate', { state: { notVerso: true } }));
-    await tick();
 
     expect(onPop).not.toHaveBeenCalled();
   });
@@ -73,7 +68,6 @@ describe('HistoryManager', () => {
 
     const versoState = { [VERSO_HISTORY_FRAME_KEY]: { options: { reuseDom: false } } };
     window.dispatchEvent(new PopStateEvent('popstate', { state: versoState }));
-    await tick();
 
     expect(onPop).toHaveBeenCalledTimes(1);
     expect(onPop).toHaveBeenCalledWith(expect.stringMatching(/^\//), { reuseDom: false });
