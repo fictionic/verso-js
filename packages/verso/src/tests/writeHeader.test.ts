@@ -1,24 +1,14 @@
 import {describe, test, expect} from 'vitest';
 import {writeHeader, renderOpenTag} from '../core/server/writeHeader';
-import type {StandardizedPage, MetaTag, LinkTag, Stylesheet} from '../core/common/handler/Page';
+import type {StandardizedPage, PageOptionalMethods} from '../core/common/handler/Page';
 import {
   PAGE_HEADER_STYLE_ELEMENT_ATTR,
   PAGE_HEADER_LINK_ELEMENT_ATTR,
 } from '../core/common/constants';
+import {stubPage} from './helpers/stubHandlers';
 
-function makePage(overrides: Partial<{
-  getMetaTags: () => Promise<MetaTag[]> | MetaTag[];
-  getTitle: () => Promise<string | null> | string | null;
-  getLinkTags: () => Promise<LinkTag[]> | LinkTag[];
-  getStylesheets: () => Promise<Stylesheet[]> | Stylesheet[];
-}>): StandardizedPage {
-  return {
-    getMetaTags: () => [],
-    getTitle: () => null,
-    getLinkTags: () => [],
-    getStylesheets: () => [],
-    ...overrides,
-  } as unknown as StandardizedPage;
+function makePage(overrides: Partial<PageOptionalMethods>): StandardizedPage {
+  return {...stubPage(() => []), ...overrides};
 }
 
 async function collect(page: StandardizedPage): Promise<string> {
