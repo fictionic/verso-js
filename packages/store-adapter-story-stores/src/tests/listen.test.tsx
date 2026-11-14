@@ -1,5 +1,5 @@
 // @vitest-environment jsdom
-import { afterEach, expect, test, vi } from "vitest";
+import { afterEach, expect, test } from "vitest";
 import { act, cleanup, render, screen, waitFor as waitForDom } from "@testing-library/react";
 import { IsoStoreProvider } from "@verso-js/stores";
 import { defineStoryStore } from "../story-stores";
@@ -175,4 +175,5 @@ test("listen: child listens to multiple async parents", async () => {
     await child.whenReady;
   });
   expect(childReady).toBe(true);
+  expect(child.nativeStore.select(s => s.sum)).toBe(30);
 });
