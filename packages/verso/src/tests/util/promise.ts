@@ -1,7 +1,3 @@
-export async function microtick(count: number = 1): Promise<void> {
-  for (let i = 0; i < count; i++) await Promise.resolve();
-}
-
 export async function tick(): Promise<void> {
   await new Promise((resolve) => setTimeout(resolve));
 }
