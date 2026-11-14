@@ -1,17 +1,16 @@
-import { describe, test, expect, vi, beforeEach, type Mock } from 'vitest';
+import { describe, test, expect, vi, beforeEach, type MockInstance } from 'vitest';
 import { ClientNavigationManager, type StartNavigation } from '../core/client/navigation';
 import { Resolver, type RouteResolution } from '../core/common/resolver';
-import type { AnyStandardizedHandler } from '../core/common/handler/RouteHandler';
 import { silenced } from '../util/promise';
 import { tick } from './util/promise';
+import { stubEndpoint, stubPage } from './helpers/stubHandlers';
 
-// the manager only reads handler.type
 function makeResolution(routeName = 'home'): RouteResolution {
   return {
     kind: 'response',
     routeName,
     statusCode: 200,
-    handler: { type: 'page' } as AnyStandardizedHandler,
+    handler: stubPage(() => []),
   };
 }
 
@@ -29,13 +28,11 @@ describe('ClientNavigationManager', () => {
 
   let manager: ClientNavigationManager;
   let resolver: Resolver;
-  let resolveRoute: Mock<Resolver['resolveRoute']>;
+  let resolveRoute: MockInstance<Resolver['resolveRoute']>;
 
   beforeEach(async () => {
-    resolveRoute = vi.fn<Resolver['resolveRoute']>();
-    resolver = {
-      resolveRoute,
-    } as unknown as Resolver;
+    resolver = new Resolver({}, () => null, []);
+    resolveRoute = vi.spyOn(resolver, 'resolveRoute');
     manager = new ClientNavigationManager(resolver);
     resolveRoute.mockResolvedValueOnce(makeResolution());
     await manager.requestNavigation(makeStart(), vi.fn(async () => {}));
@@ -113,7 +110,7 @@ describe('ClientNavigationManager', () => {
         kind: 'response',
         routeName: 'x',
         statusCode: 200,
-        handler: { type: 'endpoint' } as AnyStandardizedHandler,
+        handler: stubEndpoint(),
       });
       await expect(
         manager.requestNavigation(makeStart(), vi.fn(async () => {})),

@@ -1,5 +1,5 @@
 import { describe, test, expect, vi, beforeEach, afterEach } from 'vitest';
-import { createElement } from 'react';
+import { createElement, type ReactElement } from 'react';
 
 // createRoot is not used on the hydrate path. It is mocked only because the
 // controller's module graph imports it.
@@ -14,7 +14,6 @@ vi.mock('../core/common/fetch/nativeFetch', () => ({ nativeFetch }));
 
 import { ClientController } from '../core/client/controller';
 import { Resolver } from '../core/common/resolver';
-import type { AnyStandardizedHandler } from '../core/common/handler/RouteHandler';
 import type { ClientSettings } from '../core/config';
 import {
   VersoPipe,
@@ -30,6 +29,7 @@ import { Fetch } from '../core/common/fetch/Fetch';
 import type { CacheableRequest, CacheEntryData, DehydratedCache } from '../core/common/fetch/cache';
 import { PAGE_ROOT_ELEMENT_ATTR, PAGE_ELEMENT_TOKEN_IDX_ATTR } from '../core/common/constants';
 import {tick} from './util/promise';
+import {stubPage} from './helpers/stubHandlers';
 
 function execPipeScript(html: string) {
   const js = html.slice('<script>'.length, -'</script>'.length);
@@ -54,16 +54,14 @@ const abortHydration = () => writer.callFn(FN_ABORT_HYDRATION, []);
 const lateArrival = (req: CacheableRequest, data: CacheEntryData) =>
   writer.callFn(FN_RECEIVE_LATE_DATA_ARRIVAL, [req, data]);
 
-type StandardizedPageLike = { type: 'page'; getElements: () => React.ReactElement[] };
-
-function makeController(page: StandardizedPageLike) {
-  const resolveRoute = vi.fn<Resolver['resolveRoute']>().mockResolvedValue({
+function makeController(getElements: () => ReactElement[]) {
+  const resolver = new Resolver({}, () => null, []);
+  vi.spyOn(resolver, 'resolveRoute').mockResolvedValue({
     kind: 'response',
     routeName: 'home',
     statusCode: 200,
-    handler: page as unknown as AnyStandardizedHandler,
+    handler: stubPage(getElements),
   });
-  const resolver = { resolveRoute } as unknown as Resolver;
   const settings: ClientSettings = { reuseDom: false };
   return new ClientController(resolver, null, settings);
 }
@@ -89,7 +87,7 @@ const pendingEntry = (): DehydratedCache[string][number] => ({
 beforeEach(() => {
   document.body.innerHTML = '';
   document.head.innerHTML = '';
-  delete (window as any).__versoPipe;
+  Reflect.deleteProperty(window, '__versoPipe');
   hydrateRoot.mockReset();
   hydrateRoot.mockImplementation(() => ({ render: vi.fn(), unmount: vi.fn() }));
   nativeFetch.mockReset();
@@ -104,10 +102,7 @@ describe('ClientController.hydrate()', () => {
     test('roots hydrate in document order', async () => {
       setupPipe();
       const nodes = [plantRoot(0), plantRoot(1)];
-      const controller = makeController({
-        type: 'page',
-        getElements: () => [createElement('div', {}, 'A'), createElement('div', {}, 'B')],
-      });
+      const controller = makeController(() => [createElement('div', {}, 'A'), createElement('div', {}, 'B')]);
 
       const hydrating = controller.hydrate();
       await tick();
@@ -125,10 +120,7 @@ describe('ClientController.hydrate()', () => {
       setupPipe();
       plantRoot(0);
       plantRoot(1);
-      const controller = makeController({
-        type: 'page',
-        getElements: () => [createElement('div', {}, 'A'), createElement('div', {}, 'B')],
-      });
+      const controller = makeController(() => [createElement('div', {}, 'A'), createElement('div', {}, 'B')]);
 
       const hydrating = controller.hydrate();
       await tick();
@@ -148,10 +140,7 @@ describe('ClientController.hydrate()', () => {
     test('all roots hydrated: the navigation manager settles to idle', async () => {
       setupPipe();
       plantRoot(0);
-      const controller = makeController({
-        type: 'page',
-        getElements: () => [createElement('div', {}, 'A')],
-      });
+      const controller = makeController(() => [createElement('div', {}, 'A')]);
 
       const hydrating = controller.hydrate();
       await tick();
@@ -175,10 +164,7 @@ describe('ClientController.hydrate()', () => {
       const fetchCache: DehydratedCache = { '/api/data': [cachedEntry('{"cached":true}')] };
       setupPipe(fetchCache);
       plantRoot(0);
-      const controller = makeController({
-        type: 'page',
-        getElements: () => [createElement('div', {}, 'A')],
-      });
+      const controller = makeController(() => [createElement('div', {}, 'A')]);
 
       const clientInitSpy = vi.spyOn(Fetch, 'clientInit');
 
@@ -201,12 +187,9 @@ describe('ClientController.hydrate()', () => {
       plantRoot(0);
 
       let fetchPromise!: Promise<Response>;
-      const controller = makeController({
-        type: 'page',
-        getElements: () => {
-          fetchPromise = Fetch.fetch('/api/data');
-          return [createElement('div', {}, 'A')];
-        },
+      const controller = makeController(() => {
+        fetchPromise = Fetch.fetch('/api/data');
+        return [createElement('div', {}, 'A')];
       });
 
       const hydrating = controller.hydrate();
@@ -228,12 +211,9 @@ describe('ClientController.hydrate()', () => {
       plantRoot(0);
 
       let latePromise!: Promise<Response>;
-      const controller = makeController({
-        type: 'page',
-        getElements: () => {
-          latePromise = Fetch.fetch('/api/late');
-          return [createElement('div', {}, 'A')];
-        },
+      const controller = makeController(() => {
+        latePromise = Fetch.fetch('/api/late');
+        return [createElement('div', {}, 'A')];
       });
 
       const hydrating = controller.hydrate();
@@ -258,12 +238,9 @@ describe('ClientController.hydrate()', () => {
       plantRoot(0);
 
       let latePromise!: Promise<Response>;
-      const controller = makeController({
-        type: 'page',
-        getElements: () => {
-          latePromise = Fetch.fetch('/api/late');
-          return [createElement('div', {}, 'A')];
-        },
+      const controller = makeController(() => {
+        latePromise = Fetch.fetch('/api/late');
+        return [createElement('div', {}, 'A')];
       });
 
       const hydrating = controller.hydrate();
@@ -284,21 +261,18 @@ describe('ClientController.hydrate()', () => {
     test('FN_SIGNAL_END_OF_DATA removes the pipe global', async () => {
       setupPipe();
       plantRoot(0);
-      const controller = makeController({
-        type: 'page',
-        getElements: () => [createElement('div', {}, 'A')],
-      });
+      const controller = makeController(() => [createElement('div', {}, 'A')]);
 
       const hydrating = controller.hydrate();
       await tick();
       hydrateUpTo(0);
       signalRootsComplete();
       await hydrating;
-      expect((window as any).__versoPipe).toBeDefined();
+      expect('__versoPipe' in window).toBe(true);
 
       signalEndOfData();
       await tick();
-      expect((window as any).__versoPipe).toBeUndefined();
+      expect('__versoPipe' in window).toBe(false);
     });
   });
 
@@ -307,10 +281,7 @@ describe('ClientController.hydrate()', () => {
       setupPipe();
       plantRoot(0);
       plantRoot(1);
-      const controller = makeController({
-        type: 'page',
-        getElements: () => [createElement('div', {}, 'A'), createElement('div', {}, 'B')],
-      });
+      const controller = makeController(() => [createElement('div', {}, 'A'), createElement('div', {}, 'B')]);
 
       const hydrating = controller.hydrate();
       await tick();
