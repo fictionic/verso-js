@@ -1,4 +1,4 @@
-import type {ServerSettings} from "../../build/config";
+import type {ServerSettings} from "../config";
 import type {RequestContext, RequestHandler} from "../../vendor/hattip/compose";
 
 const LOCAL_HOSTS = ['localhost', '127.0.0.1'];

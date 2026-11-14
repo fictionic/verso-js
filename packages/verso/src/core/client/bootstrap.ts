@@ -1,4 +1,4 @@
-import type {ClientSettings, RoutesMap} from '../../build/config';
+import type {ClientSettings, RoutesMap} from '../config';
 import type {PageDefinition} from '../common/handler/Page';
 import type {MiddlewareDefinition} from '../common/handler/Middleware';
 import {ClientController} from './controller';

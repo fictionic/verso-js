@@ -1,6 +1,6 @@
 import {describe, test, expect} from "vitest";
 import {defineEndpoint} from "../core/common/handler/Endpoint";
-import type {RoutesMap} from "../build/config";
+import type {RoutesMap} from "../core/config";
 import {responseBodyAsString, run, streamReader} from "./helpers/serveResponseHarness";
 
 const routes: RoutesMap = {home: {path: "/", handler: "H"}};

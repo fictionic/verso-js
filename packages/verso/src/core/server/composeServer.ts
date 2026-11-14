@@ -1,5 +1,5 @@
 import {runWithServerRLS} from "../common/RequestLocalStorage";
-import type {ServerSettings} from "../../build/config";
+import type {ServerSettings} from "../config";
 import type {Resolver} from "../common/resolver";
 import {resolvePublicRequest} from "./resolvePublicRequest";
 import {serveResponse} from "./serveResponse";

@@ -1,4 +1,4 @@
-import type {RoutesMap} from "../../build/config";
+import type {RoutesMap} from "../config";
 import {createHandlerChain} from "./handler/chain";
 import type {MiddlewareDefinition} from "./handler/Middleware";
 import type {AnyStandardizedHandler, RouteDirective, RouteHandlerDefinition, RouteHandlerType} from "./handler/RouteHandler";

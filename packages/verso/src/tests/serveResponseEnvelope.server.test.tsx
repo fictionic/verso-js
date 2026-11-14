@@ -3,7 +3,7 @@ import {definePage} from "../core/common/handler/Page";
 import {defineEndpoint} from "../core/common/handler/Endpoint";
 import {defineMiddleware} from "../core/common/handler/Middleware";
 import {setCookie} from "../core/common/cookies";
-import type {RoutesMap} from "../build/config";
+import type {RoutesMap} from "../core/config";
 import {parseHtml, responseBodyAsString, run} from "./helpers/serveResponseHarness";
 
 const routes: RoutesMap = {home: {path: "/", handler: "H"}};

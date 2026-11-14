@@ -1,5 +1,5 @@
 import type {Serve} from '@verso-js/contract';
-import type {FetchOrigin, ServerSettings} from '../../../build/config';
+import type {FetchOrigin, ServerSettings} from '../../config';
 import {getAbortSignal} from '../abort';
 import {ServerCookies} from '../../server/ServerCookies';
 import { getRLS } from '../RequestLocalStorage';

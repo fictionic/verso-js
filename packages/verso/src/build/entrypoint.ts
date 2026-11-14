@@ -1,6 +1,6 @@
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
-import {fillClientSettings, fillServerSettings, type VersoConfig} from './config';
+import {fillClientSettings, fillServerSettings, type VersoConfig} from '../core/config';
 import {VERSO_ENTRY} from './paths';
 import type {ServerFactory} from '@verso-js/contract';
 

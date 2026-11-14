@@ -1,6 +1,6 @@
 import { describe, test, expect } from 'vitest';
 import { createRouter } from '../core/common/router';
-import type { RoutesMap } from '../build/config';
+import type { RoutesMap } from '../core/config';
 
 describe('Router', () => {
   test('static path matches exactly', () => {

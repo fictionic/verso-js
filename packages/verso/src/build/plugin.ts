@@ -3,7 +3,7 @@ import { fileURLToPath } from 'node:url';
 import { writeFile } from 'node:fs/promises';
 import react from '@vitejs/plugin-react';
 import { isRunnableDevEnvironment, normalizePath, type ModuleNode, type Plugin, type ViteDevServer } from 'vite';
-import { fillServerSettings, type RoutesMap, type VersoConfig } from './config';
+import { fillServerSettings, type RoutesMap, type VersoConfig } from '../core/config';
 import type { RouteHandler } from '../core/common/handler/RouteHandler';
 import type { Script, Stylesheet } from '../core/common/handler/Page';
 import {

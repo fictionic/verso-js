@@ -15,7 +15,7 @@ import {
   FN_SIGNAL_END_OF_DATA,
   FN_SIGNAL_ROOTS_COMPLETE,
 } from "../core/common/VersoPipe";
-import type {RoutesMap} from "../build/config";
+import type {RoutesMap} from "../core/config";
 import type {ClientManifest} from "@verso-js/contract";
 import {
   collectChunks,

@@ -15,7 +15,7 @@ vi.mock('../core/common/fetch/nativeFetch', () => ({ nativeFetch }));
 import { ClientController } from '../core/client/controller';
 import { Resolver } from '../core/common/resolver';
 import type { AnyStandardizedHandler } from '../core/common/handler/RouteHandler';
-import type { ClientSettings } from '../build/config';
+import type { ClientSettings } from '../core/config';
 import {
   VersoPipe,
   REQUEST_DATA_KEY,

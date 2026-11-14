@@ -1,7 +1,7 @@
 import { describe, expect, test } from 'vitest';
 import { resolvePublicRequest } from '../core/server/resolvePublicRequest';
 import type { RequestContext } from '../vendor/hattip/compose';
-import { fillServerSettings, type ServerSettings } from '../build/config';
+import { fillServerSettings, type ServerSettings } from '../core/config';
 import { devOnly } from '../userland/testing/dev';
 
 function settings(overrides: Partial<ServerSettings> = {}): ServerSettings {

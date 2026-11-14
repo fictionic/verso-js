@@ -6,7 +6,7 @@ import type {AdapterRequestContext} from "../../vendor/hattip/core";
 import {serveResponse} from "../../core/server/serveResponse";
 import {Resolver} from "../../core/common/resolver";
 import {runWithServerRLS} from "../../core/common/RequestLocalStorage";
-import {fillServerSettings, type RoutesMap, type ServerSettings} from "../../build/config";
+import {fillServerSettings, type RoutesMap, type ServerSettings} from "../../core/config";
 import {delay} from "../util/promise";
 import type {MiddlewareDefinition} from "../../core/common/handler/Middleware";
 import type {RouteHandlerDefinition, RouteHandlerType} from "../../core/common/handler/RouteHandler";

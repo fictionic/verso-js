@@ -3,7 +3,7 @@ import { Resolver } from '../core/common/resolver';
 import { definePage } from '../core/common/handler/Page';
 import { defineEndpoint } from '../core/common/handler/Endpoint';
 import { defineMiddleware } from '../core/common/handler/Middleware';
-import type { RoutesMap } from '../build/config';
+import type { RoutesMap } from '../core/config';
 import type { RouteHandlerDefinition, RouteHandlerType } from '../core/common/handler/RouteHandler';
 import {withRLS} from '../userland/testing';
 

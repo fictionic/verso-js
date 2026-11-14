@@ -27,7 +27,7 @@ import {ReactRootManager} from "./roots";
 import {flushSync} from "react-dom";
 import type {Resolver} from "../common/resolver";
 import {stripUrlHash} from "./url";
-import type {ClientSettings} from "../../build/config";
+import type {ClientSettings} from "../config";
 import {unmarshallBody} from "../common/util/body";
 import type {ClientManifest} from "@verso-js/contract";
 

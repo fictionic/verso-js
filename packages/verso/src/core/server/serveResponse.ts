@@ -1,7 +1,7 @@
 import type {ClientManifest, Serve} from "@verso-js/contract";
 import {ServerCookies} from "./ServerCookies";
 import {Fetch} from "../common/fetch/Fetch";
-import type {ServerSettings} from "../../build/config";
+import type {ServerSettings} from "../config";
 import type {Resolver} from "../common/resolver";
 import {dispatchHandler} from "./dispatchHandler";
 import {getServerStash} from "./stash";

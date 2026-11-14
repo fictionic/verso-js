@@ -1,6 +1,6 @@
 import type {RouteHandlerDefinition} from "../core/common/handler/RouteHandler";
 import type {MiddlewareDefinition} from "../entries";
-import type {RoutesMap, ServerSettings} from "./config";
+import type {RoutesMap, ServerSettings} from "../core/config";
 import {makeLinkStylesheet, type Script, type Stylesheet} from "../core/common/handler/Page";
 import {createViteBundleLoader, makeAsyncScript} from "./ViteBundleLoader";
 import {Resolver, type GetRouteHandler} from "../core/common/resolver";

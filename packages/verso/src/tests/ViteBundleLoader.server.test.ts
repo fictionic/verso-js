@@ -2,7 +2,7 @@ import { describe, test, expect } from 'vitest';
 import { Resolver } from '../core/common/resolver';
 import { definePage } from '../core/common/handler/Page';
 import { createViteBundleLoader } from '../build/ViteBundleLoader';
-import type { RoutesMap } from '../build/config';
+import type { RoutesMap } from '../core/config';
 import type { Stylesheet } from '../core/common/handler/PageHeader';
 import type { RouteHandlerDefinition, RouteHandlerType } from '../core/common/handler/RouteHandler';
 import { withRLS } from '../userland/testing';

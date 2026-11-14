@@ -1,6 +1,6 @@
 import {describe, test, expect} from "vitest";
 import {definePage} from "../core/common/handler/Page";
-import type {RoutesMap} from "../build/config";
+import type {RoutesMap} from "../core/config";
 import {parseHtml, responseBodyAsString, run} from "./helpers/serveResponseHarness";
 
 // just a smoke test for the harness

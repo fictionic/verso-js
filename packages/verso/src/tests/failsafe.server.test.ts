@@ -1,6 +1,6 @@
 import { describe, test, expect, vi, beforeEach, afterEach } from 'vitest';
 import { handleFailsafeTimeouts } from '../core/server/failsafe';
-import type { ServerSettings } from '../build/config';
+import type { ServerSettings } from '../core/config';
 import type { RequestContext } from '../vendor/hattip/compose';
 
 function makeRequest(signal?: AbortSignal): Request {

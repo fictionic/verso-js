@@ -3,7 +3,7 @@ import type { Serve } from '@verso-js/contract';
 import { Fetch, setFetchInterceptor } from '../core/common/fetch/Fetch';
 import { nativeFetch } from '../core/common/fetch/nativeFetch';
 import type { DehydratedCache } from '../core/common/fetch/cache';
-import type { ServerSettings } from '../build/config';
+import type { ServerSettings } from '../core/config';
 import { ServerCookies } from '../core/server/ServerCookies';
 import { testWithRLS } from '../userland/testing/rls';
 import { serverSide, clientSide } from '../userland/testing/isomorphic';

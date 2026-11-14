@@ -1,6 +1,6 @@
 import {match, type ParamData} from "path-to-regexp";
 import {ensureArray} from "../../util/array";
-import type {RouteConfig, RoutesMap} from "../../build/config";
+import type {RouteConfig, RoutesMap} from "../config";
 
 export interface RouteMatch {
   routeName: string;

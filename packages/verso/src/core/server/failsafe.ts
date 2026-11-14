@@ -1,4 +1,4 @@
-import type {ServerSettings} from "../../build/config";
+import type {ServerSettings} from "../config";
 import type {RequestHandler} from "../../vendor/hattip/compose";
 
 export function handleFailsafeTimeouts(settings: ServerSettings): RequestHandler {
