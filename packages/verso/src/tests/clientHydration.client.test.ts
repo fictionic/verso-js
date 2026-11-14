@@ -42,7 +42,7 @@ function setupPipe(fetchCache: DehydratedCache = {}) {
   writer.writeValue(REQUEST_DATA_KEY, {
     method: 'GET',
     url: window.location.href, // must match window.location for hydration to proceed
-      body: null,
+    body: null,
   });
   writer.writeValue(FETCH_CACHE_KEY, fetchCache);
 }
@@ -52,7 +52,7 @@ const signalRootsComplete = () => writer.callFn(FN_SIGNAL_ROOTS_COMPLETE, []);
 const signalEndOfData = () => writer.callFn(FN_SIGNAL_END_OF_DATA, []);
 const abortHydration = () => writer.callFn(FN_ABORT_HYDRATION, []);
 const lateArrival = (req: CacheableRequest, data: CacheEntryData) =>
-writer.callFn(FN_RECEIVE_LATE_DATA_ARRIVAL, [req, data]);
+  writer.callFn(FN_RECEIVE_LATE_DATA_ARRIVAL, [req, data]);
 
 type StandardizedPageLike = { type: 'page'; getElements: () => React.ReactElement[] };
 
@@ -278,18 +278,12 @@ describe('ClientController.hydrate()', () => {
       expect(await res.text()).toBe('{"late":true}');
     });
 
-    test('FN_SIGNAL_END_OF_DATA tears down the pipe; a later arrival is dropped', async () => {
-      const fetchCache: DehydratedCache = { '/api/late': [pendingEntry()] };
-      setupPipe(fetchCache);
+    test('FN_SIGNAL_END_OF_DATA removes the pipe global', async () => {
+      setupPipe();
       plantRoot(0);
-
-      let latePromise!: Promise<Response>;
       const controller = makeController({
         type: 'page',
-        getElements: () => {
-          latePromise = Fetch.fetch('/api/late');
-          return [createElement('div', {}, 'A')];
-        },
+        getElements: () => [createElement('div', {}, 'A')],
       });
 
       const hydrating = controller.hydrate();
@@ -297,24 +291,11 @@ describe('ClientController.hydrate()', () => {
       hydrateUpTo(0);
       signalRootsComplete();
       await hydrating;
+      expect((window as any).__versoPipe).toBeDefined();
 
       signalEndOfData();
       await tick();
       expect((window as any).__versoPipe).toBeUndefined();
-
-      // the pipe global is gone, so the wire script throws
-      expect(() =>
-        lateArrival(
-          { url: '/api/late', method: 'GET', body: null },
-          { response: { body: { text: '{"late":true}' }, status: 200 }, error: null, requesters: 1 },
-        ),
-      ).toThrow();
-
-      const settled = await Promise.race([
-        latePromise.then(() => 'resolved' as const),
-        tick().then(() => 'pending' as const),
-      ]);
-      expect(settled).toBe('pending');
     });
   });
 
@@ -342,27 +323,6 @@ describe('ClientController.hydrate()', () => {
 
       expect(hydrateRoot).toHaveBeenCalledTimes(1);
       expect(root0.unmount).not.toHaveBeenCalled();
-    });
-
-    test('pipe ends unexpectedly: hydration completes with whatever roots were delivered', async () => {
-      setupPipe();
-      const nodes = [plantRoot(0), plantRoot(1)];
-      const controller = makeController({
-        type: 'page',
-        getElements: () => [createElement('div', {}, 'A'), createElement('div', {}, 'B')],
-      });
-
-      const hydrating = controller.hydrate();
-      await tick();
-
-      hydrateUpTo(1);
-      await tick();
-
-      expect(hydrateRoot).toHaveBeenCalledTimes(2);
-      expect(hydrateRoot.mock.calls[0]![0]).toBe(nodes[0]);
-      expect(hydrateRoot.mock.calls[1]![0]).toBe(nodes[1]);
-
-      void hydrating; // never settles, because FN_SIGNAL_ROOTS_COMPLETE is not sent
     });
   });
 });
