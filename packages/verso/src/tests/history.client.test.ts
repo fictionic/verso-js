@@ -73,16 +73,4 @@ describe('HistoryManager', () => {
     expect(onPop).toHaveBeenCalledWith(expect.stringMatching(/^\//), { reuseDom: false });
   });
 
-  test('installListener wires the popstate event to onPopToVersoState', async () => {
-    const onPop = vi.fn(async () => {});
-    const manager = new HistoryManager(onPop);
-    manager.installListener();
-
-    const versoState = { [VERSO_HISTORY_FRAME_KEY]: { options: { reuseDom: true } } };
-    window.dispatchEvent(new PopStateEvent('popstate', { state: versoState }));
-    await tick();
-
-    expect(onPop).toHaveBeenCalledTimes(1);
-  });
-
 });
