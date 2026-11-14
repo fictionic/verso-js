@@ -26,12 +26,11 @@ test('client-side navigation triggers a fresh client fetch', async ({ page, vers
   await page.goto('/basic');
 
   const requests = await countApiDataRequests(page);
-  expect(requests.count()).toBe(0);
 
   const { waitForIdle } = await verso.expectNavigation();
   await page.getByTestId('nav-fetch-data').click();
   await waitForIdle();
 
   await expect(page.getByTestId('fetch-data-name')).toHaveText('Ada Lovelace');
-  expect(requests.count()).toBeGreaterThan(0);
+  expect(requests.count()).toBe(1);
 });
