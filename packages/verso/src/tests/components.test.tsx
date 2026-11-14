@@ -15,6 +15,7 @@ import {
 import { TheFold } from '../core/common/components/TheFold';
 import { PAGE_ELEMENT_TOKEN_IDX_ATTR } from '../core/common/constants';
 import {renderContainerCloseToString, renderContainerOpenToString} from '../core/server/renderElement';
+import { tick } from './util/promise';
 
 describe('makeRootComponent', () => {
   test('attaches ROOT_COMPONENT symbol; result is detected by ensureRootElement', () => {
@@ -53,7 +54,7 @@ describe('scheduleRootRender', () => {
     const element = React.createElement(MyRoot, { when }) as AnyRootElement;
     let settled = false;
     const promise = scheduleRootRender(element, 0).promise.then((r) => { settled = true; return r; });
-    await Promise.resolve();
+    await tick();
     expect(settled).toBe(false);
     resolve('data');
     await promise;
