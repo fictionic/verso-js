@@ -15,6 +15,7 @@ vi.mock('../core/common/abort', () => ({
 
 import {TOKEN, tokenizeElements, type PageElementToken} from '../core/common/tokenizeElements';
 import {Root} from '../core/common/components/Root';
+import {RootContainer} from '../core/common/components/RootContainer';
 import {PageElementProcessor, type ProcessorOpts} from '../core/common/PageElementProcessor';
 import {getAbortPromise} from '../core/common/abort';
 import {tick} from './util/promise';
@@ -23,13 +24,10 @@ const tokenizeElementsMock = vi.mocked(tokenizeElements);
 const getAbortPromiseMock = vi.mocked(getAbortPromise);
 
 function rootToken(when: Promise<unknown>): PageElementToken {
-  return {
-    type: TOKEN.ROOT,
-    element: (<Root when={when as Promise<void>}><div /></Root>) as any,
-  };
+  return {type: TOKEN.ROOT, element: <Root when={when}><div /></Root>};
 }
 function containerOpenToken(): PageElementToken {
-  return {type: TOKEN.CONTAINER_OPEN, element: {props: {}} as any};
+  return {type: TOKEN.CONTAINER_OPEN, element: <RootContainer />};
 }
 function containerCloseToken(): PageElementToken {
   return {type: TOKEN.CONTAINER_CLOSE};

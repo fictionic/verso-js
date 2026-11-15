@@ -27,7 +27,7 @@ describe('ServerClientPipe', () => {
     }
 
     beforeEach(() => {
-      delete (window as any).__testPipe;
+      Reflect.deleteProperty(window, '__testPipe');
     });
 
     describe('Function call dispatch and buffering (the core)', () => {

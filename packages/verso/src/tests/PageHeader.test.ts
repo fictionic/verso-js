@@ -161,20 +161,20 @@ describe('getLinkTagAttrs', () => {
 describe('setNodeAttrs', () => {
   test('applies all string attributes to a DOM node', () => {
     const el = document.createElement('link');
-    setNodeAttrs(el, { href: '/style.css' } as any);
+    setNodeAttrs(el, { href: '/style.css' });
     expect(el.getAttribute('href')).toBe('/style.css');
   });
 
   test('applies multiple attributes', () => {
     const el = document.createElement('meta');
-    setNodeAttrs(el, { name: 'viewport', content: 'width=device-width' } as any);
+    setNodeAttrs(el, { name: 'viewport', content: 'width=device-width' });
     expect(el.getAttribute('name')).toBe('viewport');
     expect(el.getAttribute('content')).toBe('width=device-width');
   });
 
   test('applies data attributes', () => {
     const el = document.createElement('link');
-    setNodeAttrs(el, { href: '/style.css', 'data-verso': 'true' } as any);
+    setNodeAttrs(el, { href: '/style.css', 'data-verso': 'true' });
     expect(el.getAttribute('data-verso')).toBe('true');
   });
 });
