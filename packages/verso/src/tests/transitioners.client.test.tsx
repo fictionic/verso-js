@@ -1,5 +1,9 @@
 import type {ClientManifest} from "@verso-js/contract";
 import {afterEach, beforeEach, describe, expect, test, vi} from "vitest";
+
+vi.mock("../core/common/fetch/nativeFetch", () => ({nativeFetch: vi.fn()}));
+
+import {nativeFetch} from "../core/common/fetch/nativeFetch";
 import {ScriptTransitioner} from "../core/client/transitioners/scripts";
 import {StyleTransitioner} from "../core/client/transitioners/styles";
 import {
@@ -117,23 +121,18 @@ describe("ScriptTransitioner", () => {
   });
 });
 
-// every dev transition fetches route CSS, so fetch is stubbed to return none
+// every dev transition fetches route CSS, so nativeFetch is mocked to return none
 devOnly(() => {
   const VITE_A = "/abs/a.css";
 
-  let fetchMock: ReturnType<typeof vi.fn>;
+  const fetchMock = vi.mocked(nativeFetch);
 
   beforeEach(() => {
-    fetchMock = vi.fn(async () => ({
-      ok: true,
-      statusText: "OK",
-      json: async () => ({stylesheets: [] as Stylesheet[]}),
-    }));
-    vi.stubGlobal("fetch", fetchMock);
+    fetchMock.mockReset();
+    fetchMock.mockImplementation(async () => Response.json({stylesheets: []}));
   });
 
   afterEach(() => {
-    vi.unstubAllGlobals();
     vi.restoreAllMocks();
   });
 

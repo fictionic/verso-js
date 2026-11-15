@@ -1,6 +1,7 @@
 import type {ClientManifest} from "@verso-js/contract";
 import {DEV_ROUTE_CSS_PATH, DEV_VITE_STYLE_ID_ATTR, PAGE_HEADER_STYLE_ELEMENT_ATTR} from "../../common/constants";
 import {getStyleAttrs, makeLinkStylesheet, setNodeAttrs, type Stylesheet} from "../../common/handler/Page";
+import {nativeFetch} from "../../common/fetch/nativeFetch";
 import {normalizeUrlOrigin} from "../url";
 
 type StyleElement = HTMLLinkElement | HTMLStyleElement;
@@ -152,7 +153,7 @@ export class StyleTransitioner {
   async getRouteStylesheets(routeName: string): Promise<Stylesheet[]> {
     if (globalThis.IS_DEV) {
       try {
-        const res = await fetch(`${DEV_ROUTE_CSS_PATH}?route=${encodeURIComponent(routeName)}`);
+        const res = await nativeFetch(`${DEV_ROUTE_CSS_PATH}?route=${encodeURIComponent(routeName)}`);
         if (!res.ok) throw new Error(`fetch error: ${res.statusText}`);
         const body = await res.json() as { stylesheets: Stylesheet[] };
         return body.stylesheets;
