@@ -88,14 +88,7 @@ function makeBundleLoader(overrides?: {
 
 describe('proxy + bundle-loader asset accumulation', () => {
   describe('Accumulation across the chain', () => {
-    test('JS preloads cover every hop', async () => {
-      const { preloadHrefs } = await resolveAssets(makeBundleLoader(), '/a');
-      expect(preloadHrefs).toContain('/chunks/a.js');
-      expect(preloadHrefs).toContain('/chunks/b.js');
-      expect(preloadHrefs).toContain('/chunks/c.js');
-    });
-
-    test('order follows the chain', async () => {
+    test('JS preloads cover every hop, in chain order', async () => {
       const { preloadHrefs } = await resolveAssets(makeBundleLoader(), '/a');
       expect(preloadHrefs).toEqual(['/chunks/a.js', '/chunks/b.js', '/chunks/c.js']);
     });
@@ -104,9 +97,7 @@ describe('proxy + bundle-loader asset accumulation', () => {
   describe('Final-route-only CSS', () => {
     test("stylesheets are the final route's only", async () => {
       const { styleHrefs } = await resolveAssets(makeBundleLoader(), '/a');
-      expect(styleHrefs).toContain('/css/c.css');
-      expect(styleHrefs).not.toContain('/css/a.css');
-      expect(styleHrefs).not.toContain('/css/b.css');
+      expect(styleHrefs).toEqual(['/css/c.css']);
     });
   });
 
@@ -143,9 +134,6 @@ describe('proxy + bundle-loader asset accumulation', () => {
       expect(chain.preloadHrefs).toEqual(['/chunks/a.js', '/chunks/b.js', '/chunks/c.js']);
       const standalone = await resolveAssets(bundleLoader, '/z');
       expect(standalone.preloadHrefs).toEqual(['/chunks/z.js']);
-      expect(standalone.preloadHrefs).not.toContain('/chunks/a.js');
-      expect(standalone.preloadHrefs).not.toContain('/chunks/b.js');
-      expect(standalone.preloadHrefs).not.toContain('/chunks/c.js');
     });
   });
 });
