@@ -174,37 +174,7 @@ describe('PageElementProcessor', () => {
     expect(onProcessedTheFoldIndex).toHaveBeenCalledWith(1);
   });
 
-  test('onProcessedTheFoldIndex is called only once even when later roots resolve during its await', async () => {
-    const d0 = Promise.withResolvers<void>();
-    const d1 = Promise.withResolvers<void>();
-    const foldDfd = Promise.withResolvers<void>();
-
-    tokenizeElementsMock.mockReturnValue([
-      foldToken(),
-      rootToken(d0.promise),
-      rootToken(d1.promise),
-    ]);
-
-    const onProcessedTheFoldIndex = vi.fn().mockReturnValue(foldDfd.promise);
-    const processor = makeProcessor({
-      onProcessedTheFoldIndex,
-    });
-
-    const done = processor.process([]);
-    await tick();
-    expect(onProcessedTheFoldIndex).toHaveBeenCalledTimes(1);
-
-    d0.resolve();
-    d1.resolve();
-    await tick();
-
-    foldDfd.resolve();
-    await done;
-
-    expect(onProcessedTheFoldIndex).toHaveBeenCalledTimes(1);
-  });
-
-  test('drain race regression: tokens consumed in document order even when later roots resolve during a fold await', async () => {
+  test('later roots resolving during the fold await: fold runs once and tokens are consumed in document order', async () => {
     // Regression guard: if the fold is marked PROCESSED before its await, or if
     // walk() is reentrant, the walks started by the root resolutions consume
     // the trailing tokens before 'CO'.
@@ -221,10 +191,11 @@ describe('PageElementProcessor', () => {
     ]);
 
     const allConsumed: string[] = [];
+    const onProcessedTheFoldIndex = vi.fn(() => foldDfd.promise);
     const processor = makeProcessor({
       renderContainerOpen: () => 'CO',
       renderContainerClose: () => 'CC',
-      onProcessedTheFoldIndex: () => foldDfd.promise,
+      onProcessedTheFoldIndex,
       consumeRenderedElements: (rendered) => {
         for (const v of rendered) if (v !== null) allConsumed.push(v);
       },
@@ -238,10 +209,12 @@ describe('PageElementProcessor', () => {
     d1.resolve();
     await tick();
     expect(allConsumed).toEqual(['CO']);
+    expect(onProcessedTheFoldIndex).toHaveBeenCalledTimes(1);
 
     foldDfd.resolve();
     await done;
     expect(allConsumed).toEqual(['CO', 'R2', 'R3', 'CC']);
+    expect(onProcessedTheFoldIndex).toHaveBeenCalledTimes(1);
   });
 
   test('fold flushes above-fold roots before invoking onProcessedTheFoldIndex', async () => {
@@ -264,7 +237,7 @@ describe('PageElementProcessor', () => {
         events.push(`fold(${i}):start`);
         return foldDfd.promise.then(() => { events.push(`fold(${i}):end`); });
       },
-      onLastProcessedRootIndex: (i) => { events.push(`onProcessRoot(${i})`); },
+      onLastProcessedRootIndex: (i) => { events.push(`onLastProcessedRootIndex(${i})`); },
       consumeRenderedElements: (rendered) => {
         const labels = rendered.filter((v): v is string => v !== null);
         events.push(`consume(${labels.join(',')})`);
@@ -282,7 +255,7 @@ describe('PageElementProcessor', () => {
 
     expect(events).toEqual([
       'consume(R0)',
-      'onProcessRoot(0)',
+      'onLastProcessedRootIndex(0)',
       'fold(1):start',
     ]);
 
@@ -291,11 +264,11 @@ describe('PageElementProcessor', () => {
 
     expect(events).toEqual([
       'consume(R0)',
-      'onProcessRoot(0)',
+      'onLastProcessedRootIndex(0)',
       'fold(1):start',
       'fold(1):end',
       'consume(R2)',
-      'onProcessRoot(2)',
+      'onLastProcessedRootIndex(2)',
     ]);
   });
 
