@@ -86,16 +86,16 @@ describe("StyleTransitioner", () => {
 describe("ScriptTransitioner", () => {
   test("a script needed by both routes is not re-added on a there-and-back transition", () => {
     const t = new ScriptTransitioner();
-    const appScript = [{src: "/app.js"}];
+    const routeA = [{src: "/app.js"}, {src: "/a.js"}];
+    const routeB = [{src: "/app.js"}, {src: "/b.js"}];
 
-    t.transitionScripts(appScript);
-    t.transitionScripts(appScript);
-    t.transitionScripts(appScript);
+    t.transitionScripts(routeA);
+    t.transitionScripts(routeB);
+    t.transitionScripts(routeA);
 
-    const appScripts = document.head.querySelectorAll<HTMLScriptElement>(
-      'script[src="/app.js"]',
-    );
-    expect(appScripts).toHaveLength(1);
+    expect(document.head.querySelectorAll('script[src="/app.js"]')).toHaveLength(1);
+    expect(document.head.querySelectorAll('script[src="/a.js"]')).toHaveLength(1);
+    expect(document.head.querySelectorAll('script[src="/b.js"]')).toHaveLength(1);
   });
 
   test("readServerScripts seeds server-rendered scripts so they are not re-added", () => {
