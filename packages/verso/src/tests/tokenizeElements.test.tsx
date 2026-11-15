@@ -12,7 +12,7 @@ function assertToken<T extends PageElementToken['type']>(
   return token as Extract<PageElementToken, { type: T }>;
 }
 
-describe('elementTokenizer', () => {
+describe('tokenizeElements', () => {
   test('<Root> element produces ROOT token', () => {
     const el = <Root><div /></Root>;
     const tokens = tokenizeElements([el]);

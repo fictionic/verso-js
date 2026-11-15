@@ -8,7 +8,7 @@ import type {
 } from "../../conformance/recipe";
 
 export const dummyStoreRecipe: ConformanceRecipe = {
-  name: "testStore",
+  name: "dummy",
 
   makeValueStore<T>(seed: ValueSeed<T>, options?: DefinitionOptions) {
     type State = { value: T };

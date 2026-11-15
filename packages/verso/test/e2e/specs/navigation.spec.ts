@@ -4,13 +4,13 @@ import { test, expect } from '../helpers/fixtures';
 // a full reload replaces `window`, so the marker survives only client transitions
 async function markDocument(page: Page) {
   await page.evaluate(() => {
-    (window as unknown as { __suite19Marker?: boolean }).__suite19Marker = true;
+    (window as unknown as { __sameDocumentMarker?: boolean }).__sameDocumentMarker = true;
   });
 }
 
 async function expectSameDocument(page: Page) {
   const marker = await page.evaluate(
-    () => (window as unknown as { __suite19Marker?: boolean }).__suite19Marker,
+    () => (window as unknown as { __sameDocumentMarker?: boolean }).__sameDocumentMarker,
   );
   expect(marker, 'expected a client transition, not a full reload').toBe(true);
 }
