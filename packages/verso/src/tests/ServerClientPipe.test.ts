@@ -103,16 +103,16 @@ describe('ServerClientPipe', () => {
         w.callFn('onNumber', [5]);
         exec();
 
-        const hydrate = vi.fn();
-        TestPipe.reader().onCallFn('onNumber', hydrate);
-        expect(hydrate.mock.calls).toEqual([[5]]);
+        const numberHandler = vi.fn();
+        TestPipe.reader().onCallFn('onNumber', numberHandler);
+        expect(numberHandler.mock.calls).toEqual([[5]]);
 
-        const abort = vi.fn();
-        TestPipe.reader().onCallFn('onVoid', abort);
-        expect(abort).toHaveBeenCalledTimes(1);
-        expect(abort).toHaveBeenCalledWith();
+        const voidHandler = vi.fn();
+        TestPipe.reader().onCallFn('onVoid', voidHandler);
+        expect(voidHandler).toHaveBeenCalledTimes(1);
+        expect(voidHandler).toHaveBeenCalledWith();
 
-        expect(hydrate.mock.calls).toEqual([[5]]);
+        expect(numberHandler.mock.calls).toEqual([[5]]);
       });
     });
 
@@ -132,7 +132,7 @@ describe('ServerClientPipe', () => {
         const value = {
           method: 'GET',
           url: '/search?q=</script><tag>&amp;',
-            body: null,
+          body: null,
         };
         w.init();
         w.writeValue('req', value);
@@ -200,9 +200,9 @@ describe('ServerClientPipe', () => {
       test('reader() throws on the server (no window)', () => {
         // the guard checks `typeof window`, not IS_SERVER
         expect(typeof window).toBe('undefined');
-      expect(() => TestPipe.reader()).toThrow(
-        /cannot read from ServerClientPipe on the server/,
-      );
+        expect(() => TestPipe.reader()).toThrow(
+          /cannot read from ServerClientPipe on the server/,
+        );
       });
     });
   });
