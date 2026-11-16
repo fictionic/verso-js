@@ -214,6 +214,35 @@ describe("handlePage rendering", () => {
       expect(script?.textContent).toContain("console.log('inline-script-body')");
     });
 
+    test("inline script text with </script> does not close the element early", async () => {
+      const value = "</script><div id=injected></div>"; // no quotes around id attribute because they would get escaped
+      const page = definePage(() => ({
+        getRouteDirective: () => ({kind: "ok"}),
+        getElements: () => [<div>X</div>],
+        getScripts: () => [{text: `var s = ${JSON.stringify(value)};`}],
+      }));
+      const body = await responseBodyAsString(await run(req(), routes, page));
+      const doc = parseHtml(body);
+      expect(doc.getElementById("injected")?.outerHTML).toBeUndefined();
+      const script = doc.querySelector("script[data-verso-script-element]");
+      // the escaped text must still evaluate to the original value
+      expect(new Function(`${script?.textContent}; return s;`)()).toBe(value);
+    });
+
+    test("inline script text with <!--<script> does not swallow later elements", async () => {
+      const value = "<!--<script>";
+      const page = definePage(() => ({
+        getRouteDirective: () => ({kind: "ok"}),
+        getElements: () => [<div>X</div>],
+        getScripts: () => [{text: `var s = ${JSON.stringify(value)};`}, {src: "/after.js"}],
+      }));
+      const body = await responseBodyAsString(await run(req(), routes, page));
+      const doc = parseHtml(body);
+      expect(doc.querySelector('script[src="/after.js"]')).not.toBeNull();
+      const script = doc.querySelector("script[data-verso-script-element]:not([src])");
+      expect(new Function(`${script?.textContent}; return s;`)()).toBe(value);
+    });
+
     test("script type attribute is included when set", async () => {
       const page = definePage(() => ({
         getRouteDirective: () => ({kind: "ok"}),

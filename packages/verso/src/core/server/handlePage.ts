@@ -195,8 +195,17 @@ export function handlePage(page: StandardizedPage): HandlerResponse {
 };
 
 function renderScript(script: Script): string {
-  const text = 'text' in script ? script.text : '';
+  const text = 'text' in script ? escapeScriptText(script.text) : '';
   return `${renderOpenTag('script', getScriptAttrs(script))}${text}</script>\n`;
+}
+
+// ensure that the strings '<script' and '</script' within script text are not
+// parsed as HTML tags. do this the same way React does: replace the 's' in
+// 'script' with '\u0073'. this does not affect the semantics of any JS in the
+// script text.
+function escapeScriptText(text: string): string {
+  return text.replace(/(<\/|<)(s)(cript)/gi, (_, prefix, s, suffix) =>
+    `${prefix}${s === 's' ? '\\u0073' : '\\u0053'}${suffix}`);
 }
 
 const encoder = new TextEncoder();
