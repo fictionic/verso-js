@@ -6,6 +6,15 @@ export type CookieOptions = Omit<SetCookie, 'name' | 'value'>;
 
 const RLS = getRLS<{ current: ServerCookies }>();
 
+export type ResponseCookie = {
+  kind: 'value';
+  value: string;
+} | {
+  kind: 'deletion';
+} | {
+  kind: 'none';
+};
+
 export class ServerCookies {
   private requestCookies: Cookies;
   private responseCookies: Map<string, { value: string; options?: CookieOptions }>;
@@ -37,8 +46,11 @@ export class ServerCookies {
     });
   }
 
-  getResponseCookie(name: string): string | undefined {
-    return this.responseCookies.get(name)?.value;
+  getResponseCookie(name: string): ResponseCookie {
+    const cookie = this.responseCookies.get(name);
+    if (!cookie) return { kind: 'none' };
+    if (cookie.options && isResponseCookieDeleted(cookie.options)) return { kind: 'deletion' };
+    return { kind: 'value', value: cookie.value };
   }
 
   getResponseSetCookieHeaders(): Headers {
@@ -58,4 +70,12 @@ function throwIfHeadersLocked() {
   if (getServerStash().headersLocked) {
     throw new Error("cannot set cookies after HTTP headers have been sent");
   }
+}
+
+// the browser deletes a cookie when Max-Age <= 0, or when there is no
+// Max-Age and Expires is in the past (RFC 6265 5.3)
+function isResponseCookieDeleted(options: CookieOptions): boolean {
+  if (options?.maxAge !== undefined) return options.maxAge <= 0;
+  if (options?.expires !== undefined) return options.expires.getTime() <= Date.now();
+  return false;
 }

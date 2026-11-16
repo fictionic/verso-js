@@ -251,7 +251,7 @@ describe('Fetch orchestration', () => {
         );
         initServer({ request: withCookies, cookies: true });
         await Fetch.fetch('/api/data', {}, { forwardResponseSetCookieHeaders: true });
-        expect(ServerCookies.get()!.getResponseCookie('fromFetch')).toBe('1');
+        expect(ServerCookies.get()!.getResponseCookie('fromFetch')).toEqual({ kind: 'value', value: '1' });
       });
     });
 

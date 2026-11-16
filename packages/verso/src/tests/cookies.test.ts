@@ -34,19 +34,41 @@ describe('cookies', () => {
         new ServerCookies(makeRequest());
         expect(getCookie('missing')).toBeUndefined();
       });
+
+      // the expected values match what the client reads from document.cookie
+      // after the browser applies the response
+      testWithRLS('an empty response cookie overrides the request cookie', () => {
+        const sc = new ServerCookies(makeRequest('session=req-value'));
+        sc.setResponseCookie('session', '');
+        expect(getCookie('session')).toBe('');
+      });
+
+      testWithRLS.each([
+        ['maxAge: 0', { maxAge: 0 }],
+        ['expires in the past', { expires: new Date(0) }],
+      ])('a response cookie deleted with %s returns undefined, not the request cookie', (_, options) => {
+        const sc = new ServerCookies(makeRequest('session=req-value'));
+        sc.setResponseCookie('session', '', options);
+        expect(getCookie('session')).toBeUndefined();
+      });
+
+      testWithRLS('an empty request cookie returns an empty string', () => {
+        new ServerCookies(makeRequest('session='));
+        expect(getCookie('session')).toBe('');
+      });
     });
 
     describe('setCookie', () => {
       testWithRLS('delegates to ServerCookies.setResponseCookie', () => {
         const sc = new ServerCookies(makeRequest());
         setCookie('theme', 'dark');
-        expect(sc.getResponseCookie('theme')).toBe('dark');
+        expect(sc.getResponseCookie('theme')).toEqual({ kind: 'value', value: 'dark' });
       });
 
       testWithRLS('delegates with options', () => {
         const sc = new ServerCookies(makeRequest());
         setCookie('auth', 'token123', { path: '/', httpOnly: true });
-        expect(sc.getResponseCookie('auth')).toBe('token123');
+        expect(sc.getResponseCookie('auth')).toEqual({ kind: 'value', value: 'token123' });
       });
     });
   });

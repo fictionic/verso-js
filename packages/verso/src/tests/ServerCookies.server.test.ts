@@ -24,7 +24,7 @@ describe('ServerCookies', () => {
   testWithRLS('setResponseCookie before consumeHeaders stores the cookie', () => {
     const sc = new ServerCookies(makeRequest());
     sc.setResponseCookie('session', 'abc123');
-    expect(sc.getResponseCookie('session')).toBe('abc123');
+    expect(sc.getResponseCookie('session')).toEqual({ kind: 'value', value: 'abc123' });
   });
 
   testWithRLS('setResponseCookie after headers are locked throws', () => {
@@ -50,15 +50,15 @@ describe('ServerCookies', () => {
       'user=alice; Path=/',
       'theme=dark; Path=/; HttpOnly',
     ]);
-    expect(sc.getResponseCookie('user')).toBe('alice');
-    expect(sc.getResponseCookie('theme')).toBe('dark');
+    expect(sc.getResponseCookie('user')).toEqual({ kind: 'value', value: 'alice' });
+    expect(sc.getResponseCookie('theme')).toEqual({ kind: 'value', value: 'dark' });
   });
 
   testWithRLS('getResponseCookie returns pending response cookie value', () => {
     const sc = new ServerCookies(makeRequest());
     sc.setResponseCookie('lang', 'en');
-    expect(sc.getResponseCookie('lang')).toBe('en');
-    expect(sc.getResponseCookie('missing')).toBeUndefined();
+    expect(sc.getResponseCookie('lang')).toEqual({ kind: 'value', value: 'en' });
+    expect(sc.getResponseCookie('missing')).toEqual({ kind: 'none' });
   });
 
   testWithRLS('static get() returns instance inside request after construction', () => {

@@ -6,11 +6,18 @@ export function getCookie(name: string): string | undefined {
     // if we've already set this cookie ourselves, it will override
     // any preexisting value in the browser. we have to use it for our render.
     const fromResponse = ServerCookies.get()!.getResponseCookie(name);
-    if (fromResponse) return fromResponse;
+    switch (fromResponse.kind) {
+      case 'value':
+        return fromResponse.value;
+      case 'deletion':
+        return undefined;
+      case 'none':
+        break; // fall through
+    }
     // if the client sent us a value for the cookie, use that.
     // if the cookie value gets updated after this, there could be trouble!
     const fromRequest = ServerCookies.get()!.getRequestCookie(name);
-    if (fromRequest) return fromRequest;
+    if (typeof fromRequest === 'string') return fromRequest;
     // otherwise we have nothing to return
     return undefined;
   }
