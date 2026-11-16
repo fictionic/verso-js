@@ -217,11 +217,15 @@ function getForwardedCookieHeaders(init: VersoFetchInit): Headers {
 
 function isSameOrigin(urlString: string): boolean {
   if (isRelativeUrl(urlString)) return true;
-  const url = new URL(urlString);
+  const url = new URL(urlString, RLS().requestOrigin);
   if (url.origin === RLS().requestOrigin) return true;
   return false;
 }
 
+// '.invalid' TLD is reserved; RFC 2606
+const SENTINEL_URL = 'http://verso.invalid';
+
 function isRelativeUrl(url: string): boolean {
-  return url.startsWith('/');
+  // protocol-relative urls start with `//` but contain a host
+  return url.startsWith('/') && new URL(url, SENTINEL_URL).origin === SENTINEL_URL;
 }

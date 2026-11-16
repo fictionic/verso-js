@@ -56,6 +56,13 @@ function nativeFetchRequest(call = 0): Request {
 const jsonResponse = (body = '{"x":1}') =>
   new Response(body, { headers: { 'Content-Type': 'application/json' } });
 
+// the URL parser reads each of these as a new host, not a path
+const crossOriginSlashUrls = [
+  '//other.example.com/api',
+  '/\\other.example.com/api',
+  '/\t/other.example.com/api',
+];
+
 describe('Fetch orchestration', () => {
   serverSide(() => {
     describe('Server-side request orchestration', () => {
@@ -148,6 +155,15 @@ describe('Fetch orchestration', () => {
         expect(mockFetch).toHaveBeenCalledTimes(1);
         expect(nativeFetchRequest().url).toBe('https://app.example.com/api/data');
       });
+
+      testWithRLS.each(crossOriginSlashUrls)('a URL that starts with "/" but parses to another host (%j) does not use loopback', async (url) => {
+        mockFetch.mockResolvedValue(jsonResponse());
+        const loopback = loopbackStub();
+        initServer({ settings: { fetchOrigin: 'loopback' }, loopback, cookies: true });
+        await Fetch.fetch(url);
+        expect(loopback).not.toHaveBeenCalled();
+        expect(nativeFetchRequest().url).toBe('https://other.example.com/api');
+      });
     });
 
     describe('Interceptors', () => {
@@ -195,6 +211,14 @@ describe('Fetch orchestration', () => {
         mockFetch.mockResolvedValue(jsonResponse());
         initServer({ request: withCookies, cookies: true });
         await Fetch.fetch('https://other.example.com/api');
+        expect(nativeFetchRequest().headers.get('Cookie')).toBeNull();
+      });
+
+      testWithRLS.each(crossOriginSlashUrls)('a URL that starts with "/" but parses to another host (%j) does not forward by default', async (url) => {
+        mockFetch.mockResolvedValue(jsonResponse());
+        initServer({ request: withCookies, cookies: true });
+        await Fetch.fetch(url);
+        expect(nativeFetchRequest().url).toBe('https://other.example.com/api');
         expect(nativeFetchRequest().headers.get('Cookie')).toBeNull();
       });
 
