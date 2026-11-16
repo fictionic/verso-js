@@ -272,6 +272,32 @@ export function describeIsoStoreAdapter(recipe: ConformanceRecipe): void {
 
         await waitForDom(() => expect(screen.getAllByText("Bob")).toHaveLength(2));
       });
+
+      test("broadcast reaches later instances when one instance is in more than one provider", async () => {
+        const store = recipe.makeMessageStore("initial");
+
+        function Widget({ label }: { label: string }) {
+          return <div data-testid={label}>{store.useName()}</div>;
+        }
+
+        const shared = store.def.createStore({});
+        const other = store.def.createStore({});
+        render(
+          <>
+            <IsoStoreProvider stores={[shared]}><Widget label="w1" /></IsoStoreProvider>
+            <IsoStoreProvider stores={[shared]}><Widget label="w2" /></IsoStoreProvider>
+            <IsoStoreProvider stores={[other]}><Widget label="w3" /></IsoStoreProvider>
+          </>,
+        );
+
+        expect(screen.getAllByText("initial")).toHaveLength(3);
+
+        act(() => {
+          store.def.broadcast({ type: "rename", name: "Bob" });
+        });
+
+        await waitForDom(() => expect(screen.getAllByText("Bob")).toHaveLength(3));
+      });
     });
 
     describe("client lifecycle + singleton", () => {

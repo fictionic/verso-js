@@ -184,7 +184,7 @@ export function defineIsoStore<
     const seen = new Set<InstanceID>();
     for (const instance of instancesByProvider.values()) {
       const instanceId = instance[STORE_INSTANCE_INTERNALS].identifier;
-      if (seen.has(instanceId)) return;
+      if (seen.has(instanceId)) continue;
       seen.add(instanceId);
       instance[STORE_INSTANCE_INTERNALS].messageHandlers.forEach(h => h(message));
     }
