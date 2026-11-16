@@ -87,6 +87,19 @@ describe("handlePage rendering", () => {
       expect(parseHtml(body).body.className).toBe("alpha beta");
     });
 
+    test("body classes are escaped in the class attribute", async () => {
+      const evil = 'x" onload="alert(1)';
+      const page = definePage(() => ({
+        getRouteDirective: () => ({kind: "ok"}),
+        getElements: () => [<div>X</div>],
+        getBodyClasses: () => [evil, "<b>&"],
+      }));
+      const body = await responseBodyAsString(await run(req(), routes, page));
+      const bodyEl = parseHtml(body).body;
+      expect(bodyEl.className).toBe(`${evil} <b>&`);
+      expect(bodyEl.getAttributeNames()).toEqual(["class"]);
+    });
+
     test("no body classes -> <body> carries no class attribute", async () => {
       const body = await responseBodyAsString(await run(req(), routes, okPage([<div>X</div>])));
       expect(parseHtml(body).body.hasAttribute("class")).toBe(false);

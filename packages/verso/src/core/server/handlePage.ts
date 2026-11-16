@@ -123,8 +123,7 @@ export function handlePage(page: StandardizedPage): HandlerResponse {
 
   async function renderBodyOpen() {
     const bodyClasses = await page.getBodyClasses();
-    const bodyAttrs = bodyClasses.length ? ` class="${bodyClasses.join(' ')}"` : '';
-    return `<body${bodyAttrs}>`;
+    return renderOpenTag('body', bodyClasses.length ? { class: bodyClasses.join(' ') } : {});
   }
 
   function hydrateRootsUpTo(index: number) {
