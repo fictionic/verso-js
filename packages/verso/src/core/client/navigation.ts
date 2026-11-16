@@ -156,7 +156,7 @@ export class ClientNavigationManager {
           // I'm not sure why a page would attempt to navigate to a url
           // that returns a 3XX redirect server-side, but we might as well
           // do something reasonable here, so we recurse
-          return Promise.race([
+          return await Promise.race([
             this.getPageResolution(newReq),
             getAbortPromise(),
           ]);

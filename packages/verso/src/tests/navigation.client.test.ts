@@ -89,6 +89,21 @@ describe('ClientNavigationManager', () => {
       }
     });
 
+    test('rejects a same-origin redirect loop at the max resolution depth', async () => {
+      const redirectLocation = new URL('/loop', window.location.origin).href;
+      let calls = 0;
+      resolveRoute.mockImplementation(async () => {
+        // guard so a broken depth check fails the test instead of hanging it
+        if (++calls > 100) throw new Error('runaway redirect loop');
+        return { kind: 'response', routeName: 'loop', statusCode: 302, redirectLocation };
+      });
+      const commit = vi.fn(async () => {});
+      await expect(
+        manager.requestNavigation(makeStart('http://localhost/loop'), commit),
+      ).rejects.toThrow('max resolution depth exceeded');
+      expect(commit).not.toHaveBeenCalled();
+    });
+
     test('rejects when the resolution is not a response', async () => {
       resolveRoute.mockResolvedValueOnce({ kind: 'not-found' });
       const commit = vi.fn(async () => {});
