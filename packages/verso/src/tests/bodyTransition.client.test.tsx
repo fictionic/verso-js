@@ -74,6 +74,18 @@ describe('BodyElementTransitioner', () => {
       expect(document.body.contains(oldNode)).toBe(false);
       expect(roots[0]!.textContent).toBe('NEW');
     });
+
+    testWithRLS('a fresh transition to a page with no elements tears down the previous page', async () => {
+      armAbort();
+      const manager = new ReactRootManager();
+      await mount(manager, [<div>OLD</div>]);
+      const oldNode = rootNodes()[0]!;
+
+      await transition(manager, [], false);
+
+      expect(rootNodes()).toHaveLength(0);
+      expect(document.body.contains(oldNode)).toBe(false);
+    });
   });
 
   describe('reuse path (reuseDom: true), matching shape', () => {

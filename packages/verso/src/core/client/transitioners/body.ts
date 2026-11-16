@@ -82,8 +82,11 @@ export class BodyElementTransitioner {
 
     await processor.process(newElements);
 
-    if (this.reusingDom) {
-      // clear out the rest of the old page if it had more elements than the new one
+    // tear down any remaining roots from the previous page
+    // (unless superceded by another navigation; no reason to do additional work
+    // in that case)
+    if (getAbortSignal().aborted) return;
+    if (!this.didTeardownDom) {
       this.tearDownBodyElementsFromIndex(currentIndex + 1);
     }
   }
