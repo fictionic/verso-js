@@ -20,7 +20,7 @@ const paths = ${JSON.stringify(paths)};
 const opts = {
   port: Number(process.env.PORT) || 3000,
   hostname: process.env.HOST ?? '0.0.0.0',
-  shutdownGraceMs: Number(process.env.SHUTDOWN_GRACE_MS) ?? 5000,
+  shutdownGraceMs: Number(process.env.SHUTDOWN_GRACE_MS ?? 5000),
   sirvOpts: ${JSON.stringify(options?.sirvOpts)},
 };
 await bootNode(runDir, paths, opts);

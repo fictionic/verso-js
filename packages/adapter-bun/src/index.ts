@@ -35,7 +35,7 @@ const paths = ${JSON.stringify(paths)};
 await bootBun(runDir, paths, {
   port: Number(process.env.PORT) || 3000,
   hostname: process.env.HOST ?? '0.0.0.0',
-  shutdownGraceMs: Number(process.env.SHUTDOWN_GRACE_MS) || 5000,
+  shutdownGraceMs: Number(process.env.SHUTDOWN_GRACE_MS ?? 5000),
   staticCacheOpts: ${JSON.stringify(opts?.staticCacheOpts)},
 });
 `.trim(),
