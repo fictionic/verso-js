@@ -3,7 +3,7 @@ import type {FetchOrigin, ServerSettings} from '../../config';
 import {getAbortSignal} from '../abort';
 import {ServerCookies} from '../../server/ServerCookies';
 import { getRLS } from '../RequestLocalStorage';
-import { FetchCache, reifyCachedResponse, type CacheableRequest, type DehydratedCache } from './cache';
+import { FetchClientCache, FetchServerCache, type CacheableRequest, type DehydratedCache } from './cache';
 import { nativeFetch } from './nativeFetch';
 import type { FetchRequestInterceptor, FetchRequestSettings, VersoFetchInit } from './types';
 import {hasBinaryBody} from '../util/body';
@@ -20,7 +20,8 @@ function fillSettings(primary: FetchRequestSettings | undefined, overrides: Fetc
 }
 
 const RLS = getRLS<{
-  cache: FetchCache;
+  clientCache?: FetchClientCache;
+  serverCache?: FetchServerCache;
   requestOrigin?: string;
   originSetting?: FetchOrigin;
   handleLoopbackRequest?: Serve;
@@ -31,7 +32,8 @@ const RLS = getRLS<{
 export const Fetch = {
   serverInit,
   clientInit,
-  getCache,
+  getServerCache,
+  getClientCache,
   fetch,
 };
 
@@ -44,28 +46,33 @@ function serverInit(
   loopback: Serve,
   serverSettings: ServerSettings,
 ) {
-  RLS().cache = new FetchCache();
+  RLS().serverCache = new FetchServerCache();
   RLS().requestOrigin = new URL(nativeRequest.url).origin;
   RLS().originSetting = serverSettings.fetchOrigin;
   RLS().handleLoopbackRequest = loopback;
 }
 
 function clientInit(fetchCache?: DehydratedCache) {
-  const cache = new FetchCache();
+  const cache = new FetchClientCache();
   if (fetchCache) {
-    cache.client().rehydrate(fetchCache);
+    cache.rehydrate(fetchCache);
   }
-  RLS().cache = cache;
+  RLS().clientCache = cache;
 }
 
-function getCache() {
-  return RLS().cache;
+function getServerCache() {
+  return RLS().serverCache;
+}
+
+function getClientCache() {
+  return RLS().clientCache;
 }
 
 /**
  * Isomorphic wrapper around native fetch.
- * Intentionally only supporting url inputs because it's not worth the complexity
- * when the main use-case is for relative urls, which cannot be passed to URL or Request objects.
+ * Intentionally only supporting url inputs because it's not worth the
+ * complexity when the main use-case is for relative urls, which cannot be
+ * passed to URL or Request objects.
  */
 async function fetch(rawUrl: string, rawInit: VersoFetchInit = {}, overrideSettings?: FetchRequestSettings): Promise<Response> {
   const {
@@ -116,7 +123,7 @@ async function fetch(rawUrl: string, rawInit: VersoFetchInit = {}, overrideSetti
   };
 
   if (globalThis.IS_SERVER) {
-    const cache = getCache().server();
+    const cache = getServerCache()!;
     const { first, responsePromise } = cache.receiveRequest(req);
     if (first) {
       try {
@@ -138,18 +145,18 @@ async function fetch(rawUrl: string, rawInit: VersoFetchInit = {}, overrideSetti
         cache.receiveError(req, error);
       };
     }
-    // give the caller back the response from the cache. they don't get the real response.
+    // give the caller back the response from the cache. they don't get the real
+    // response.
     // (technically evicted requests do send back the original response)
-    return reifyCachedResponse(responsePromise);
+    return responsePromise;
   } else {
     // IS_CLIENT
-    const cache = getCache().client();
+    const cache = getClientCache()!;
     const responsePromise = cache.receiveRequest(req);
     if (responsePromise) {
-      // cache hit. wait for the response (data might be here already, or it might be a late arrival),
-      // then consume it and replay it isomorphically
-      return reifyCachedResponse(responsePromise)
-        .finally(() => cache.consumeResponse(req));
+      // cache hit. wait for the response (data might be here already, or it
+      // might be a late arrival), then consume it and replay it isomorphically
+      return responsePromise.finally(() => cache.consumeResponse(req));
     } else {
       // either we're post-hydration, or the client made a non-isomorphic request.
       // either way, all we can do is pass through
@@ -167,13 +174,14 @@ const defaultInterceptor: FetchRequestInterceptor = (url, init) => {
   return { url, init };
 }
 
-// we're calling native fetch() with a Request object, so we have to resolve relative urls
-// into absolute urls on server and on client.
+// we're calling native fetch() with a Request object, so we have to resolve
+// relative urls into absolute urls on server and on client.
 function resolveRelativeUrl(interceptedUrl: string): { resolvedUrl: string, useLoopback?: boolean } {
   // requestOrigin is the origin specified by the Verso request's Host header
   const origin = globalThis.IS_SERVER ? RLS().requestOrigin : location.origin;
   // throw if url string is not a valid url (absolute or relative).
-  // (note that we are not caching these errors, because they occur before we can assemble the Request)
+  // (note that we are not caching these errors, because they occur before we
+  // can assemble the Request)
   // (the behavior should still be isomorphic, however)
   const resolvedUrl = new URL(interceptedUrl, origin).href;
   // determine if we should use loopback: server-side, relative url, only if setting is set

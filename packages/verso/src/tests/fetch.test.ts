@@ -46,7 +46,7 @@ function initServer(opts: {
 }
 
 function dehydrate(): DehydratedCache {
-  return Fetch.getCache().server().dehydrate();
+  return Fetch.getServerCache()!.dehydrate();
 }
 
 function nativeFetchRequest(call = 0): Request {

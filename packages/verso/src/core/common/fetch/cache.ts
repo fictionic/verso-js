@@ -19,11 +19,11 @@ export type CacheEntryData = {
   requesters: number;
 };
 
-export type CachedResponse = {
+type CachedResponse = {
   body: MarshalledBody | null;
   status: number;
-  // we don't include response headers in the cache because (1) they're big,
-  // (2) it would be a security vulnerability, and (3) probably no one needs them.
+  // we don't include response headers in the cache because (1) they're big, (2)
+  // it would be a security vulnerability, and (3) probably no one needs them.
 };
 
 type MarshalledError = {
@@ -50,20 +50,25 @@ type CacheEntry = {
 };
 
 const EVICTED: unique symbol = Symbol();
-
 type ThrownEviction = {
   [EVICTED]: true,
   response: Response,
 };
 
-export class FetchCache {
-  private buckets: Map<string, Array<CacheEntry>>;
+abstract class FetchCache {
+  protected buckets: Map<string, Array<CacheEntry>>;
 
   constructor() {
     this.buckets = new Map();
   }
 
-  private createEntry(req: CacheableRequest): CacheEntry {
+  protected ensureEntry(entry: CacheEntry | null): CacheEntry {
+    // TODO: better error message
+    if (!entry) throw new Error("cache entry not found!");
+    return entry;
+  }
+
+  protected createEntry(req: CacheableRequest): CacheEntry {
     const { urlKey, searchParams } = parseUrlString(req.url);
     const entry: CacheEntry = {
       data: {
@@ -88,7 +93,7 @@ export class FetchCache {
     return entry;
   }
 
-  private findEntry(req: CacheableRequest): CacheEntry | null {
+  protected findEntry(req: CacheableRequest): CacheEntry | null {
     const { urlKey, searchParams } = parseUrlString(req.url);
     const bucket = this.buckets.get(urlKey);
     if (!bucket) return null;
@@ -103,145 +108,185 @@ export class FetchCache {
     }) ?? null;
   }
 
-  server() {
-    const cache = this;
+}
+
+type ReceivedRequest = {
+  first: boolean; // the caller needs different behavior on an initial request
+  responsePromise: Promise<Response>;
+};
+
+export class FetchServerCache extends FetchCache {
+  receiveRequest(req: CacheableRequest): ReceivedRequest {
+    let first!: boolean;
+    let entry = this.findEntry(req);
+    if (!entry) {
+      first = true;
+      entry = this.createEntry(req);
+    } else {
+      first = false;
+      entry.data.requesters += 1;
+    }
     return {
-      receiveRequest(req: CacheableRequest): {first: boolean, responsePromise: Promise<CachedResponse>} {
-        let first!: boolean;
-        let entry = cache.findEntry(req);
-        if (!entry) {
-          first = true;
-          entry = cache.createEntry(req);
-        } else {
-          first = false;
-          entry.data.requesters += 1;
+      first,
+      responsePromise: reifyCachedResponse(entry.dfd.promise),
+    };
+  }
+
+  async receiveResponse(req: CacheableRequest, response: Response) {
+    const entry = this.ensureEntry(this.findEntry(req));
+    const cachedResponse: CachedResponse = {
+      body: await marshallBody(response),
+      status: response.status,
+    };
+    entry.data.response = cachedResponse;
+    entry.dfd.resolve(cachedResponse);
+  }
+
+  receiveError(req: CacheableRequest, error: Error) {
+    const entry = this.ensureEntry(this.findEntry(req));
+    entry.dfd.reject(error);
+    entry.data.error = marshallError(error);
+  }
+
+  evictRequest(req: CacheableRequest, response: Response) {
+    const entry = this.findEntry(req);
+    if (!entry) return;
+    entry.evicted = true;
+    entry.dfd.reject({
+      [EVICTED]: true,
+      response,
+    });
+  }
+
+  dehydrate(): DehydratedCache {
+    const dehydrated: DehydratedCache = {};
+    this.buckets.forEach((entries, urlKey) => {
+      const dehydratedEntries = entries
+        .filter((entry) => !entry.evicted)
+        .map((entry) => ({
+          aux: entry.aux,
+          data: entry.data,
+        }));
+      if (dehydratedEntries.length) dehydrated[urlKey] = dehydratedEntries;
+    });
+    return dehydrated;
+  }
+
+  getPending(): Array<PendingEntry> {
+    const pending: Array<PendingEntry> = [];
+    this.buckets.forEach((entries, urlKey) => {
+      entries.forEach((entry) => {
+        if (entry.evicted) return;
+        const { response, error } = entry.data;
+        if (response || error) return;
+        const { query: queryParams } = entry.aux;
+        const queryString = queryParams ? `?${queryParams}` : '';
+        pending.push({
+          request: {
+            url: urlKey + queryString,
+            method: entry.aux.method,
+            body: entry.aux.body,
+          },
+          dataPromise: entry.dfd.promise
+            .then(
+              () => entry.data,
+              () => entry.data
+            ),
+        });
+      });
+    });
+    return pending;
+  }
+}
+
+export class FetchClientCache extends FetchCache {
+  rehydrate(dehydrated: DehydratedCache) {
+    Object.entries(dehydrated).forEach(([urlKey, dehydratedEntries]) => {
+      const rehydratedEntries: CacheEntry[] = dehydratedEntries.map((dehydratedEntry) => {
+        const dfd = Promise.withResolvers<CachedResponse>();
+        const { response, error } = dehydratedEntry.data;
+        if (response) {
+          dfd.resolve(response);
+        } else if (error) {
+          dfd.reject(unmarshallError(error));
         }
         return {
-          first,
-          responsePromise: entry.dfd.promise,
+          aux: dehydratedEntry.aux,
+          data: dehydratedEntry.data,
+          dfd,
         };
-      },
+      });
+      this.buckets.set(urlKey, rehydratedEntries);
+    });
+  }
 
-      async receiveResponse(req: CacheableRequest, response: Response) {
-        const entry = ensureEntry(cache.findEntry(req));
-        const cachedResponse: CachedResponse = {
-          body: await marshallBody(response),
-          status: response.status,
-        };
-        entry.data.response = cachedResponse;
-        entry.dfd.resolve(cachedResponse);
-      },
+  receiveRequest(req: CacheableRequest): Promise<Response> | null {
+    const entry = this.findEntry(req);
+    if (!entry) return null;
+    return reifyCachedResponse(entry.dfd.promise);
+  }
 
-      evictRequest(req: CacheableRequest, response: Response) {
-        const entry = cache.findEntry(req);
-        if (!entry) return;
-        entry.evicted = true;
-        entry.dfd.reject({
-          [EVICTED]: true,
-          response,
-        });
-      },
-
-      receiveError(req: CacheableRequest, error: Error) {
-        const entry = ensureEntry(cache.findEntry(req));
-        entry.dfd.reject(error);
-        entry.data.error = marshallError(error);
-      },
-
-      dehydrate(): DehydratedCache {
-        const dehydrated: DehydratedCache = {};
-        cache.buckets.forEach((entries, urlKey) => {
-          const dehydratedEntries = entries
-            .filter((entry) => !entry.evicted)
-            .map((entry) => ({
-              aux: entry.aux,
-              data: entry.data,
-            }));
-          if (dehydratedEntries.length) dehydrated[urlKey] = dehydratedEntries;
-        });
-        return dehydrated;
-      },
-
-      getPending(): Array<PendingEntry> {
-        const pending: Array<PendingEntry> = [];
-        cache.buckets.forEach((entries, urlKey) => {
-          entries.forEach((entry) => {
-            if (entry.evicted) return;
-            const { response, error } = entry.data;
-            if (response || error) return;
-            const { query: queryParams } = entry.aux;
-            const queryString = queryParams ? `?${queryParams}` : '';
-            pending.push({
-              request: {
-                url: urlKey + queryString,
-                method: entry.aux.method,
-                body: entry.aux.body,
-              },
-              dataPromise: entry.dfd.promise
-                .then(
-                  () => entry.data,
-                  () => entry.data
-                ),
-            });
-          });
-        });
-        return pending;
-      }
+  // this method is passed by reference and needs `this` bound properly
+  receiveLateArrivalData = (req: CacheableRequest, data: CacheEntryData) => {
+    const entry = this.ensureEntry(this.findEntry(req));
+    entry.data = data;
+    if (data.response) {
+      entry.dfd.resolve(data.response);
+    } else {
+      // TODO: what if there's no response but also no error?
+      // we should probably use the truthiness of 'error' rather than 'response'
+      entry.dfd.reject(unmarshallError(data.error!));
     }
   }
 
-  client() {
-    const cache = this;
-    return {
-      rehydrate(dehydrated: DehydratedCache) {
-        Object.entries(dehydrated).forEach(([urlKey, dehydratedEntries]) => {
-          const rehydratedEntries: CacheEntry[] = dehydratedEntries.map((dehydratedEntry) => {
-            const dfd = Promise.withResolvers<CachedResponse>();
-            const { response, error } = dehydratedEntry.data;
-            if (response) {
-              dfd.resolve(response);
-            } else if (error) {
-              dfd.reject(unmarshallError(error));
-            }
-            return {
-              aux: dehydratedEntry.aux,
-              data: dehydratedEntry.data,
-              dfd,
-            };
-          });
-          cache.buckets.set(urlKey, rehydratedEntries);
-        });
-      },
-
-      receiveRequest(req: CacheableRequest): Promise<CachedResponse> | null {
-        return cache.findEntry(req)?.dfd.promise ?? null;
-      },
-
-      receiveLateArrivalData(req: CacheableRequest, data: CacheEntryData) {
-        const entry = ensureEntry(cache.findEntry(req));
-        entry.data = data;
-        if (data.response) {
-          entry.dfd.resolve(data.response);
-        } else {
-          entry.dfd.reject(unmarshallError(data.error!));
-        }
-      },
-
-      consumeResponse(req: CacheableRequest) {
-        const entry = cache.findEntry(req);
-        if (!entry) return;
-        entry.data.requesters -= 1;
-        if (entry.data.requesters <= 0) {
-          entry.evicted = true;
-        }
-      }
+  consumeResponse(req: CacheableRequest) {
+    const entry = this.findEntry(req);
+    if (!entry) return;
+    entry.data.requesters -= 1;
+    if (entry.data.requesters <= 0) {
+      entry.evicted = true;
     }
   }
 }
 
-function ensureEntry(entry: CacheEntry | null): CacheEntry {
-  if (!entry) throw new Error("cache entry not found!");
-  return entry;
+type ParsedURL = {
+  urlKey: string;
+  searchParams: URLSearchParams;
+};
+
+function parseUrlString(url: string): ParsedURL {
+  const [urlKey, queryString] = url.split('?', 2);
+  const searchParams = new URLSearchParams(queryString);
+  return {
+    urlKey: urlKey!,
+    searchParams,
+  };
+}
+
+function normalizeQueryParams(_params: URLSearchParams): string {
+  const params = new URLSearchParams(_params);
+  params.sort();
+  return params.toString();
+}
+
+function reifyCachedResponse(promise: Promise<CachedResponse>): Promise<Response> {
+  return promise.then(readCachedResponse, extractEvictedResponse);
+}
+
+function readCachedResponse(cachedResponse: CachedResponse): Response {
+  const body = unmarshallBody(cachedResponse.body);
+  return new Response(body, {
+    status: cachedResponse.status,
+  });
+}
+
+function extractEvictedResponse(thrown: unknown): Response {
+  if (typeof thrown === 'object' && thrown !== null && EVICTED in thrown) {
+    // response bodies can only be consumed once. have to clone
+    // in case there are multiple requesters
+    return (thrown as ThrownEviction).response.clone();
+  }
+  throw thrown;
 }
 
 function marshallError(error: Error): MarshalledError {
@@ -260,43 +305,4 @@ class ReconstructedFetchError extends Error {
     super(error.message);
     this.name = error.name;
   }
-}
-
-type ParsedURL = {
-  urlKey: string;
-  searchParams: URLSearchParams;
-};
-function parseUrlString(url: string): ParsedURL {
-  const [urlKey, queryString] = url.split('?', 2);
-  const searchParams = new URLSearchParams(queryString);
-  return {
-    urlKey: urlKey!,
-    searchParams,
-  };
-}
-
-function normalizeQueryParams(_params: URLSearchParams): string {
-  const params = new URLSearchParams(_params);
-  params.sort();
-  return params.toString();
-}
-
-export function reifyCachedResponse(promise: Promise<CachedResponse>): Promise<Response> {
-  return promise.then(readCachedResponse, extractEvictedResponse);
-}
-
-function readCachedResponse(cachedResponse: CachedResponse): Response {
-  const body = unmarshallBody(cachedResponse.body);
-  return new Response(body, {
-    status: cachedResponse.status,
-  });
-}
-
-function extractEvictedResponse(thrown: unknown): Response {
-  if (typeof thrown === 'object' && thrown !== null && EVICTED in thrown) {
-    // response bodies can only be consumed once. have to clone
-    // in case there are multiple requesters
-    return (thrown as ThrownEviction).response.clone();
-  }
-  throw thrown;
 }

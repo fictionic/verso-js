@@ -131,7 +131,7 @@ export function handlePage(page: StandardizedPage): HandlerResponse {
   }
 
   async function bootstrapClient(theFoldIndex: number) {
-    const fetchCache = Fetch.getCache().server().dehydrate();
+    const fetchCache = Fetch.getServerCache()!.dehydrate();
     writeablePipe.writeValue(FETCH_CACHE_KEY, fetchCache);
     const request = getServerStash().request;
     writeablePipe.writeValue(REQUEST_DATA_KEY, {
@@ -151,7 +151,7 @@ export function handlePage(page: StandardizedPage): HandlerResponse {
   }
 
   async function setupLateArrivals(): Promise<void> {
-    const pending = Fetch.getCache().server().getPending();
+    const pending = Fetch.getServerCache()!.getPending();
     if (pending.length === 0) return Promise.resolve();
     await Promise.allSettled(
       pending.map(async ({ request, dataPromise }) => {
