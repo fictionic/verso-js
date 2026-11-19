@@ -64,19 +64,16 @@ describe('handleFailsafeTimeouts', () => {
     });
 
     test('a fast response clears the TTFB timer', async () => {
-      const next = vi.fn().mockResolvedValue(new Response('fast'));
+      // no body, so the response deadline timer is cleared too. only the TTFB
+      // timer can be left.
+      const next = vi.fn().mockResolvedValue(new Response(null));
       const handler = handleFailsafeTimeouts(makeSettings(500, 5000));
       const ctx = makeCtx(makeRequest(), next);
 
-      const resultPromise = handler(ctx) as Promise<Response>;
-      // Let next() resolve (microtask); handler should settle before the deadline
-      await vi.advanceTimersByTimeAsync(1);
-      const result = await resultPromise;
-
-      // Advance well past the TTFB deadline. The timer was cleared, so no 504
-      await vi.advanceTimersByTimeAsync(1000);
+      const result = await (handler(ctx) as Promise<Response>);
 
       expect(result.status).toBe(200);
+      expect(vi.getTimerCount()).toBe(0);
     });
   });
 
