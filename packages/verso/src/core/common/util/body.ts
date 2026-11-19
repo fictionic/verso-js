@@ -9,8 +9,13 @@ const TEXT_CONTENT_TYPE_REGEXES = [
 type R = Request | Response;
 
 export function hasBinaryBody(r: R): boolean {
+  if (!r.body) return false;
   const contentType = r.headers.get('Content-Type');
-  if (!contentType) return true; // better safe than sorry
+  if (!contentType) {
+    // better safe than sorry
+    console.warn("[verso] treating request/response body as binary because it lacks Content-Type");
+    return true;
+  }
   return !TEXT_CONTENT_TYPE_REGEXES.some((regex) => regex.test(contentType));
 }
 

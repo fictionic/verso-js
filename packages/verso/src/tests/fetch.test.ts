@@ -284,6 +284,15 @@ describe('Fetch orchestration', () => {
       testWithRLS('missing Content-Type is treated as binary -> absent from dehydrate', async () => {
         expect(await fetchAndCheckCached(null)).toBe(false);
       });
+
+      testWithRLS('no body and no Content-Type is not binary -> cached with its status', async () => {
+        const url = 'https://api.example.com/resource';
+        mockFetch.mockResolvedValue(new Response(null, { status: 204 }));
+        initServer();
+        const res = await Fetch.fetch(url);
+        expect(res.status).toBe(204);
+        expect(dehydrate()[url]?.[0]?.data.response).toEqual({ body: null, status: 204 });
+      });
     });
   });
 
