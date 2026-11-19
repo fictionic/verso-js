@@ -8,6 +8,7 @@ import type {ReactRootManager} from "../roots";
 import type {NavigateOptions} from "../controller";
 import {type RenderableHTMLAttributes} from "../../common/components/attrs";
 import {setContainerAttrs, setRootAttrs} from "../setAttrs";
+import {exhaustive} from "../../../util/invariant";
 
 type RenderedElement = |
   {
@@ -146,8 +147,7 @@ export class BodyElementTransitioner {
         break;
       }
       default:
-        renderedElement satisfies never;
-        break;
+        exhaustive(renderedElement);
     }
     return true;
   }
@@ -192,7 +192,7 @@ export class BodyElementTransitioner {
         break;
       }
       default:
-        renderedElement satisfies never;
+        exhaustive(renderedElement);
     };
   }
 

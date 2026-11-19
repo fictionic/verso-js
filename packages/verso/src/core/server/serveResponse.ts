@@ -7,6 +7,7 @@ import {dispatchHandler} from "./dispatchHandler";
 import {getServerStash} from "./stash";
 import {initAbort} from "../common/abort";
 import type {RequestHandler} from "../../vendor/hattip/compose";
+import {exhaustive} from "../../util/invariant";
 
 type Opts = {
   resolver: Resolver,
@@ -51,7 +52,7 @@ export function serveResponse({
       case 'response':
         break;
       default:
-        throw new Error('unexpected resolution result', resolution satisfies never);
+        exhaustive(resolution);
     }
 
     const { statusCode, redirectLocation: locationHeader, handler, routeName } = resolution;

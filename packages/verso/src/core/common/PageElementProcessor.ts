@@ -4,6 +4,7 @@ import {scheduleRootRender} from './components/Root';
 import type {MaybePromise} from '../../util/promise';
 import type {RenderableHTMLAttributes} from './components/attrs';
 import {getAbortPromise} from './abort';
+import {exhaustive} from '../../util/invariant';
 
 const TOKEN_STATUS = {
   PENDING: 'PENDING',
@@ -97,7 +98,7 @@ export class PageElementProcessor<RenderedElement> {
           break;
         }
         default:
-          token satisfies never;
+          exhaustive(token);
       }
       this.cursor.push(processable);
     });
@@ -156,8 +157,7 @@ export class PageElementProcessor<RenderedElement> {
             break;
           }
           default:
-            processable.status satisfies never;
-            break;
+            exhaustive(processable.status);
         }
         this.cursor.step();
       }

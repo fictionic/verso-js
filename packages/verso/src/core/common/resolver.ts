@@ -8,6 +8,7 @@ import {VersoRequest} from "./VersoRequest";
 import {isRedirectStatus} from "./redirect";
 import {MAX_RECURSIVE_DEPTH} from "./constants";
 import {getRLS} from "./RequestLocalStorage";
+import {exhaustive} from "../../util/invariant";
 
 // Statuses that must not carry a message body per HTTP (RFC 9110): 1xx, 204, 304.
 function statusForbidsBody(code: number): boolean {
@@ -131,7 +132,7 @@ export class Resolver {
         return await this.resolveFromRouteMatch(proxiedRoute, versoRequest);
       }
       default:
-        throw new Error(`unexpected directive kind ${directive satisfies never}`);
+        exhaustive(directive);
     }
   }
 }

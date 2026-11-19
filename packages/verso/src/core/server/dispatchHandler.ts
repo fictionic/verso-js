@@ -1,6 +1,7 @@
 import type {AnyStandardizedHandler} from "../common/handler/RouteHandler";
 import {handleEndpoint} from "./handleEndpoint";
 import {handlePage} from "./handlePage";
+import {exhaustive} from "../../util/invariant";
 
 export type HandlerResponse = {
   contentType: string;
@@ -14,6 +15,6 @@ export function dispatchHandler(handler: AnyStandardizedHandler): HandlerRespons
     case 'endpoint':
       return handleEndpoint(handler);
     default:
-      throw new Error(`invalid route handler type ${handler satisfies never}`);
+      exhaustive(handler);
   }
 }

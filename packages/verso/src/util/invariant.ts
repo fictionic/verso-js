@@ -1,5 +1,3 @@
-export function invariant(condition: boolean, message: string): void {
-  if (!condition) {
-    throw new Error(`invariant violated: ${message}`);
-  }
+export function exhaustive(_value: never): never {
+  throw new Error(`switch-case was not exhaustive`);
 }

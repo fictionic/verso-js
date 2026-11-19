@@ -1,5 +1,6 @@
 import { parse, stringifySetCookie } from 'cookie';
 import { ServerCookies, type CookieOptions } from '../server/ServerCookies';
+import {exhaustive} from '../../util/invariant';
 
 export function getCookie(name: string): string | undefined {
   if (globalThis.IS_SERVER) {
@@ -13,6 +14,8 @@ export function getCookie(name: string): string | undefined {
         return undefined;
       case 'none':
         break; // fall through
+      default:
+        exhaustive(fromResponse);
     }
     // if the client sent us a value for the cookie, use that.
     // if the cookie value gets updated after this, there could be trouble!
