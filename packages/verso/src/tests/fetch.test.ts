@@ -314,6 +314,43 @@ describe('Fetch orchestration', () => {
         expect(mockFetch).toHaveBeenCalledTimes(1);
       });
 
+      testWithRLS('a pending entry evicted by a late arrival falls back to nativeFetch', async () => {
+        mockFetch.mockResolvedValue(new Response('fresh', { headers: { 'Content-Type': 'application/octet-stream' } }));
+        Fetch.clientInit({
+          [URL]: [{
+            aux: { method: 'GET', query: '', body: null },
+            data: { response: null, error: null, requesters: 1 },
+          }],
+        });
+
+        const pending = Fetch.fetch(URL);
+        // the entry is still pending, so the fetch waits on the cache
+        expect(mockFetch).not.toHaveBeenCalled();
+
+        Fetch.getClientCache()!.receiveLateArrivalEviction({ url: URL, method: 'GET', body: null });
+
+        const res = await pending;
+        expect(mockFetch).toHaveBeenCalledTimes(1);
+        expect(await res.text()).toBe('fresh');
+      });
+
+      testWithRLS('a cached error is consumed: the next fetch goes to nativeFetch', async () => {
+        Fetch.clientInit({
+          [URL]: [{
+            aux: { method: 'GET', query: '', body: null },
+            data: { response: null, error: { name: 'Error', message: 'server boom' }, requesters: 1 },
+          }],
+        });
+
+        await expect(Fetch.fetch(URL)).rejects.toThrow('server boom');
+        expect(mockFetch).not.toHaveBeenCalled();
+
+        mockFetch.mockResolvedValue(new Response('fresh', { headers: { 'Content-Type': 'text/plain' } }));
+        const res = await Fetch.fetch(URL);
+        expect(mockFetch).toHaveBeenCalledTimes(1);
+        expect(await res.text()).toBe('fresh');
+      });
+
       testWithRLS('URL absent from the rehydrated cache falls through to nativeFetch', async () => {
         mockFetch.mockResolvedValue(new Response('miss', { headers: { 'Content-Type': 'text/plain' } }));
         Fetch.clientInit(dehydratedWith(1));

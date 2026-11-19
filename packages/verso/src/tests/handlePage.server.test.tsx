@@ -12,6 +12,7 @@ import {
   FN_ABORT_HYDRATION,
   FN_HYDRATE_ROOTS_UP_TO,
   FN_RECEIVE_LATE_DATA_ARRIVAL,
+  FN_RECEIVE_LATE_DATA_EVICTION,
   FN_SIGNAL_END_OF_DATA,
   FN_SIGNAL_ROOTS_COMPLETE,
 } from "../core/common/VersoPipe";
@@ -442,6 +443,50 @@ describe("handlePage rendering", () => {
       fetchDfd.resolve(new Response("late data", {headers: {"content-type": "text/plain"}}));
       await sr.readAll();
       expect(findPipeCalls(sr.text()).some((c) => c.fn === FN_RECEIVE_LATE_DATA_ARRIVAL)).toBe(true);
+    });
+
+    test("a fetch pending at the fold that is evicted later emits receiveLateDataEviction, not late data", async () => {
+      const fetchDfd = Promise.withResolvers<Response>();
+      vi.mocked(nativeFetch).mockReturnValueOnce(fetchDfd.promise);
+      const page = definePage(() => ({
+        getRouteDirective: () => {
+          void Fetch.fetch("/api/data");
+          return {kind: "ok"};
+        },
+        getElements: () => [<div>ROOT</div>, <TheFold />],
+      }));
+      const sr = streamReader(await run(req(), routes, page));
+      // resolve only after the fold, so the fetch is a late arrival.
+      // a binary body is evicted from the cache.
+      await sr.readUntil((t) => findPipeValue(t, FETCH_CACHE_KEY) !== undefined);
+      fetchDfd.resolve(new Response("bytes", {headers: {"content-type": "application/octet-stream"}}));
+      await sr.readAll();
+      const calls = findPipeCalls(sr.text());
+      expect(calls.some((c) => c.fn === FN_RECEIVE_LATE_DATA_ARRIVAL)).toBe(false);
+      const eviction = calls.find((c) => c.fn === FN_RECEIVE_LATE_DATA_EVICTION);
+      expect(eviction?.args[0]).toEqual({url: "/api/data", method: "GET", body: null});
+    });
+
+    test("a fetch pending at the fold that fails later emits receiveLateDataArrival with the error", async () => {
+      const fetchDfd = Promise.withResolvers<Response>();
+      vi.mocked(nativeFetch).mockReturnValueOnce(fetchDfd.promise);
+      const page = definePage(() => ({
+        getRouteDirective: () => {
+          void Fetch.fetch("/api/data").catch(() => {});
+          return {kind: "ok"};
+        },
+        getElements: () => [<div>ROOT</div>, <TheFold />],
+      }));
+      const sr = streamReader(await run(req(), routes, page));
+      // reject only after the fold, so the failure is a late arrival
+      await sr.readUntil((t) => findPipeValue(t, FETCH_CACHE_KEY) !== undefined);
+      fetchDfd.reject(new Error("late boom"));
+      await sr.readAll();
+      const arrival = findPipeCalls(sr.text()).find((c) => c.fn === FN_RECEIVE_LATE_DATA_ARRIVAL);
+      expect(arrival?.args).toEqual([
+        {url: "/api/data", method: "GET", body: null},
+        {response: null, error: {name: "Error", message: "late boom"}, requesters: 1},
+      ]);
     });
 
     test("no pending fetches at the fold -> no late-arrival calls", async () => {

@@ -1,11 +1,7 @@
+import {exhaustive} from "../../../util/invariant";
 import {marshallBody, unmarshallBody, type MarshalledBody} from "../util/body";
 
 export type DehydratedCache = Record<string, Array<DehydratedCacheEntry>>;
-
-export type PendingEntry = {
-  request: CacheableRequest;
-  dataPromise: Promise<CacheEntryData>;
-};
 
 export type CacheableRequest = {
   url: string;
@@ -42,35 +38,38 @@ type CacheKeyAuxData = {
   body: string | null;
 };
 
-type CacheEntry = {
+type BaseEviction = { kind: 'eviction' };
+
+type CacheEntry<Eviction extends BaseEviction = BaseEviction> = {
   aux: CacheKeyAuxData;
   data: CacheEntryData;
-  dfd: PromiseWithResolvers<CachedResponse>;
+  dfd: PromiseWithResolvers<CacheEntryResult<Eviction>>;
   evicted?: boolean;
 };
 
-const EVICTED: unique symbol = Symbol();
-type ThrownEviction = {
-  [EVICTED]: true,
-  response: Response,
-};
+// evictions on the server come back with the raw response, but on the client
+// the response is not available, because it wasn't transported
+type CacheEntryResult<Eviction extends BaseEviction = BaseEviction> = {
+  kind: 'cachedResponse';
+  cachedResponse: CachedResponse;
+} | Eviction;
 
-abstract class FetchCache {
-  protected buckets: Map<string, Array<CacheEntry>>;
+abstract class FetchCache<Eviction extends BaseEviction = BaseEviction> {
+  protected buckets: Map<string, Array<CacheEntry<Eviction>>>;
 
   constructor() {
     this.buckets = new Map();
   }
 
-  protected ensureEntry(entry: CacheEntry | null): CacheEntry {
+  protected ensureEntry(entry: CacheEntry<Eviction> | null): CacheEntry<Eviction> {
     // TODO: better error message
     if (!entry) throw new Error("cache entry not found!");
     return entry;
   }
 
-  protected createEntry(req: CacheableRequest): CacheEntry {
+  protected createEntry(req: CacheableRequest): CacheEntry<Eviction> {
     const { urlKey, searchParams } = parseUrlString(req.url);
-    const entry: CacheEntry = {
+    const entry: CacheEntry<Eviction> = {
       data: {
         response: null,
         error: null,
@@ -93,7 +92,7 @@ abstract class FetchCache {
     return entry;
   }
 
-  protected findEntry(req: CacheableRequest): CacheEntry | null {
+  protected findEntry(req: CacheableRequest): CacheEntry<Eviction> | null {
     const { urlKey, searchParams } = parseUrlString(req.url);
     const bucket = this.buckets.get(urlKey);
     if (!bucket) return null;
@@ -108,27 +107,60 @@ abstract class FetchCache {
     }) ?? null;
   }
 
+  protected evictRequest(req: CacheableRequest, eviction: Eviction) {
+    const entry = this.findEntry(req);
+    if (!entry) return;
+    entry.evicted = true;
+    entry.dfd.resolve(eviction);
+  }
 }
 
-type ReceivedRequest = {
-  first: boolean; // the caller needs different behavior on an initial request
+type ServerEviction = {
+  kind: 'eviction';
+  rawResponse: Response;
+};
+
+export type PendingServerEntry = {
+  request: CacheableRequest;
+  resultPromise: Promise<PendingServerEntryResult>;
+};
+
+type PendingServerEntryResult = {
+  kind: 'data';
+  data: CacheEntryData;
+} | ServerEviction;
+
+type ReceivedServerRequest = {
+  hit: boolean;
+  // on the server, a cache miss will still end up resolving through the cache,
+  // because that's how the client will get it, and we need these to match.
   responsePromise: Promise<Response>;
 };
 
-export class FetchServerCache extends FetchCache {
-  receiveRequest(req: CacheableRequest): ReceivedRequest {
-    let first!: boolean;
+export class FetchServerCache extends FetchCache<ServerEviction> {
+  receiveRequest(req: CacheableRequest): ReceivedServerRequest {
+    let hit!: boolean;
     let entry = this.findEntry(req);
     if (!entry) {
-      first = true;
+      hit = false;
       entry = this.createEntry(req);
     } else {
-      first = false;
+      hit = true;
       entry.data.requesters += 1;
     }
     return {
-      first,
-      responsePromise: reifyCachedResponse(entry.dfd.promise),
+      hit,
+      responsePromise: entry.dfd.promise.then((result) => {
+        switch (result.kind) {
+          case 'cachedResponse':
+            return readCachedResponse(result.cachedResponse);
+          case 'eviction':
+            // clone the raw response in case there are parallel requesters
+            return result.rawResponse.clone();
+          default:
+            exhaustive(result);
+        }
+      }),
     };
   }
 
@@ -139,23 +171,20 @@ export class FetchServerCache extends FetchCache {
       status: response.status,
     };
     entry.data.response = cachedResponse;
-    entry.dfd.resolve(cachedResponse);
+    entry.dfd.resolve({ kind: 'cachedResponse', cachedResponse });
   }
 
   receiveError(req: CacheableRequest, error: Error) {
     const entry = this.ensureEntry(this.findEntry(req));
+    // on the server, reject with the actual error
+    // TODO: this is non-isomorphic. if the app's render branches on the name of
+    // the Error object, it can lead to mismatches. do I care?
     entry.dfd.reject(error);
     entry.data.error = marshallError(error);
   }
 
-  evictRequest(req: CacheableRequest, response: Response) {
-    const entry = this.findEntry(req);
-    if (!entry) return;
-    entry.evicted = true;
-    entry.dfd.reject({
-      [EVICTED]: true,
-      response,
-    });
+  receiveUnmarshallableResponse(req: CacheableRequest, response: Response) {
+    this.evictRequest(req, { kind: 'eviction', rawResponse: response })
   }
 
   dehydrate(): DehydratedCache {
@@ -172,8 +201,8 @@ export class FetchServerCache extends FetchCache {
     return dehydrated;
   }
 
-  getPending(): Array<PendingEntry> {
-    const pending: Array<PendingEntry> = [];
+  getPending(): Array<PendingServerEntry> {
+    const pending: Array<PendingServerEntry> = [];
     this.buckets.forEach((entries, urlKey) => {
       entries.forEach((entry) => {
         if (entry.evicted) return;
@@ -187,11 +216,30 @@ export class FetchServerCache extends FetchCache {
             method: entry.aux.method,
             body: entry.aux.body,
           },
-          dataPromise: entry.dfd.promise
+          resultPromise: entry.dfd.promise
             .then(
-              () => entry.data,
-              () => entry.data
-            ),
+              (result) => {
+                switch (result.kind) {
+                  case 'cachedResponse':
+                    return {
+                      kind: 'data',
+                      data: entry.data,
+                    };
+                  case 'eviction':
+                    return result;
+                  default:
+                    exhaustive(result);
+                }
+              },
+            (_err) => {
+              // the info about the error is contained within the entry data; we
+              // send it down in the same way as a successful response.
+              return {
+                kind: 'data',
+                data: entry.data,
+              };
+            },
+          ),
         });
       });
     });
@@ -199,16 +247,33 @@ export class FetchServerCache extends FetchCache {
   }
 }
 
+// requests that are evicted after hydration has started can't include the raw
+// response, because they can't be transported to the client
+type ClientEviction = BaseEviction;
+
+type ReceivedClientRequest = {
+  kind: 'hit';
+  resultPromise: Promise<{
+    kind: 'response';
+    response: Response;
+  } | ClientEviction>;
+} | {
+  kind: 'miss';
+  // on the client, a cache miss doesn't resolve through the cache
+};
+
 export class FetchClientCache extends FetchCache {
   rehydrate(dehydrated: DehydratedCache) {
     Object.entries(dehydrated).forEach(([urlKey, dehydratedEntries]) => {
       const rehydratedEntries: CacheEntry[] = dehydratedEntries.map((dehydratedEntry) => {
-        const dfd = Promise.withResolvers<CachedResponse>();
-        const { response, error } = dehydratedEntry.data;
-        if (response) {
-          dfd.resolve(response);
-        } else if (error) {
+        const dfd = Promise.withResolvers<CacheEntryResult>();
+        const { response: cachedResponse, error } = dehydratedEntry.data;
+        if (error) {
+          // on the client, reject with a reconstructed version of the original
+          // error from the server
           dfd.reject(unmarshallError(error));
+        } else if (cachedResponse) {
+          dfd.resolve({ kind: 'cachedResponse', cachedResponse });
         }
         return {
           aux: dehydratedEntry.aux,
@@ -220,23 +285,42 @@ export class FetchClientCache extends FetchCache {
     });
   }
 
-  receiveRequest(req: CacheableRequest): Promise<Response> | null {
+  receiveRequest(req: CacheableRequest): ReceivedClientRequest {
     const entry = this.findEntry(req);
-    if (!entry) return null;
-    return reifyCachedResponse(entry.dfd.promise);
+    if (!entry) return { kind: 'miss' };
+    return {
+      kind: 'hit',
+      resultPromise: entry.dfd.promise.then((result) => {
+        switch (result.kind) {
+          case 'cachedResponse':
+            return {
+              kind: 'response',
+              response: readCachedResponse(result.cachedResponse),
+            };
+          case 'eviction':
+            return result;
+          default:
+            exhaustive(result);
+        }
+      }),
+    };
   }
 
   // this method is passed by reference and needs `this` bound properly
   receiveLateArrivalData = (req: CacheableRequest, data: CacheEntryData) => {
     const entry = this.ensureEntry(this.findEntry(req));
     entry.data = data;
-    if (data.response) {
-      entry.dfd.resolve(data.response);
+    if (data.error) {
+      entry.dfd.reject(unmarshallError(data.error));
     } else {
-      // TODO: what if there's no response but also no error?
-      // we should probably use the truthiness of 'error' rather than 'response'
-      entry.dfd.reject(unmarshallError(data.error!));
+      // TODO is this nonnull assertion safe?
+      entry.dfd.resolve({ kind: 'cachedResponse', cachedResponse: data.response! });
     }
+  }
+
+  // this method is passed by reference and needs `this` bound properly
+  receiveLateArrivalEviction = (req: CacheableRequest) => {
+    this.evictRequest(req, { kind: 'eviction' })
   }
 
   consumeResponse(req: CacheableRequest) {
@@ -269,24 +353,11 @@ function normalizeQueryParams(_params: URLSearchParams): string {
   return params.toString();
 }
 
-function reifyCachedResponse(promise: Promise<CachedResponse>): Promise<Response> {
-  return promise.then(readCachedResponse, extractEvictedResponse);
-}
-
 function readCachedResponse(cachedResponse: CachedResponse): Response {
   const body = unmarshallBody(cachedResponse.body);
   return new Response(body, {
     status: cachedResponse.status,
   });
-}
-
-function extractEvictedResponse(thrown: unknown): Response {
-  if (typeof thrown === 'object' && thrown !== null && EVICTED in thrown) {
-    // response bodies can only be consumed once. have to clone
-    // in case there are multiple requesters
-    return (thrown as ThrownEviction).response.clone();
-  }
-  throw thrown;
 }
 
 function marshallError(error: Error): MarshalledError {

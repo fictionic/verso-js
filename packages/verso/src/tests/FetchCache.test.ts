@@ -5,14 +5,23 @@ import { serverSide, clientSide } from '../userland/testing/isomorphic';
 
 const URL = 'https://api.example.com/data';
 
+// asserts a cache hit that resolves to a response, and returns the response
+async function expectCachedResponse(client: FetchClientCache, req: CacheableRequest): Promise<Response> {
+  const received = client.receiveRequest(req);
+  if (received.kind !== 'hit') throw new Error('expected a cache hit');
+  const result = await received.resultPromise;
+  if (result.kind !== 'response') throw new Error(`expected a response, got ${result.kind}`);
+  return result.response;
+}
+
 describe('FetchCache', () => {
   serverSide(() => {
     test('receiveRequest -> receiveResponse -> dehydrate produces correct serialized format', async () => {
       const server = new FetchServerCache();
       const req: CacheableRequest = { url: URL, method: 'GET', body: null };
 
-      const { first, responsePromise } = server.receiveRequest(req);
-      expect(first).toBe(true);
+      const { hit, responsePromise } = server.receiveRequest(req);
+      expect(hit).toBe(false);
 
       await server.receiveResponse(req, new Response('{"hello":"world"}', { status: 200 }));
 
@@ -29,27 +38,27 @@ describe('FetchCache', () => {
       expect(response.status).toBe(200);
     });
 
-    test('receiveRequest twice for same key: first true then false, requesters is 2', () => {
+    test('receiveRequest twice for same key: a miss then a hit, requesters is 2', () => {
       const server = new FetchServerCache();
       const req: CacheableRequest = { url: URL, method: 'GET', body: null };
 
       const result1 = server.receiveRequest(req);
-      expect(result1.first).toBe(true);
+      expect(result1.hit).toBe(false);
 
       const result2 = server.receiveRequest(req);
-      expect(result2.first).toBe(false);
+      expect(result2.hit).toBe(true);
 
       const dehydrated = server.dehydrate();
       expect(dehydrated[URL]![0]!.data.requesters).toBe(2);
     });
 
-    test('evictRequest marks entry evicted; dehydrate excludes it', async () => {
+    test('receiveUnmarshallableResponse marks entry evicted; dehydrate excludes it', async () => {
       const server = new FetchServerCache();
       const req: CacheableRequest = { url: URL, method: 'GET', body: null };
 
       const { responsePromise } = server.receiveRequest(req);
 
-      server.evictRequest(req, new Response('evicted', { status: 200 }));
+      server.receiveUnmarshallableResponse(req, new Response('evicted', { status: 200 }));
 
       const dehydrated = server.dehydrate();
       expect(Object.keys(dehydrated)).toHaveLength(0);
@@ -57,12 +66,12 @@ describe('FetchCache', () => {
       await responsePromise;
     });
 
-    test('evictRequest resolves responsePromise with a clone of the evicted response', async () => {
+    test('receiveUnmarshallableResponse resolves responsePromise with a clone of the evicted response', async () => {
       const server = new FetchServerCache();
       const req: CacheableRequest = { url: 'https://api.example.com/eviction-test', method: 'GET', body: null };
       const { responsePromise } = server.receiveRequest(req);
 
-      server.evictRequest(req, new Response('evicted body', { status: 301 }));
+      server.receiveUnmarshallableResponse(req, new Response('evicted body', { status: 301 }));
 
       const result = await responsePromise;
       expect(result.status).toBe(301);
@@ -94,7 +103,7 @@ describe('FetchCache', () => {
       server.receiveRequest(reqEvicted);
       server.receiveRequest(reqResolved);
 
-      server.evictRequest(reqEvicted, new Response('evicted', { status: 200 }));
+      server.receiveUnmarshallableResponse(reqEvicted, new Response('evicted', { status: 200 }));
 
       await server.receiveResponse(reqResolved, new Response('data', { status: 200 }));
 
@@ -120,10 +129,7 @@ describe('FetchCache', () => {
       client.rehydrate(dehydrated);
 
       const req: CacheableRequest = { url: URL, method: 'GET', body: null };
-      const promise = client.receiveRequest(req);
-      expect(promise).not.toBeNull();
-
-      const response = await promise!;
+      const response = await expectCachedResponse(client, req);
       expect(await response.text()).toBe('{"hello":"world"}');
       expect(response.status).toBe(200);
     });
@@ -140,10 +146,10 @@ describe('FetchCache', () => {
       client.rehydrate(dehydrated);
 
       const req: CacheableRequest = { url: URL, method: 'GET', body: null };
-      const promise = client.receiveRequest(req);
-      expect(promise).not.toBeNull();
+      const received = client.receiveRequest(req);
+      if (received.kind !== 'hit') throw new Error('expected a cache hit');
 
-      await expect(promise!).rejects.toThrow('network failure');
+      await expect(received.resultPromise).rejects.toThrow('network failure');
     });
 
     test('consumeResponse decrements requesters; evicts at 0', () => {
@@ -160,17 +166,17 @@ describe('FetchCache', () => {
       const req: CacheableRequest = { url: URL, method: 'GET', body: null };
 
       client.consumeResponse(req);
-      expect(client.receiveRequest(req)).not.toBeNull();
+      expect(client.receiveRequest(req).kind).toBe('hit');
 
       client.consumeResponse(req);
-      expect(client.receiveRequest(req)).toBeNull();
+      expect(client.receiveRequest(req).kind).toBe('miss');
     });
 
-    test('receiveRequest returns null for unknown key (cache miss)', () => {
+    test('receiveRequest returns a miss for unknown key', () => {
       const client = new FetchClientCache();
 
       const req: CacheableRequest = { url: 'https://api.example.com/unknown', method: 'GET', body: null };
-      expect(client.receiveRequest(req)).toBeNull();
+      expect(client.receiveRequest(req).kind).toBe('miss');
     });
   });
 
@@ -182,10 +188,10 @@ describe('FetchCache', () => {
       const req2: CacheableRequest = { url: 'https://api.example.com/data?a=1&b=2', method: 'GET', body: null };
 
       const result1 = server.receiveRequest(req1);
-      expect(result1.first).toBe(true);
+      expect(result1.hit).toBe(false);
 
       const result2 = server.receiveRequest(req2);
-      expect(result2.first).toBe(false);
+      expect(result2.hit).toBe(true);
 
       const dehydrated = server.dehydrate();
       expect(dehydrated[URL]).toHaveLength(1);
@@ -203,7 +209,7 @@ describe('FetchCache', () => {
         }],
       });
 
-      const response = await client.receiveRequest({ url: URL, method: 'GET', body: null })!;
+      const response = await expectCachedResponse(client, { url: URL, method: 'GET', body: null });
       expect(response.status).toBe(200);
       const bytes = new Uint8Array(await response.arrayBuffer());
       expect(bytes).toEqual(originalBytes);

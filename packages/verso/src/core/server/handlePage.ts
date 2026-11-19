@@ -5,6 +5,7 @@ import {
   FN_ABORT_HYDRATION,
   FN_HYDRATE_ROOTS_UP_TO,
   FN_RECEIVE_LATE_DATA_ARRIVAL,
+  FN_RECEIVE_LATE_DATA_EVICTION,
   FN_SIGNAL_END_OF_DATA,
   FN_SIGNAL_ROOTS_COMPLETE,
   REQUEST_DATA_KEY,
@@ -154,9 +155,14 @@ export function handlePage(page: StandardizedPage): HandlerResponse {
     const pending = Fetch.getServerCache()!.getPending();
     if (pending.length === 0) return Promise.resolve();
     await Promise.allSettled(
-      pending.map(async ({ request, dataPromise }) => {
-        const data = await dataPromise;
-        receiveLateArrival(request, data);
+      pending.map(async ({ request, resultPromise }) => {
+        const result = await resultPromise;
+        if (result.kind === 'eviction') {
+          // late arrival wasn't marshallable... bummer
+          receiveLateEviction(request);
+        } else {
+          receiveLateArrival(request, result.data);
+        }
         flush();
       })
     );
@@ -168,6 +174,10 @@ export function handlePage(page: StandardizedPage): HandlerResponse {
 
   function receiveLateArrival(request: CacheableRequest, data: CacheEntryData) {
     writeablePipe.callFn(FN_RECEIVE_LATE_DATA_ARRIVAL, [request, data]);
+  }
+
+  function receiveLateEviction(request: CacheableRequest) {
+    writeablePipe.callFn(FN_RECEIVE_LATE_DATA_EVICTION, [request]);
   }
 
   function wrapUpLateArrivals() {

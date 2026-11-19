@@ -12,6 +12,7 @@ import {
   FN_ABORT_HYDRATION,
   FN_HYDRATE_ROOTS_UP_TO,
   FN_RECEIVE_LATE_DATA_ARRIVAL,
+  FN_RECEIVE_LATE_DATA_EVICTION,
   FN_SIGNAL_END_OF_DATA,
   FN_SIGNAL_ROOTS_COMPLETE,
   REQUEST_DATA_KEY,
@@ -202,6 +203,7 @@ export class ClientController {
       readablePipe.onCallFn(FN_HYDRATE_ROOTS_UP_TO, hydrateRootsUpTo);
       readablePipe.onCallFn(FN_SIGNAL_ROOTS_COMPLETE, receivedAllRootDomNodesDfd.resolve);
       readablePipe.onCallFn(FN_RECEIVE_LATE_DATA_ARRIVAL, Fetch.getClientCache()!.receiveLateArrivalData);
+      readablePipe.onCallFn(FN_RECEIVE_LATE_DATA_EVICTION, Fetch.getClientCache()!.receiveLateArrivalEviction);
       readablePipe.onCallFn(FN_ABORT_HYDRATION, () => abortHydration(nextRootIndex));
       readablePipe.onCallFn(FN_SIGNAL_END_OF_DATA, () => receivedAllDataDfd.resolve());
 

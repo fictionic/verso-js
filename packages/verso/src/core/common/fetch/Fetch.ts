@@ -7,6 +7,7 @@ import { FetchClientCache, FetchServerCache, type CacheableRequest, type Dehydra
 import { nativeFetch } from './nativeFetch';
 import type { FetchRequestInterceptor, FetchRequestSettings, VersoFetchInit } from './types';
 import {hasBinaryBody} from '../util/body';
+import {exhaustive} from '../../../util/invariant';
 
 const DEFAULT_SETTINGS: Required<FetchRequestSettings> = {
   forceToCache: false,
@@ -124,8 +125,8 @@ async function fetch(rawUrl: string, rawInit: VersoFetchInit = {}, overrideSetti
 
   if (globalThis.IS_SERVER) {
     const cache = getServerCache()!;
-    const { first, responsePromise } = cache.receiveRequest(req);
-    if (first) {
+    const { hit, responsePromise } = cache.receiveRequest(req);
+    if (!hit) {
       try {
         // make the request
         const res = await sendRequest();
@@ -136,7 +137,7 @@ async function fetch(rawUrl: string, rawInit: VersoFetchInit = {}, overrideSetti
         }
         if (hasBinaryBody(res) && !forceBinaryToCache) {
           // evict from cache, reuse the response for any parallel requesters
-          cache.evictRequest(req, res);
+          cache.receiveUnmarshallableResponse(req, res);
         } else {
           // cache the response for transport
           await cache.receiveResponse(req, res);
@@ -152,15 +153,37 @@ async function fetch(rawUrl: string, rawInit: VersoFetchInit = {}, overrideSetti
   } else {
     // IS_CLIENT
     const cache = getClientCache()!;
-    const responsePromise = cache.receiveRequest(req);
-    if (responsePromise) {
-      // cache hit. wait for the response (data might be here already, or it
-      // might be a late arrival), then consume it and replay it isomorphically
-      return responsePromise.finally(() => cache.consumeResponse(req));
-    } else {
-      // either we're post-hydration, or the client made a non-isomorphic request.
-      // either way, all we can do is pass through
-      return sendRequest();
+    const received = cache.receiveRequest(req);
+    switch (received.kind) {
+      case 'hit':
+        // wait for the response (data might be here already, or it might be a
+        // late arrival), then consume it and replay it isomorphically
+        return received.resultPromise
+          .then((result) => {
+            switch (result.kind) {
+              case 'response':
+                // got the response out of the cache! hand it up to the caller
+                return result.response;
+              case 'eviction':
+                // the server can't actually send us the response. we have to
+                // issue the request ourselves.
+                return sendRequest();
+              default:
+                exhaustive(result);
+            }
+          })
+          // if this rejects, it will reject with a reconstructed version of the
+          // original error. just let that propagate to the caller.
+          .finally(() => {
+            // either way, ensure the cache knows we've handled the request
+            cache.consumeResponse(req);
+          });
+      case 'miss':
+        // either we're post-hydration, or the client made a non-isomorphic
+        // request. either way, all we can do is pass through.
+        return sendRequest();
+      default:
+        exhaustive(received);
     }
   }
 }
