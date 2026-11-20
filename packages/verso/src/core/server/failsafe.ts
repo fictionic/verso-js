@@ -1,6 +1,8 @@
 import type {ServerSettings} from "../config";
 import type {RequestHandler} from "../../vendor/hattip/compose";
 
+const FAILSAFE_TIMEOUT_MSG = 'Failsafe timeout';
+
 export function handleFailsafeTimeouts(settings: ServerSettings): RequestHandler {
   const { failsafeTtfbDeadlineMs, failsafeResponseDeadlineMs } = settings;
   return async (ctx) => {
@@ -12,7 +14,7 @@ export function handleFailsafeTimeouts(settings: ServerSettings): RequestHandler
     // merge upstream abort signal with a timeout signal.
     const failsafeResController = new AbortController();
     const failsafeResponseDeadlineTimeout = setTimeout(() => {
-      failsafeResController.abort('Failsafe timeout');
+      failsafeResController.abort(FAILSAFE_TIMEOUT_MSG);
     }, failsafeResponseDeadlineMs);
     const mergedSignal = AbortSignal.any([
       upstreamSignal,
@@ -47,7 +49,10 @@ export function handleFailsafeTimeouts(settings: ServerSettings): RequestHandler
     // short-circuit a 504 response if the response takes too long to begin streaming (ttfb)
     const failsafeTtfbResDfd = Promise.withResolvers<Response>();
     const failsafeTtfbDeadlineTimeout = setTimeout(() => {
-      failsafeTtfbResDfd.resolve(new Response('Failsafe timeout', {
+      // first stop any downstream work
+      failsafeResController.abort(FAILSAFE_TIMEOUT_MSG);
+      clearTimeout(failsafeResponseDeadlineTimeout);
+      failsafeTtfbResDfd.resolve(new Response(FAILSAFE_TIMEOUT_MSG, {
         status: 504,
       }));
     }, failsafeTtfbDeadlineMs);

@@ -63,6 +63,17 @@ describe('handleFailsafeTimeouts', () => {
       expect(await result.text()).toBe('Failsafe timeout');
     });
 
+    test('a TTFB timeout aborts the merged signal downstream receives', async () => {
+      const next = vi.fn().mockReturnValue(new Promise<Response>(() => {})); // never resolves
+      const handler = handleFailsafeTimeouts(makeSettings(500, 5000));
+      const ctx = makeCtx(makeRequest(), next);
+
+      const resultPromise = handler(ctx) as Promise<Response>;
+      await vi.advanceTimersByTimeAsync(501);
+      expect((await resultPromise).status).toBe(504);
+      expect(ctx.request.signal.aborted).toBe(true);
+    });
+
     test('a fast response clears the TTFB timer', async () => {
       // no body, so the response deadline timer is cleared too. only the TTFB
       // timer can be left.
