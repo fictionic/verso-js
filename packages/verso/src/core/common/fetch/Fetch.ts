@@ -117,10 +117,13 @@ async function fetch(rawUrl: string, rawInit: VersoFetchInit = {}, overrideSetti
     return sendRequest();
   }
 
+  // the cache key must be derived only from the raw request. interceptors
+  // should not be able to modify the cache key, as they might not be
+  // isomorphic.
   const req: CacheableRequest = {
-    url: rawUrl, // key on raw url
-    method: resolvedRequest.method,
-    body: interceptedInit?.body ?? null,
+    url: rawUrl,
+    method: rawInit?.method ?? 'GET',
+    body: rawInit?.body ?? null,
   };
 
   if (globalThis.IS_SERVER) {

@@ -187,6 +187,26 @@ describe('Fetch orchestration', () => {
         expect(nativeFetchRequest().headers.get('X-Custom')).toBe('yes');
       });
 
+      testWithRLS('interceptor rewrites the body: nativeFetch gets the new body, cache key keeps the raw body', async () => {
+        mockFetch.mockResolvedValue(jsonResponse());
+        initServer();
+        setFetchInterceptor((url, init) => ({ url, init: { ...init, body: 'intercepted' } }));
+        const url = 'https://api.example.com/data';
+        await Fetch.fetch(url, { method: 'POST', body: 'raw' }, { forceToCache: true });
+        expect(await nativeFetchRequest().text()).toBe('intercepted');
+        expect(dehydrate()[url]![0]!.aux.body).toBe('raw');
+      });
+
+      testWithRLS('interceptor rewrites the method: nativeFetch gets the new method, cache key keeps the raw method', async () => {
+        mockFetch.mockResolvedValue(jsonResponse());
+        initServer();
+        setFetchInterceptor((url, init) => ({ url, init: { ...init, method: 'PUT' } }));
+        const url = 'https://api.example.com/data';
+        await Fetch.fetch(url, { method: 'POST' }, { forceToCache: true });
+        expect(nativeFetchRequest().method).toBe('PUT');
+        expect(dehydrate()[url]![0]!.aux.method).toBe('POST');
+      });
+
       testWithRLS('no interceptor set: URL passes through unchanged (default identity)', async () => {
         mockFetch.mockResolvedValue(jsonResponse());
         initServer();
