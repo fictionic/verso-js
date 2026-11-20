@@ -61,6 +61,15 @@ function bootstrapOffset(html: string): number {
   return event.offset;
 }
 
+// the stream closes even if writePage throws, so an aborted page must also
+// show that it ended correctly
+function expectPageEnd(html: string) {
+  expect(html.endsWith("</body></html>")).toBe(true);
+  const fns = findPipeCalls(html).map((c) => c.fn);
+  expect(fns).toContain(FN_SIGNAL_ROOTS_COMPLETE);
+  expect(fns.at(-1)).toBe(FN_SIGNAL_END_OF_DATA);
+}
+
 afterEach(() => {
   vi.restoreAllMocks();
 });
@@ -392,6 +401,7 @@ describe("handlePage rendering", () => {
       const body = sr.text();
       expect(body).toContain("FASTA");
       expect(body).not.toContain("SLOWB");
+      expectPageEnd(body);
     });
 
     test("abort after bootstrap emits an abortHydration() call", async () => {
@@ -419,6 +429,7 @@ describe("handlePage rendering", () => {
       await sr.readAll();
       expect(sr.isDone()).toBe(true);
       expect(findPipeCalls(sr.text()).some((c) => c.fn === FN_ABORT_HYDRATION)).toBe(false);
+      expectPageEnd(sr.text());
     });
   });
 
@@ -442,7 +453,11 @@ describe("handlePage rendering", () => {
       await sr.readUntil((t) => findPipeValue(t, FETCH_CACHE_KEY) !== undefined);
       fetchDfd.resolve(new Response("late data", {headers: {"content-type": "text/plain"}}));
       await sr.readAll();
-      expect(findPipeCalls(sr.text()).some((c) => c.fn === FN_RECEIVE_LATE_DATA_ARRIVAL)).toBe(true);
+      const arrival = findPipeCalls(sr.text()).find((c) => c.fn === FN_RECEIVE_LATE_DATA_ARRIVAL);
+      expect(arrival?.args).toEqual([
+        {url: "/api/data", method: "GET", body: null},
+        {response: {body: {text: "late data"}, status: 200}, error: null, requesters: 1},
+      ]);
     });
 
     test("a fetch pending at the fold that is evicted later emits receiveLateDataEviction, not late data", async () => {
