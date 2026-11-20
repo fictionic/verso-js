@@ -1,5 +1,6 @@
 import {describe, expect, beforeEach, afterEach, vi} from 'vitest';
-import type {ReactElement} from 'react';
+import {useState, type ReactElement} from 'react';
+import {flushSync} from 'react-dom';
 import {testWithRLS} from '../userland/testing/rls';
 import {initAbort} from '../core/common/abort';
 import {ReactRootManager} from '../core/client/roots';
@@ -24,6 +25,19 @@ async function transition(manager: ReactRootManager, elements: ReactElement[], r
 
 const rootNodes = (): HTMLElement[] =>
   Array.from(document.body.querySelectorAll<HTMLElement>(`[${PAGE_ROOT_ELEMENT_ATTR}]`));
+
+function Counter({label}: {label: string}) {
+  const [count, setCount] = useState(0);
+  return <button onClick={() => setCount((c) => c + 1)}>{label}:{count}</button>;
+}
+
+// mounts a Counter and clicks it once, so its state is 1
+async function mountClickedCounter(manager: ReactRootManager) {
+  await mount(manager, [<Counter label="A" />]);
+  const button = rootNodes()[0]!.querySelector('button')!;
+  flushSync(() => button.click());
+  expect(button.textContent).toBe('A:1');
+}
 
 beforeEach(() => {
   document.body.innerHTML = '';
@@ -86,6 +100,16 @@ describe('BodyElementTransitioner', () => {
       expect(rootNodes()).toHaveLength(0);
       expect(document.body.contains(oldNode)).toBe(false);
     });
+
+    testWithRLS('resets React component state', async () => {
+      armAbort();
+      const manager = new ReactRootManager();
+      await mountClickedCounter(manager);
+
+      await transition(manager, [<Counter label="B" />], false);
+
+      expect(rootNodes()[0]!.textContent).toBe('B:0');
+    });
   });
 
   describe('reuse path (reuseDom: true), matching shape', () => {
@@ -100,6 +124,17 @@ describe('BodyElementTransitioner', () => {
       const after = rootNodes()[0];
       expect(after).toBe(node);
       expect(after!.textContent).toBe('B');
+    });
+
+    testWithRLS('keeps React component state in a reused root', async () => {
+      armAbort();
+      const manager = new ReactRootManager();
+      await mountClickedCounter(manager);
+
+      await transition(manager, [<Counter label="B" />], true);
+
+      // new props, old state
+      expect(rootNodes()[0]!.textContent).toBe('B:1');
     });
 
     testWithRLS('updates a reused container\'s attrs in place', async () => {
