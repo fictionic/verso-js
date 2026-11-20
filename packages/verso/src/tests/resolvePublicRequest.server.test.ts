@@ -94,6 +94,12 @@ describe('resolvePublicRequest', () => {
       expect(response?.status).toBe(421);
     });
 
+    test('matches a mixed-case allowedHosts entry case-insensitively', async () => {
+      const raw = new Request('http://myapp.com/foo');
+      const request = await runAccepted(settings({ allowedHosts: ['MyApp.com'] }), raw);
+      expect(request.url).toBe('http://myapp.com/foo');
+    });
+
     test('rejects on host mismatch when only port differs', async () => {
       const raw = new Request('http://myapp.com:8080/foo');
       const { response } = await run(settings({ allowedHosts: ['myapp.com'] }), raw);

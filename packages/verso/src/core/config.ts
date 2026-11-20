@@ -20,10 +20,10 @@ export type ServerSettings = {
    * remainder of the string (e.g. `*.example.com` matches `app.example.com`
    * and `foo.bar.example.com`).
    *
-   * In dev mode, `localhost` and `127.0.0.1` (with any port) are always
-   * allowed regardless of this list.
+   * In dev and preview modes, `localhost` and `127.0.0.1` (with any port) are
+   * always allowed regardless of this list.
    *
-   * Default: ['localhost']
+   * Required. Must not be empty.
    */
   allowedHosts: string[];
   /**

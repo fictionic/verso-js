@@ -4,6 +4,7 @@ import type {RequestContext, RequestHandler} from "../../vendor/hattip/compose";
 const LOCAL_HOSTS = ['localhost', '127.0.0.1'];
 
 export function resolvePublicRequest(settings: ServerSettings, allowLoopbackHosts = false): RequestHandler {
+  const normalizedAllowedHosts = settings.allowedHosts.map((h) => h.toLowerCase());
   return (ctx: RequestContext) => {
     const rawReq = ctx.request;
     const rawUrl = ctx.url;
@@ -21,12 +22,11 @@ export function resolvePublicRequest(settings: ServerSettings, allowLoopbackHost
       ? forwardedProtocols.split(',')[0]!.trim() + ':'
       : rawUrl.protocol;
 
-    const lowercaseHost = host.toLowerCase(); // just to be safe...
+    const normalizedHost = host.toLowerCase();
 
-    const { allowedHosts } = settings;
-    if (!hostIsAllowed(lowercaseHost, allowedHosts)) {
+    if (!hostIsAllowed(normalizedHost, normalizedAllowedHosts)) {
       // allow all local hosts in dev/preview mode, for convenience. allowedHosts is mostly a prod setting
-      const isAllowedLoopback = allowLoopbackHosts && LOCAL_HOSTS.includes(lowercaseHost.split(':')[0]!);
+      const isAllowedLoopback = allowLoopbackHosts && LOCAL_HOSTS.includes(normalizedHost.split(':')[0]!);
       if (!isAllowedLoopback) {
         console.error(`[verso] Host not in allowedHosts: ${host}`);
         return misdirectedRequest();
